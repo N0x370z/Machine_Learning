@@ -16,7 +16,8 @@ MediaPipeHands/
 ├── models/
 │   └── hand_landmarker.task   # Modelo de MediaPipe (se descarga aparte, no va en git)
 ├── capturas/
-│   └── hand_data_YYYYMMDD_HHMMSS.csv   # Un CSV por sesión de captura
+│   ├── hand_data_YYYYMMDD_HHMMSS.csv   # Un CSV por sesión de captura
+│   └── screenshot_*.png                 # Fotos tomadas con la tecla 's'
 └── venv/                # Entorno virtual del proyecto
 ```
 
@@ -59,6 +60,18 @@ Check failed: service_ Service is unavailable
 
 `--max-hands` (default `4`) fija cuántas manos puede rastrear MediaPipe a la vez — **no hay límite físico de 2**: el modelo detecta tantas manos como quepan en el frame (varias personas incluidas), este flag solo pone un tope al costo de cómputo por frame. El `HandTracker` (ver más abajo) le da a cada una un `track id` propio sin importar cuántas haya, incluso si dos personas muestran la misma mano (dos "Left" al mismo tiempo, por ejemplo) — el id, no el color, es lo que las distingue entre sí.
 
+### Controles y panel de estado
+
+Mientras corre la ventana de la cámara:
+
+| Tecla | Acción |
+|-------|--------|
+| `q` | Salir y exportar el CSV de la sesión a `capturas/` |
+| `n` | Mostrar/ocultar los nombres de los dedos (útil si se enciman con el puño cerrado o la mano de perfil) |
+| `s` | Guardar una foto del frame actual en `capturas/screenshot_<fecha>.png` (con el esqueleto dibujado, sin el panel de estado) |
+
+En la esquina superior izquierda hay un panel de estado con los **FPS** reales, las **manos** detectadas en el frame y los **frames grabados** hasta ahora para el CSV. Si los FPS bajan mucho, reduce `--max-hands` o la resolución (`--cam-width`/`--cam-height`). Si "Frames grabados" sigue en 0, no se está detectando ninguna mano y al salir no se va a generar CSV.
+
 ### ⚠️ Corregido: reconocimiento poco confiable de manos
 
 Antes de la versión del **2026-09-23**, el detector podía tardar en reconocer la mano o perderla con facilidad, sobre todo con poca luz, la mano lejos de la cámara, o webcams que abrían a baja resolución por defecto (640×480 es común). Ver detalle en [`CHANGELOG.md`](CHANGELOG.md#2026-09-23). Se corrigió con dos cambios:
@@ -82,7 +95,8 @@ Qué hace:
    - Las conexiones del "esqueleto" (`HandLandmarksConnections.HAND_CONNECTIONS`), también coloreadas por dedo (gris neutro para las conexiones muñeca-nudillo).
    - La etiqueta `Left`/`Right` + el id de track sobre la muñeca (p. ej. `Left #0`), con un fondo oscurecido para que se lea sobre cualquier color de piel/ropa/fondo.
 4. Acumula en memoria un registro por landmark por frame detectado.
-5. Al presionar `q` (o cerrar la ventana), libera la cámara y exporta todo lo acumulado a un nuevo CSV en `capturas/`.
+5. Muestra el panel de estado y atiende las teclas `n`/`s` (ver "Controles y panel de estado").
+6. Al presionar `q` (o cerrar la ventana), libera la cámara y exporta todo lo acumulado a un nuevo CSV en `capturas/`.
 
 Si no se detectó ninguna mano en toda la sesión, no se genera CSV (se imprime un aviso).
 
@@ -92,16 +106,20 @@ Desde el **2026-09-23**, tanto la vista en vivo como `plot_csv.py` identifican c
 
 | Dedo | Landmarks | Color | Etiqueta en la punta |
 |------|-----------|-------|-----------------------|
-| Pulgar (Thumb) | 1–4 | Ámbar `#e69f00` | `T` |
-| Índice (Index) | 5–8 | Azul cielo `#56b4e9` | `I` |
-| Medio (Middle) | 9–12 | Verde azulado `#009e73` | `M` |
-| Anular (Ring) | 13–16 | Magenta `#cc79a7` | `R` |
-| Meñique (Pinky) | 17–20 | Rojo coral `#d55e00` | `P` |
+| Pulgar (Thumb) | 1–4 | Ámbar `#e69f00` | `Pulgar` |
+| Índice (Index) | 5–8 | Azul cielo `#56b4e9` | `Índice` |
+| Medio (Middle) | 9–12 | Verde azulado `#009e73` | `Medio` |
+| Anular (Ring) | 13–16 | Magenta `#cc79a7` | `Anular` |
+| Meñique (Pinky) | 17–20 | Rojo coral `#d55e00` | `Meñique` |
 | Muñeca / palma | 0 y conexiones muñeca-nudillo | Gris neutro `#787878` | — |
 
-Es la paleta categórica de Wong (2011), elegida para seguir siendo distinguible bajo las formas más comunes de daltonismo (protanopía/deuteranopía), no solo por matiz "semáforo". Las puntas de los dedos (landmarks 4/8/12/16/20) se dibujan más grandes que el resto y con un aro de resalte, para ubicarlas de un vistazo; el resto de los landmarks conserva su índice numérico (0–20) igual que antes.
+Es la paleta categórica de Wong (2011), elegida para seguir siendo distinguible bajo las formas más comunes de daltonismo (protanopía/deuteranopía), no solo por matiz "semáforo". Las puntas de los dedos (landmarks 4/8/12/16/20) se dibujan más grandes que el resto y con un aro de resalte, para ubicarlas de un vistazo, con el nombre del dedo al lado. El resto de los landmarks ya no muestra su índice numérico (0–20). En la vista en vivo los nombres van sin acentos (`Indice`, `Menique`) porque las fuentes de OpenCV solo soportan ASCII.
 
 Con el color ahora dedicado a identificar el dedo, la lateralidad (`Left`/`Right`) se sigue mostrando con la etiqueta de texto junto a la muñeca en ambas vistas, y además con estilo de línea en `plot_csv.py` (punteado = Left, sólido = Right; ver más abajo).
+
+### Lateralidad corregida (antes salía invertida)
+
+Como el frame se voltea (efecto espejo) antes de pasarlo a MediaPipe, la lateralidad cruda del modelo salía invertida: la mano derecha real aparecía como `Left`. Desde el **2026-09-23** `Prueba.py` la corrige antes del tracker, así que la vista en vivo y el CSV muestran la mano real de la persona. Para CSVs grabados antes, usar `plot_csv.py --swap-hands`.
 
 ### Estabilización de Left/Right (`HandTracker`)
 
@@ -159,6 +177,9 @@ Reconstruye, a partir de un CSV ya guardado, exactamente los mismos puntos y con
 # Grafica un solo frame (estático), útil para inspeccionar un instante puntual
 ./venv/bin/python3 plot_csv.py --frame 38
 
+# CSV grabado antes del 2026-09-23 (Left/Right invertidos): corregirlo al graficar
+./venv/bin/python3 plot_csv.py --swap-hands
+
 # Controla la velocidad de la animación (ms entre frames, default 33 ≈ 30 fps)
 ./venv/bin/python3 plot_csv.py --interval 50
 ```
@@ -167,7 +188,7 @@ Detalles de la visualización:
 
 - Color por dedo (ver tabla en "Identificación por dedo" más arriba), consistente con la vista en vivo de `Prueba.py` porque ambas usan la misma paleta en `hand_style.py` — consistente cuadro a cuadro, no se reasigna.
 - Lateralidad por estilo de línea: **punteado** para `Left`, **sólido** para `Right` (el color ya no codifica lateralidad, ver arriba).
-- Cada punto muestra su `landmark_index` (0–20) al lado; las puntas de dedo (4/8/12/16/20) se dibujan más grandes y con su inicial (`T`/`I`/`M`/`R`/`P`).
+- Las puntas de dedo (4/8/12/16/20) se dibujan más grandes y con el nombre del dedo (`Pulgar`, `Índice`, `Medio`, `Anular`, `Meñique`); el resto de los puntos va sin etiqueta.
 - Cada mano lleva además la etiqueta `{Left|Right} #{hand_id}` junto a la muñeca. Con más de 2 manos en el CSV (varias personas, ver `--max-hands` en `Prueba.py`) puede haber varias manos del mismo lado; el `hand_id` es lo que las distingue entre sí, igual que en la vista en vivo.
 - La leyenda combina ambas claves: color por dedo y estilo de línea por lateralidad.
 - El eje Y se invierte porque las coordenadas de MediaPipe crecen hacia abajo (igual que en una imagen), así la orientación coincide con lo que se ve en la cámara.
@@ -183,4 +204,4 @@ Detalles de la visualización:
 
 ## Historial de cambios
 
-Todo error corregido, cambio y mejora se documenta con fecha en [`CHANGELOG.md`](CHANGELOG.md). Última entrada: **2026-09-23** (fix de reconocimiento de manos, identificación por dedo, mejoras gráficas).
+Todo error corregido, cambio y mejora se documenta con fecha en [`CHANGELOG.md`](CHANGELOG.md). Última entrada: **2026-09-23** (fix de lateralidad invertida, nombres de dedos, fix de reconocimiento de manos, mejoras gráficas).

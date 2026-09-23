@@ -142,7 +142,7 @@ class HandTracker:
         for det_idx, (landmarks, handedness) in enumerate(
             zip(hand_landmarks_list, handedness_list)
         ):
-            label = handedness[0].category_name
+            label = _swap_handedness(handedness[0].category_name)
             score = handedness[0].score
             centroid = centroids[det_idx]
             track = assignments[det_idx]
@@ -166,6 +166,17 @@ class HandTracker:
         return results
 
 
+def _swap_handedness(label):
+    """
+    Corrige la lateralidad cruda de MediaPipe, que sale invertida en este
+    flujo: el frame se voltea (efecto espejo) antes de pasarlo al modelo,
+    y con eso la mano derecha real llegaba etiquetada como "Left" y
+    viceversa. Se corrige aquí, antes del tracker, para que tanto la vista
+    en vivo como el CSV exportado usen la lateralidad real de la persona.
+    """
+    return {"Left": "Right", "Right": "Left"}.get(label, label)
+
+
 def _centroid(hand_landmarks):
     xs = [lm.x for lm in hand_landmarks]
     ys = [lm.y for lm in hand_landmarks]
@@ -176,7 +187,7 @@ def _distance(a, b):
     return ((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2) ** 0.5
 
 
-def draw_landmarks(frame, tracked_hands):
+def draw_landmarks(frame, tracked_hands, show_names=True):
     """
     Dibuja el esqueleto de cada mano sobre el frame.
 
@@ -185,8 +196,12 @@ def draw_landmarks(frame, tracked_hands):
     landmark pertenece a qué dedo sin contar índices. Las conexiones
     muñeca-nudillo (estructura de la palma, no un dedo) van en gris
     neutro. Las puntas de los dedos (landmarks 4/8/12/16/20) se dibujan
-    más grandes, con un aro blanco y la inicial del dedo al lado; el
-    resto de los landmarks conserva su índice numérico (0-20) como antes.
+    más grandes, con un aro blanco y el nombre del dedo al lado (Pulgar,
+    Indice, ...). El resto de los landmarks ya no lleva su índice numérico
+    (0-20): saturaba la vista y tapaba los nombres de los dedos.
+
+    show_names=False oculta los nombres de los dedos (tecla 'n'), útil
+    cuando los dedos están juntos (puño, mano de perfil) y se enciman.
     """
     h, w, _ = frame.shape
     for track_id, label, score, hand_landmarks in tracked_hands:
@@ -214,12 +229,15 @@ def draw_landmarks(frame, tracked_hands):
             if is_tip:
                 cv2.circle(frame, (x, y), radius + 2, (255, 255, 255), 1,
                            cv2.LINE_AA)
-                cv2.putText(frame, hand_style.FINGER_NAMES[finger],
-                            (x + 8, y - 8), cv2.FONT_HERSHEY_SIMPLEX, 0.45,
-                            color, 1, cv2.LINE_AA)
-            else:
-                cv2.putText(frame, str(lm_idx), (x + 5, y - 5),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.3, (230, 230, 230), 1,
+            if is_tip and show_names:
+                # Contorno oscuro debajo del texto para que el nombre se
+                # lea sobre cualquier fondo, igual que las conexiones.
+                name = hand_style.FINGER_NAMES_ASCII[finger]
+                cv2.putText(frame, name, (x + 10, y - 10),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (20, 20, 20), 3,
+                            cv2.LINE_AA)
+                cv2.putText(frame, name, (x + 10, y - 10),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1,
                             cv2.LINE_AA)
 
         # Etiqueta Left/Right + track id, con fondo oscurecido para que se
@@ -237,6 +255,38 @@ def draw_landmarks(frame, tracked_hands):
         cv2.putText(frame, text, (x0 - 20, y0 + 30),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2,
                     cv2.LINE_AA)
+
+
+def draw_hud(frame, fps, n_hands, n_frames_recorded, show_names):
+    """
+    Panel de estado en la esquina superior izquierda: FPS reales del
+    bucle, manos detectadas en este frame, frames con manos acumulados
+    para el CSV, y las teclas disponibles. Sirve para saber si la
+    detección va fluida (FPS bajos -> bajar --max-hands o la resolución)
+    y si de verdad se están grabando datos antes de cerrar con 'q'.
+    """
+    lines = [
+        f"FPS: {fps:4.1f}",
+        f"Manos: {n_hands}",
+        f"Frames grabados: {n_frames_recorded}",
+        f"[n] nombres: {'si' if show_names else 'no'}  [s] foto  [q] salir",
+    ]
+    font, scale, thick = cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1
+    line_h = 20
+    width = max(cv2.getTextSize(t, font, scale, thick)[0][0] for t in lines)
+    x1, y1 = min(frame.shape[1], 10 + width + 16), min(frame.shape[0], 10 + line_h * len(lines) + 10)
+    frame[10:y1, 10:x1] = (frame[10:y1, 10:x1] * 0.4).astype(frame.dtype)
+    for i, text in enumerate(lines):
+        cv2.putText(frame, text, (18, 10 + line_h * (i + 1)), font, scale,
+                    (240, 240, 240), thick, cv2.LINE_AA)
+
+
+def save_screenshot(frame):
+    """Guarda el frame mostrado (con el dibujo encima) como PNG en capturas/."""
+    OUTPUT_DIR.mkdir(exist_ok=True)
+    out_path = OUTPUT_DIR / f"screenshot_{datetime.now():%Y%m%d_%H%M%S_%f}.png"
+    cv2.imwrite(str(out_path), frame)
+    print(f"Captura de pantalla guardada en {out_path}")
 
 
 def landmarks_to_rows(frame_idx, timestamp_ms, tracked_hands):
@@ -354,6 +404,10 @@ def main():
     frame_idx = 0
     records = []
     tracker = HandTracker()
+    show_names = True
+    frames_recorded = 0
+    fps = 0.0
+    last_tick = time.time()
 
     with vision.HandLandmarker.create_from_options(options) as landmarker:
         while True:
@@ -368,14 +422,34 @@ def main():
             timestamp_ms = int((time.time() - start_time) * 1000)
             result = landmarker.detect_for_video(mp_image, timestamp_ms)
 
+            n_hands = 0
             if result.hand_landmarks:
                 tracked_hands = tracker.update(result.hand_landmarks, result.handedness)
-                draw_landmarks(frame, tracked_hands)
+                n_hands = len(tracked_hands)
+                draw_landmarks(frame, tracked_hands, show_names)
                 records.extend(landmarks_to_rows(frame_idx, timestamp_ms, tracked_hands))
+                frames_recorded += 1
 
+            # FPS suavizado (media exponencial) para que el número no
+            # salte cuadro a cuadro.
+            now = time.time()
+            dt = now - last_tick
+            last_tick = now
+            if dt > 0:
+                fps = 1 / dt if fps == 0 else 0.9 * fps + 0.1 / dt
+
+            # La foto se guarda antes de dibujar el HUD para que no salga
+            # el panel de estado en la imagen.
+            key = cv2.waitKey(1) & 0xFF
+            if key == ord("s"):
+                save_screenshot(frame)
+            elif key == ord("n"):
+                show_names = not show_names
+
+            draw_hud(frame, fps, n_hands, frames_recorded, show_names)
             cv2.imshow("MediaPipe Hands", frame)
             frame_idx += 1
-            if cv2.waitKey(1) & 0xFF == ord("q"):
+            if key == ord("q"):
                 break
 
     cap.release()

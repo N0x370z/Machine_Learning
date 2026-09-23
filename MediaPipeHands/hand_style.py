@@ -15,13 +15,25 @@ vistas) y la lateralidad se indica aparte (ver Prueba.py/plot_csv.py).
 Última actualización: 2026-09-23
 """
 
-# Nombre corto por dedo, usado como etiqueta junto a la punta.
+# Nombre de cada dedo, usado como etiqueta junto a la punta (y en la
+# leyenda de plot_csv.py). Reemplaza a las iniciales en inglés
+# (T/I/M/R/P) y a los índices numéricos que se mostraban antes.
 FINGER_NAMES = {
-    "thumb": "T",
-    "index": "I",
-    "middle": "M",
-    "ring": "R",
-    "pinky": "P",
+    "thumb": "Pulgar",
+    "index": "Índice",
+    "middle": "Medio",
+    "ring": "Anular",
+    "pinky": "Meñique",
+}
+
+# Mismos nombres sin acentos ni ñ: las fuentes Hershey de OpenCV
+# (cv2.putText) solo soportan ASCII y dibujan "??" en su lugar.
+FINGER_NAMES_ASCII = {
+    "thumb": "Pulgar",
+    "index": "Indice",
+    "middle": "Medio",
+    "ring": "Anular",
+    "pinky": "Menique",
 }
 
 # landmark_index -> dedo. El 0 es la muñeca y no pertenece a ningún dedo.
