@@ -4,6 +4,80 @@
 
 Detección de manos en tiempo real con [MediaPipe Tasks API](https://ai.google.dev/edge/mediapipe/solutions/vision/hand_landmarker), captura de los 21 landmarks por mano en un CSV, y un script separado para volver a graficar esos mismos puntos a partir del CSV (sin necesidad de la cámara).
 
+## Guía rápida de uso
+
+Todos los comandos se corren desde la carpeta `MediaPipeHands/`:
+
+```bash
+cd MediaPipeHands
+```
+
+### 1. Preparar el entorno (solo la primera vez)
+
+```bash
+python3 -m venv venv
+./venv/bin/pip install -r requirements.txt
+
+mkdir -p models
+curl -L -o models/hand_landmarker.task \
+  https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task
+```
+
+En macOS, la primera vez que abras la cámara el sistema te pide permiso para la terminal (Terminal, iTerm, VS Code…). Si lo negaste, actívalo en **Ajustes del Sistema → Privacidad y Seguridad → Cámara** y vuelve a abrir la terminal.
+
+### 2. Capturar tus manos
+
+```bash
+./venv/bin/python3 Prueba.py
+```
+
+Se abre una ventana con la cámara en modo espejo, como si te vieras en un espejo. Pon una o dos manos frente a la cámara y verás:
+
+- El **esqueleto de cada mano**, con un color por dedo y el **nombre del dedo** en cada punta (Pulgar, Indice, Medio, Anular, Menique).
+- Junto a la muñeca, la etiqueta **`Left #0` / `Right #1`**: indica qué mano es (izquierda/derecha real de la persona) y un número que identifica a esa mano mientras siga en cámara.
+- Arriba a la izquierda, el **panel de estado**: FPS, manos detectadas y frames grabados.
+
+Mientras la ventana esté activa (haz clic en ella si no responde a las teclas):
+
+| Tecla | Qué hace |
+|-------|----------|
+| `n` | Muestra/oculta los nombres de los dedos |
+| `s` | Guarda una foto de la vista actual en `capturas/` |
+| `q` | Termina y guarda los datos |
+
+### 3. Terminar y guardar
+
+Presiona **`q`**. En la terminal aparece la ruta del CSV generado, por ejemplo:
+
+```
+Datos exportados a capturas/hand_data_20260923_115410.csv
+```
+
+Si no se detectó ninguna mano en toda la sesión, no se crea el CSV (fíjate que "Frames grabados" no esté en 0 antes de salir).
+
+### 4. Ver lo que grabaste
+
+```bash
+./venv/bin/python3 plot_csv.py              # reproduce la última captura como animación
+./venv/bin/python3 plot_csv.py --frame 38   # o solo un instante fijo
+```
+
+No necesita cámara: solo lee el CSV. Cierra la ventana de matplotlib para terminar. Si el CSV es de antes del 2026-09-23 (Left/Right invertidos), agrega `--swap-hands`.
+
+### Problemas comunes
+
+| Síntoma | Solución |
+|---------|----------|
+| `No se pudo abrir la cámara` | Da permiso de cámara a la terminal (ver paso 1) y ciérrala y ábrela de nuevo. Cierra otras apps que estén usando la cámara (Zoom, FaceTime…). |
+| `No se encontró el modelo en models/hand_landmarker.task` | Falta descargar el modelo (ver paso 1). |
+| Le cuesta detectar la mano o la pierde | Más luz, acerca la mano, o baja el umbral: `./venv/bin/python3 Prueba.py --min-detection-confidence 0.3 --min-tracking-confidence 0.3` |
+| Va lento (FPS bajos en el panel) | `--max-hands 2` y/o menos resolución: `--cam-width 960 --cam-height 540` |
+| Los nombres de los dedos se enciman | Tecla `n` para ocultarlos |
+| Crashea con `Service is unavailable` | Se actualizó `mediapipe`; reinstala la versión fijada: `./venv/bin/pip install -r requirements.txt` (ver abajo) |
+| Las teclas no hacen nada | Haz clic sobre la ventana de la cámara para darle el foco |
+
+Los detalles de cada script y todas sus opciones están en las secciones siguientes.
+
 ## Estructura del proyecto
 
 ```

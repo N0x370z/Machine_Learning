@@ -5,6 +5,12 @@ Historial de cambios del proyecto. Formato libre pero cronológico
 
 ## 2026-09-23
 
+### Documentación (guía de uso)
+- `README.md`: nueva sección **Guía rápida de uso**, paso a paso
+  (preparar el entorno, capturar, terminar y guardar, ver la grabación),
+  con qué se ve en pantalla, las teclas y una tabla de problemas comunes
+  con su solución.
+
 ### Añadido (vista en vivo)
 - **Panel de estado (HUD)** en la esquina superior izquierda de
   `Prueba.py`: FPS reales (suavizados), manos detectadas en el frame,
