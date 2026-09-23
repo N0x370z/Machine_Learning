@@ -1,0 +1,9 @@
+# mediapipe 1.0.0/1.0.1 crashean en macOS (Apple Silicon) con
+# "Check failed: service_ Service is unavailable" en cualquier tarea de
+# visión (HandLandmarker, PoseLandmarker, etc.) por un bug de inicialización
+# de Metal/GPU en TensorsToDetectionsCalculator.
+# https://github.com/google-ai-edge/mediapipe/issues/6356
+# No subir de versión sin volver a probar en macOS.
+mediapipe==0.10.35
+opencv-contrib-python
+numpy
