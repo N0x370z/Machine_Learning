@@ -5,7 +5,35 @@ Historial de cambios del proyecto. Formato libre pero cronológico
 
 ## 2026-09-23
 
+### Añadido (vista en vivo)
+- **Panel de estado (HUD)** en la esquina superior izquierda de
+  `Prueba.py`: FPS reales (suavizados), manos detectadas en el frame,
+  frames con manos ya grabados para el CSV y las teclas disponibles.
+- **Controles de teclado:**
+  - `n`: mostrar/ocultar los nombres de los dedos (útil cuando se
+    enciman con el puño cerrado o la mano de perfil).
+  - `s`: guardar una foto del frame actual (con el esqueleto dibujado,
+    sin el panel de estado) en `capturas/screenshot_<fecha>.png`.
+  - `q`: salir y exportar el CSV (sin cambios).
+- `.gitignore` ignora también las fotos (`capturas/*.png`).
+
 ### Corregido
+- **Bug: `Left`/`Right` salían invertidas.** Como el frame se voltea
+  (efecto espejo) antes de pasarlo a MediaPipe, la mano derecha real se
+  etiquetaba `Left` y viceversa, tanto en la vista en vivo como en el CSV.
+  `Prueba.py` ahora corrige la lateralidad cruda (`_swap_handedness`)
+  antes del `HandTracker`. Los CSVs grabados antes de este fix se pueden
+  graficar corregidos con `plot_csv.py --swap-hands`.
+
+### Cambiado
+- **Cada dedo se etiqueta con su nombre** (`Pulgar`, `Índice`, `Medio`,
+  `Anular`, `Meñique`) en la punta, en lugar de la inicial en inglés
+  (`T`/`I`/`M`/`R`/`P`). Se quitaron los índices numéricos (0–20) del
+  resto de los landmarks, que saturaban la vista. En la vista en vivo el
+  nombre va sin acentos (`Indice`, `Menique`) porque las fuentes de
+  OpenCV solo soportan ASCII. La leyenda de `plot_csv.py` también usa los
+  nombres en español.
+
 - **Bug: las manos no se reconocían bien.** MediaPipe perdía o tardaba en
   reconocer la mano con cámaras que abrían a baja resolución (muchas
   webcams por defecto abren a 640×480) y con los umbrales de confianza

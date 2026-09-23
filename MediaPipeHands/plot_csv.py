@@ -7,6 +7,7 @@ Uso:
     ./venv/bin/python3 plot_csv.py                       # último CSV en capturas/
     ./venv/bin/python3 plot_csv.py capturas/archivo.csv  # CSV específico
     ./venv/bin/python3 plot_csv.py --frame 38            # solo un frame, estático
+    ./venv/bin/python3 plot_csv.py --swap-hands          # CSV viejo con Left/Right invertidos
 
 Historial de cambios relevantes: ver CHANGELOG.md.
 Última actualización: 2026-09-23.
@@ -50,8 +51,12 @@ def latest_csv():
     return files[-1]
 
 
-def load_frames(csv_path):
-    """frame_idx -> {(hand_id, handedness): {landmark_index: (x, y, z)}, ...}"""
+def load_frames(csv_path, swap_hands=False):
+    """frame_idx -> {(hand_id, handedness): {landmark_index: (x, y, z)}, ...}
+
+    swap_hands invierte Left/Right al leer: sirve para CSVs grabados antes
+    del 2026-09-23, cuando Prueba.py exportaba la lateralidad invertida.
+    """
     frames = defaultdict(lambda: defaultdict(dict))
     timestamps = {}
     with open(csv_path, newline="") as f:
@@ -60,7 +65,10 @@ def load_frames(csv_path):
             # "hand_id" (tracker estable) en CSVs nuevos; "hand_index" (por
             # frame, sin persistencia) en CSVs generados antes del tracker.
             raw_id = row["hand_id"] if "hand_id" in row else row["hand_index"]
-            key = (int(raw_id), row["handedness"])
+            label = row["handedness"]
+            if swap_hands:
+                label = {"Left": "Right", "Right": "Left"}.get(label, label)
+            key = (int(raw_id), label)
             frames[frame_idx][key][int(row["landmark_index"])] = (
                 float(row["x"]), float(row["y"]), float(row["z"]),
             )
@@ -98,19 +106,18 @@ def draw_frame(ax, hands_in_frame):
                     linestyle=linestyle, zorder=1)
 
         # Vértices: color por dedo, puntas (4/8/12/16/20) más grandes y
-        # con la inicial del dedo; el resto conserva su índice numérico.
+        # con el nombre del dedo; el resto va sin etiqueta numérica.
         for lm_idx, (x, y, _z) in enumerate(points):
             finger = hand_style.finger_of(lm_idx)
             color = _mpl_color(hand_style.FINGER_COLORS_RGB[finger])
             is_tip = lm_idx in hand_style.FINGERTIPS
             ax.scatter([x], [y], s=70 if is_tip else 36, color=color,
                        edgecolors=SURFACE, linewidths=0.6, zorder=2)
-            tag = hand_style.FINGER_NAMES[finger] if is_tip else str(lm_idx)
-            ax.annotate(tag, (x, y), xytext=(3, 3),
-                        textcoords="offset points",
-                        fontsize=6.5 if is_tip else 6,
-                        fontweight="bold" if is_tip else "normal",
-                        color=INK, zorder=3)
+            if is_tip:
+                ax.annotate(hand_style.FINGER_NAMES[finger], (x, y),
+                            xytext=(4, 4), textcoords="offset points",
+                            fontsize=7, fontweight="bold", color=INK,
+                            zorder=3)
 
         # Etiqueta de mano (label + hand_id): con varias manos del mismo
         # lado (ej. dos personas mostrando la izquierda) hace falta el id
@@ -122,9 +129,9 @@ def draw_frame(ax, hands_in_frame):
 
     if seen_sides:
         finger_handles = [
-            Line2D([0], [0], color=_mpl_color(rgb), lw=2, label=name.capitalize())
-            for name, rgb in hand_style.FINGER_COLORS_RGB.items()
-            if name not in ("wrist", "palm")
+            Line2D([0], [0], color=_mpl_color(hand_style.FINGER_COLORS_RGB[f]),
+                   lw=2, label=name)
+            for f, name in hand_style.FINGER_NAMES.items()
         ]
         side_handles = [
             Line2D([0], [0], color=INK, lw=2, linestyle=HAND_LINESTYLE[side],
@@ -142,10 +149,13 @@ def main():
                          help="Grafica solo este número de frame (estático)")
     parser.add_argument("--interval", type=int, default=33,
                          help="Milisegundos entre frames en la animación")
+    parser.add_argument("--swap-hands", action="store_true",
+                         help="Invierte Left/Right (para CSVs grabados antes "
+                              "del 2026-09-23, con la lateralidad invertida)")
     args = parser.parse_args()
 
     csv_path = args.csv_path or latest_csv()
-    frames, timestamps = load_frames(csv_path)
+    frames, timestamps = load_frames(csv_path, args.swap_hands)
     frame_indices = sorted(frames)
 
     fig, ax = plt.subplots(figsize=(6, 6))

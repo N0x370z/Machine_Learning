@@ -14,3 +14,4 @@ __pycache__/
 # de capturas de sesiones locales, no forman parte del código.
 MediaPipeHands/models/*.task
 MediaPipeHands/capturas/*.csv
+MediaPipeHands/capturas/*.png
