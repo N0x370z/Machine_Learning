@@ -12,7 +12,10 @@ de un vistazo, cuál landmark pertenecía a qué dedo sin contar índices.
 Ahora el color primario identifica el dedo (consistente entre ambas
 vistas) y la lateralidad se indica aparte (ver Prueba.py/plot_csv.py).
 
-Última actualización: 2026-09-23
+Desde el 2026-09-24 también define el estilo del antebrazo (codo ->
+muñeca), detectado con YOLO pose (ver forearm.py).
+
+Última actualización: 2026-09-24
 """
 
 # Nombre de cada dedo, usado como etiqueta junto a la punta (y en la
@@ -66,7 +69,16 @@ FINGER_COLORS_RGB = {
     "pinky":  (213, 94, 0),     # rojo coral
     "wrist":  (120, 120, 120),  # gris neutro
     "palm":   (120, 120, 120),  # gris neutro
+    # Antebrazo (codo -> muñeca, ver forearm.py): azul de la misma
+    # paleta de Wong, distinto de los cinco dedos.
+    "forearm": (0, 114, 178),   # azul
 }
+
+# Índice "virtual" del codo. Los landmarks de MediaPipe van de 0 a 20;
+# el codo lo aporta YOLO pose y se guarda en el CSV como landmark 21
+# para no cambiar el formato de filas (ver Prueba.py/plot_csv.py).
+ELBOW_INDEX = 21
+ELBOW_NAME = "Codo"
 
 
 def finger_of(landmark_index):

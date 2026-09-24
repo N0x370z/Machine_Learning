@@ -7,3 +7,8 @@
 mediapipe==0.10.35
 opencv-contrib-python
 numpy
+# Antebrazo (codo -> muñeca) con YOLO pose, ver forearm.py. Instala torch.
+# El modelo yolo11s-pose.pt (o n/m, ver --yolo-modelo) se descarga solo a
+# models/ la primera vez.
+ultralytics
+matplotlib

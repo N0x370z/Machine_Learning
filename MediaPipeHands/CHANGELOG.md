@@ -3,6 +3,149 @@
 Historial de cambios del proyecto. Formato libre pero cronológico
 (más reciente arriba), en español porque así está el resto del repo.
 
+## 2026-09-24 (segunda parte: correcciones tras la primera prueba con cámara)
+
+### Corregido
+- **Bug: `q` no cerraba bien.** Con la vista 3D (matplotlib) abierta:
+  - `q` es también la tecla con la que matplotlib cierra *su* ventana
+    (`rcParams["keymap.quit"]`): si el visor tenía el foco, `q` cerraba
+    solo el visor y la cámara seguía corriendo.
+  - El bucle de eventos de matplotlib (`flush_events`) consumía las
+    teclas de la ventana de OpenCV antes de que `cv2.waitKey` las viera:
+    había que presionar `q` varias veces.
+  - En macOS las ventanas de OpenCV quedaban congeladas en pantalla
+    después de salir, porque no se procesaban sus eventos tras
+    `destroyAllWindows`.
+
+  Corrección: el visor 3D se rehízo con OpenCV (ver abajo), así una sola
+  `cv2.waitKey` recibe las teclas de las dos ventanas. Además, `Prueba.py`:
+  - Sale con `q` **o** `Esc` desde cualquiera de las dos ventanas, y
+    también al cerrar la ventana de la cámara con el botón rojo (antes el
+    bucle seguía corriendo sin ventana).
+  - Envuelve el bucle en `try/finally`: pase lo que pase (incluido
+    `Ctrl+C` o un error) libera la cámara, cierra las ventanas (con 10
+    vueltas de `waitKey` para que macOS las quite de verdad) y guarda el
+    CSV.
+  - Cerrar solo la ventana 3D ya no afecta a la captura: sigue sin 3D.
+- **Bug: se alentaba.** Redibujar los dos ejes 3D de matplotlib costaba
+  ~90 ms por frame. `viewer3d.py` ahora proyecta (ortográfica) y dibuja
+  con OpenCV: **~3 ms por frame**. Con las dos ventanas, el bucle pasó a
+  ~48 FPS en una prueba sin cámara. Se quitó `--vista3d-cada`, que ya no
+  hace falta. El panel de estado muestra los ms de cada etapa (`mano`,
+  `yolo`, `3D`) para ver qué frena si los FPS bajan.
+- **Bug: el antebrazo tardaba en aparecer y se reconocía mal.**
+  - La primera inferencia de YOLO tarda 0.3–0.7 s (carga de kernels en
+    MPS) y ocurría con la primera mano en cámara. Ahora se precalienta al
+    arrancar, antes de abrir la cámara.
+  - `yolo11n-pose` detectaba mal el codo a distancia de webcam. Default
+    nuevo `yolo11s-pose` (~9 ms vs ~6 ms); flag `--yolo-modelo {n,s,m}`.
+  - Se exigía confianza ≥ 0.4 al codo **y** a la muñeca de YOLO a la vez.
+    Ahora 0.25, y la muñeca de YOLO ya no es obligatoria: sin ella se
+    acepta un codo a distancia plausible y del lado contrario a los dedos.
+  - La distancia de emparejamiento era fija (12 % del ancho); ahora se
+    adapta al tamaño de la mano (1.5 palmas, mínimo 6 %).
+  - Si YOLO fallaba un frame, el antebrazo desaparecía: ahora se recuerda
+    el último codo 10 frames (moviéndose con la muñeca).
+  - Si YOLO no ve el codo, se **estima** prolongando el eje de la palma
+    un largo de antebrazo. Se dibuja fino y punteado, con la etiqueta
+    `Codo (estimado)`, y en el CSV queda `fuente = estimado`. Flag
+    `--antebrazo-solo-yolo` para desactivarlo.
+- Textos de la vista 3D con letras "fantasma" al final: en OpenCV el
+  avance de cada letra crece con el grosor, y el contorno grueso quedaba
+  más largo que el texto. Se reemplazó por una sombra de 1 px.
+
+### Añadido: velocidad
+- Nuevo módulo `kinematics.py`: velocidad de los 21 puntos de la mano y
+  del codo usando juntos la posición (`x`, `y`, `z`, en la escala de la
+  escena 3D) y el tiempo real de cada fotograma (`timestamp`, no el
+  número de frame, porque los FPS varían). Suavizada con media
+  exponencial; se reinicia si el punto no se vio por más de 0.25 s.
+  Rapidez en cm/s aproximados, suponiendo una palma de 9.5 cm.
+- Ventana de la cámara: flechas amarillas de velocidad en muñeca, puntas
+  y codo, y la rapidez de la muñeca de cada mano en el panel de estado.
+- Vista 3D: las mismas flechas en 3D (incluyen `vz`) y la rapidez junto a
+  cada mano.
+- Tecla `v` para mostrar/ocultar las flechas.
+
+### Cambiado: vista 3D (`viewer3d.py`, ahora con OpenCV)
+- Estética tipo viewport de Blender: fondo oscuro, piso de referencia,
+  gizmo de ejes en la esquina, POV bajo el mouse resaltado.
+- Proyección ortográfica; los dedos más cercanos tapan a los lejanos.
+- Mismos controles que antes (`1`, `3`, `7`, `9`, `.`, botones de vista,
+  Vincular 180, Encuadrar) y nuevos: `l` vincular, `r` reiniciar, `+`/`-`
+  y rueda del mouse para zoom. Las teclas funcionan con cualquiera de las
+  dos ventanas activa.
+- `plot_csv.py --3d` usa el visor nuevo, con `espacio` (pausa), `a`/`d`
+  (frame anterior/siguiente), `v` (velocidad) y `q`/`Esc` (salir). Con
+  `--frame N` arranca en pausa en ese frame. Recalcula la velocidad al
+  leer, así funciona también con CSVs viejos.
+
+### Cambiado: formato del CSV
+- Columnas nuevas: `vx`, `vy`, `vz` (anchos de frame por segundo),
+  `rapidez_cm_s` y `fuente` (`mediapipe`, `yolo` o `estimado`).
+  `plot_csv.py` sigue leyendo todos los formatos anteriores.
+
+## 2026-09-24 (primera parte)
+
+### Añadido: eje z y vista 3D con dos puntos de vista (POV)
+- Nuevo módulo `viewer3d.py`: ventana de matplotlib con **dos vistas 3D
+  de la misma escena**, al estilo de los viewports divididos de Blender.
+  Se usa una sola cámara física: las dos vistas son dos ángulos del
+  mismo gráfico.
+  - La tercera dimensión es la `z` de MediaPipe (profundidad relativa a
+    la muñeca), que antes se guardaba en el CSV pero no se graficaba.
+  - POV 1 arranca desde el lado de la cámara; POV 2, **girado 180° en
+    horizontal** (la mano vista desde atrás).
+  - Cada vista se gira con el mouse. Teclas tipo numpad de Blender:
+    `1` frente, `3` lado, `7` arriba, `9` vista opuesta, `.` encuadrar.
+    Botones Frente/Atrás/Lado/Arriba bajo cada vista.
+  - Casilla **Vincular 180°** (activa por defecto): al girar una vista, la
+    otra la sigue desde el lado opuesto.
+  - Casilla **Encuadrar manos** (activa por defecto): los ejes siguen a
+    las manos con un encuadre suavizado; desactivada, se ve el frame
+    completo con una pirámide que marca la posición de la cámara.
+  - Los tres ejes usan la misma escala, así la mano no se deforma al
+    girarla. Las líneas y textos se crean una sola vez y solo se les
+    cambian los datos, porque borrar y redibujar los ejes en cada frame
+    era demasiado lento.
+- `Prueba.py` abre el visor en vivo junto a la ventana de la cámara.
+  Flags nuevos: `--sin-3d` y `--vista3d-cada N` (default 3, porque
+  redibujar los dos ejes 3D cuesta ~90 ms).
+- `plot_csv.py --3d`: reproduce un CSV (animado o con `--frame`) en el
+  mismo visor de dos POV.
+
+### Añadido: antebrazo con YOLO pose
+- Nuevo módulo `forearm.py`: detecta el **codo** con YOLO pose
+  (`ultralytics`, modelo `yolo11n-pose.pt`, se descarga solo a `models/`)
+  y dibuja el antebrazo (codo → muñeca) en azul (`"forearm"` en
+  `hand_style.py`, paleta de Wong) en la vista en vivo, en la 3D y en
+  `plot_csv.py`.
+  - Se eligió YOLO y no solo OpenCV porque OpenCV no trae un detector de
+    codo listo para usar. Corre en ~5 ms por frame con MPS (~20 ms en CPU).
+  - Cada mano de MediaPipe se empareja con el brazo de YOLO cuya muñeca
+    está más cerca de su landmark 0, sin usar la etiqueta
+    izquierda/derecha de YOLO (con la imagen en espejo sale invertida).
+  - La **z del codo es una estimación**: se supone un antebrazo de 2.6×
+    el largo de la palma y la diferencia con el largo visto en la imagen
+    se atribuye a profundidad, suponiendo el codo detrás de la muñeca.
+  - El codo se suaviza entre frames para quitar el temblor de YOLO.
+- `Prueba.py`: flag `--sin-antebrazo` para no cargar YOLO; el panel de
+  estado muestra cuántos antebrazos se detectaron.
+
+### Cambiado: formato del CSV
+- Nuevas columnas `img_w`, `img_h` (tamaño del frame), para reconstruir
+  la escena 3D con la proporción correcta.
+- Si una mano tiene antebrazo, se agrega una fila con
+  `landmark_index = 21` (el codo) y su `z` estimada.
+- `plot_csv.py` sigue leyendo los CSVs anteriores: sin `img_w`/`img_h`
+  asume 1280×720, y sin codo dibuja solo la mano. En 2D ahora dibuja solo
+  los landmarks 0–20 como mano y el 21 aparte, como antebrazo.
+
+### Dependencias
+- `requirements.txt`: se agregan `ultralytics` (instala `torch`) y
+  `matplotlib`, que ya se usaba en `plot_csv.py` pero no estaba listado.
+- `.gitignore`: ignora `models/*.pt` (modelo de YOLO).
+
 ## 2026-09-23
 
 ### Documentación (guía de uso)
