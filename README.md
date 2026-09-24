@@ -1,4 +1,8 @@
-# MediaPipeHands
+# HandMotion3D
+
+Seguimiento de la **mano y el antebrazo en 3D** con una sola webcam: esqueleto de la mano con MediaPipe, codo con YOLO pose, vista 3D con dos puntos de vista independientes (como Blender) y velocidad de cada punto y de cada dedo.
+
+> **Nombre y estructura (2026-09-24, versión 24-E):** el proyecto se llamaba **MediaPipeHands** y vivía en la carpeta `MediaPipeHands/` de un repositorio general de Machine Learning (`Machine_Learning`). Como ya no es solo un ejercicio de ML sino un proyecto propio (detección, 3D, antebrazo, velocidad), pasó a llamarse **HandMotion3D** y sus archivos se movieron a la **raíz del repositorio**. Detalle en [Cambios: comandos, partes quitadas y por qué](#cambios-comandos-partes-quitadas-y-por-qué).
 
 > Última actualización: **2026-09-24**. Historial completo de errores, cambios y mejoras en [`CHANGELOG.md`](CHANGELOG.md). Resumen de **comandos nuevos y antiguos, partes quitadas y por qué** en [Cambios: comandos, partes quitadas y por qué](#cambios-comandos-partes-quitadas-y-por-qué).
 
@@ -6,17 +10,17 @@ Detección de manos en tiempo real con [MediaPipe Tasks API](https://ai.google.d
 
 ## Guía rápida de uso
 
-Todos los comandos se corren desde la carpeta `MediaPipeHands/`:
+Todos los comandos se corren desde la **raíz del repositorio** (la carpeta del proyecto, donde está este README). Antes había que entrar a `MediaPipeHands/`; ya no existe:
 
 ```bash
-cd MediaPipeHands
+cd HandMotion3D   # o la carpeta donde clonaste el repositorio
 ```
 
 ### 1. Preparar el entorno (solo la primera vez)
 
 ```bash
 python3 -m venv venv
-./venv/bin/pip install -r requirements.txt
+./venv/bin/python3 -m pip install -r requirements.txt
 
 mkdir -p models
 curl -L -o models/hand_landmarker.task \
@@ -85,19 +89,19 @@ No necesita cámara: solo lee el CSV. En 2D, cierra la ventana de matplotlib par
 | Le cuesta detectar la mano o la pierde | Más luz, acerca la mano, o baja el umbral: `./venv/bin/python3 Prueba.py --min-detection-confidence 0.3 --min-tracking-confidence 0.3` |
 | Va lento (FPS bajos en el panel) | `--max-hands 2` y/o menos resolución: `--cam-width 960 --cam-height 540` |
 | Los nombres de los dedos se enciman | Tecla `n` para ocultarlos |
-| Crashea con `Service is unavailable` | Se actualizó `mediapipe`; reinstala la versión fijada: `./venv/bin/pip install -r requirements.txt` (ver abajo) |
+| Crashea con `Service is unavailable` | Se actualizó `mediapipe`; reinstala la versión fijada: `./venv/bin/python3 -m pip install -r requirements.txt` (ver abajo) |
 | Las teclas no hacen nada | Haz clic sobre cualquiera de las dos ventanas (cámara o vista 3D) para darle el foco |
 | El antebrazo sale punteado, como `Codo (estimado)` | YOLO no ve el codo: aléjate para que el codo entre en cámara, con buena luz y sin ropa del mismo color que el fondo. Si detecta mal, prueba el modelo más preciso: `--yolo-modelo m` |
 | No quiero ver antebrazos estimados | `--antebrazo-solo-yolo` (solo se dibuja cuando YOLO ve el codo de verdad) |
 | Va lento (FPS bajos) | Mira la línea `ms:` del panel de estado para ver qué etapa tarda más. Si es `yolo`: `--yolo-modelo n` o `--sin-antebrazo`; si es `mano`: `--max-hands 2` o menos resolución |
-| Error al cargar YOLO / descargar `yolo11s-pose.pt` | Falta internet la primera vez, o no está instalado: `./venv/bin/pip install -r requirements.txt`. Mientras tanto: `--sin-antebrazo` |
+| Error al cargar YOLO / descargar `yolo11s-pose.pt` | Falta internet la primera vez, o no está instalado: `./venv/bin/python3 -m pip install -r requirements.txt`. Mientras tanto: `--sin-antebrazo` |
 
 Los detalles de cada script y todas sus opciones están en las secciones siguientes.
 
 ## Estructura del proyecto
 
 ```
-MediaPipeHands/
+HandMotion3D/          # raíz del repositorio
 ├── Prueba.py          # Captura en vivo: cámara + MediaPipe + export a CSV
 ├── plot_csv.py         # Grafica los landmarks guardados en un CSV
 ├── hand_style.py        # Colores por dedo (y antebrazo) compartidos por todas las vistas
@@ -116,6 +120,8 @@ MediaPipeHands/
 ```
 
 ## Instalación
+
+> Se usa `./venv/bin/python3 -m pip` y no `./venv/bin/pip`: el script `pip` de un venv guarda la ruta absoluta donde se creó el venv, y deja de funcionar si la carpeta se mueve o se renombra (pasó con esta reorganización). `python3 -m pip` funciona siempre.
 
 ```bash
 python3 -m venv venv
@@ -475,6 +481,7 @@ El 2026-09-24 hubo tres versiones seguidas, que se nombran así en las tablas:
 | **24-B** (segunda, tras la primera prueba con cámara) | Visor rehecho con **OpenCV**, corrección de `q`, de la lentitud y del antebrazo, velocidad |
 | **24-C** (tercera) | **POV independientes**: cada uno con su rotación, zoom, desplazamiento y encuadre |
 | **24-D** (cuarta) | **Velocidad de cada dedo** (absoluta y relativa a la muñeca, tecla `f`) |
+| **24-E** (quinta) | **Nombre y estructura:** `MediaPipeHands` → **HandMotion3D**, archivos en la raíz del repositorio |
 
 ### Comandos actuales (referencia completa)
 
@@ -534,6 +541,9 @@ Teclas:
 | El zoom ya era por POV | Igual (sin cambio) | — | — |
 | Solo la velocidad de la muñeca en números (los dedos solo tenían flecha) | Velocidad de **cada dedo** en números: junto al nombre, en el panel de estado y en un panel con barras en la vista 3D; tecla `f` absoluta ↔ relativa | 24-D | Pedido: velocidad de cada dedo |
 | Nombres de los dedos en la vista de la cámara con contorno grueso | Sombra de 1 px | 24-D | Al agregar el número de velocidad, el contorno grueso dejaba letras repetidas al final |
+| `cd MediaPipeHands` antes de cualquier comando | Los comandos se corren desde la **raíz** del repositorio (`cd HandMotion3D`) | 24-E | El proyecto ahora es todo el repositorio, no una subcarpeta |
+| `./venv/bin/pip install -r requirements.txt` | `./venv/bin/python3 -m pip install -r requirements.txt` | 24-E | El script `pip` del venv guarda una ruta absoluta y se rompe al mover la carpeta |
+| Nombre del proyecto **MediaPipeHands**, repositorio **Machine_Learning** | **HandMotion3D** (proyecto, carpeta y repositorio) | 24-E | Ya no es un ejercicio suelto de Machine Learning sino un proyecto propio |
 
 ### Partes del código quitadas o reemplazadas
 
@@ -553,6 +563,8 @@ Teclas:
 | `DualPOVViewer.fit` y `_fit`, un solo encuadre para los dos POV | `viewer3d.py` (24-B) | `fit` y `fit_state` dentro de cada POV (`_POV`) | POV independientes (24-C) |
 | `DualPOVViewer.reset()` sin argumentos (reiniciaba los dos) | `viewer3d.py` (24-B) | `reset(idx)` (solo ese POV) | POV independientes (24-C) |
 | `linked = True` al crear el visor | `viewer3d.py` (24-A y 24-B) | `linked = False` | POV independientes (24-C) |
+| Carpeta `MediaPipeHands/` | Raíz del repositorio | Los mismos archivos en la raíz (movidos con `git mv`, conservan su historial) | Proyecto propio: todo el repositorio le pertenece (24-E) |
+| Reglas `MediaPipeHands/models/*`, `MediaPipeHands/capturas/*` | `.gitignore` | `models/*.task`, `models/*.pt`, `capturas/*.csv`, `capturas/*.png` | Las rutas cambiaron al mover la carpeta; sin esto los modelos y capturas se habrían subido a git (24-E) |
 
 ### Versiones del formato del CSV
 
