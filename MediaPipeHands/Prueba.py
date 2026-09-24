@@ -26,6 +26,9 @@ Ejecutar con el intérprete del venv del proyecto:
     ./venv/bin/python3 Prueba.py --sin-antebrazo   # sin YOLO (más liviano)
     ./venv/bin/python3 Prueba.py --sin-3d          # sin el visor de dos POV
 
+Velocidad: de cada punto (flechas), de la muñeca y de cada dedo (su
+punta), absoluta o relativa a la muñeca (tecla 'f'). Ver kinematics.py.
+
 Para salir: 'q' o Esc en cualquiera de las dos ventanas, o cerrar la
 ventana de la cámara. En los tres casos se guarda el CSV (también con
 Ctrl+C en la terminal).
@@ -207,7 +210,7 @@ def _distance(a, b):
     return ((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2) ** 0.5
 
 
-def draw_landmarks(frame, tracked_hands, show_names=True):
+def draw_landmarks(frame, tracked_hands, show_names=True, finger_speeds=None):
     """
     Dibuja el esqueleto de cada mano sobre el frame.
 
@@ -222,6 +225,10 @@ def draw_landmarks(frame, tracked_hands, show_names=True):
 
     show_names=False oculta los nombres de los dedos (tecla 'n'), útil
     cuando los dedos están juntos (puño, mano de perfil) y se enciman.
+
+    finger_speeds: {track_id: {dedo: cm/s}} (ver kinematics.finger_speeds).
+    Si se pasa, la rapidez de cada dedo se escribe junto a su nombre
+    (p. ej. "Indice 32"); None la oculta (tecla 'v').
     """
     h, w, _ = frame.shape
     for track_id, label, score, hand_landmarks in tracked_hands:
@@ -253,12 +260,12 @@ def draw_landmarks(frame, tracked_hands, show_names=True):
                 # Contorno oscuro debajo del texto para que el nombre se
                 # lea sobre cualquier fondo, igual que las conexiones.
                 name = hand_style.FINGER_NAMES_ASCII[finger]
-                cv2.putText(frame, name, (x + 10, y - 10),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (20, 20, 20), 3,
-                            cv2.LINE_AA)
-                cv2.putText(frame, name, (x + 10, y - 10),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1,
-                            cv2.LINE_AA)
+                if finger_speeds and track_id in finger_speeds:
+                    name += f" {finger_speeds[track_id][finger]:.0f}"
+                # Sombra de 1 px (no contorno grueso): con el número de
+                # velocidad el texto es más largo y el contorno grueso
+                # dejaba letras "fantasma" al final (ver viewer3d._text).
+                viewer3d._text(frame, name, (x + 10, y - 10), color, 0.5)
 
         # Etiqueta Left/Right + track id, con fondo oscurecido para que se
         # lea sobre cualquier color de piel, ropa o fondo de la escena.
@@ -344,7 +351,8 @@ def draw_velocity(frame, hands_scene):
 
 
 def draw_hud(frame, fps, n_hands, n_frames_recorded, show_names,
-             n_elbows=None, show_velocity=True, hand_speeds=(), timings=None):
+             n_elbows=None, show_velocity=True, hand_speeds=(), timings=None,
+             finger_rows=(), relative_fingers=False):
     """
     Panel de estado en la esquina superior izquierda: FPS reales del
     bucle, manos detectadas en este frame, frames con manos acumulados
@@ -355,6 +363,9 @@ def draw_hud(frame, fps, n_hands, n_frames_recorded, show_names,
     n_elbows: (detectados por YOLO, estimados) en este frame, o None si
     se corrió con --sin-antebrazo.
     hand_speeds: [(etiqueta, cm/s de la muñeca)] por mano.
+    finger_rows: [(etiqueta, {dedo: cm/s})] por mano: velocidad de cada
+    dedo (absoluta o relativa a la muñeca según relative_fingers, tecla
+    'f'; ver kinematics.finger_speeds).
     timings: ms promedio de cada etapa {"mano", "yolo", "3D"}, para ver
     qué es lo que frena el bucle si los FPS bajan.
     """
@@ -370,10 +381,18 @@ def draw_hud(frame, fps, n_hands, n_frames_recorded, show_names,
     ]
     for label, speed in hand_speeds:
         lines.append(f"Vel. {label}: {speed:5.1f} cm/s")
+    if finger_rows:
+        mode = "relativa a la muneca" if relative_fingers else "absoluta"
+        lines.append(f"Dedos (cm/s, {mode}):")
+        for label, speeds in finger_rows:
+            lines.append(f"  {label}: " + "  ".join(
+                f"{abbr} {speeds[finger]:3.0f}"
+                for finger, abbr in hand_style.FINGER_ABBR.items()))
     if timings:
         lines.append("ms: " + "  ".join(f"{k} {v:.0f}" for k, v in timings.items()))
     lines.append(f"[n] nombres: {'si' if show_names else 'no'}  "
                  f"[v] velocidad: {'si' if show_velocity else 'no'}  "
+                 f"[f] dedos: {'relativa' if relative_fingers else 'absoluta'}  "
                  "[s] foto  [q] salir")
     font, scale, thick = cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1
     line_h = 20
@@ -396,7 +415,7 @@ def save_screenshot(frame):
 CSV_HEADER = [
     "frame", "timestamp_ms", "hand_id", "handedness", "score",
     "landmark_index", "x", "y", "z", "img_w", "img_h",
-    "vx", "vy", "vz", "rapidez_cm_s", "fuente",
+    "vx", "vy", "vz", "rapidez_cm_s", "rapidez_rel_cm_s", "dedo", "fuente",
 ]
 
 
@@ -413,6 +432,12 @@ def landmarks_to_rows(frame_idx, timestamp_ms, hands_scene, scores,
       proporción correcta en plot_csv.py --3d.
     - vx, vy, vz: velocidad en anchos de frame por segundo (ver
       kinematics.py); rapidez_cm_s: su módulo en cm/s aproximados.
+    - rapidez_rel_cm_s: rapidez respecto a la muñeca (lo que se mueve el
+      punto dentro de la mano). En las puntas (4, 8, 12, 16, 20) es la
+      velocidad relativa de ese dedo; en la muñeca siempre es 0.
+    - dedo: a qué parte pertenece el punto (Pulgar, Índice, Medio,
+      Anular, Meñique, Muñeca o Codo), para filtrar por dedo sin
+      memorizar índices.
     - fuente: "mediapipe" (0-20), "yolo" o "estimado" (codo).
 
     hands_scene: lista de viewer3d.hands_to_scene (tiene posiciones,
@@ -423,6 +448,7 @@ def landmarks_to_rows(frame_idx, timestamp_ms, hands_scene, scores,
     for hand in hands_scene:
         scale = kinematics.cm_per_unit(hand["points"])
         points = viewer3d.scene_points(hand)
+        wrist_v = hand["velocities"].get(0, (0.0, 0.0, 0.0))
         for idx in sorted(points):
             X, Y, Z = points[idx]
             v = hand["velocities"].get(idx, (0.0, 0.0, 0.0))
@@ -430,7 +456,9 @@ def landmarks_to_rows(frame_idx, timestamp_ms, hands_scene, scores,
             rows.append([
                 frame_idx, timestamp_ms, hand["id"], hand["label"],
                 scores[hand["id"]], idx, X, Y / aspect, Z, img_w, img_h,
-                *v, kinematics.speed_cm_s(v, scale), source,
+                *v, kinematics.speed_cm_s(v, scale),
+                kinematics.relative_speed_cm_s(v, wrist_v, scale),
+                hand_style.point_name(idx), source,
             ])
     return rows
 
@@ -581,6 +609,7 @@ def main():
     velocity = kinematics.VelocityEstimator()
     show_names = True
     show_velocity = True
+    relative_fingers = False  # tecla 'f': velocidad de dedos absoluta/relativa
     frames_recorded = 0
     fps = 0.0
     last_tick = time.time()
@@ -609,7 +638,7 @@ def main():
                 result = landmarker.detect_for_video(mp_image, timestamp_ms)
                 timed("mano", t0)
 
-                tracked_hands, elbows, hands_scene = [], {}, []
+                tracked_hands, elbows, hands_scene, finger_speeds = [], {}, [], {}
                 if result.hand_landmarks:
                     tracked_hands = tracker.update(result.hand_landmarks, result.handedness)
                     # YOLO solo corre si hay manos: sin mano no hay antebrazo
@@ -626,8 +655,14 @@ def main():
                         hand["velocities"] = velocity.update(
                             hand["id"], timestamp_ms / 1000,
                             viewer3d.scene_points(hand))
+                    finger_speeds = {
+                        h["id"]: {f: v[1 if relative_fingers else 0] for f, v in
+                                  kinematics.finger_speeds(h["points"], h["velocities"]).items()}
+                        for h in hands_scene
+                    }
                     draw_forearms(frame, tracked_hands, elbows, show_names)
-                    draw_landmarks(frame, tracked_hands, show_names)
+                    draw_landmarks(frame, tracked_hands, show_names,
+                                   finger_speeds if show_velocity else None)
                     if show_velocity:
                         draw_velocity(frame, hands_scene)
                     scores = {t[0]: t[2] for t in tracked_hands}
@@ -640,7 +675,8 @@ def main():
                 if viewer is not None:
                     if viewer.is_open():
                         t0 = time.time()
-                        viewer.render(hands_scene, f"manos: {n_hands}", show_velocity)
+                        viewer.render(hands_scene, f"manos: {n_hands}", show_velocity,
+                                      relative_fingers)
                         timed("3D", t0)
                     else:
                         viewer = None  # la cerró el usuario: se sigue sin 3D
@@ -666,6 +702,8 @@ def main():
                     show_names = not show_names
                 elif key == ord("v"):
                     show_velocity = not show_velocity
+                elif key == ord("f"):
+                    relative_fingers = not relative_fingers
                 elif viewer is not None:
                     viewer.handle_key(key)
 
@@ -679,8 +717,11 @@ def main():
                                            kinematics.cm_per_unit(h["points"])))
                     for h in hands_scene
                 ]
+                finger_rows = [(f"{h['label']} #{h['id']}", finger_speeds[h["id"]])
+                               for h in hands_scene] if show_velocity else []
                 draw_hud(frame, fps, n_hands, frames_recorded, show_names,
-                         n_elbows, show_velocity, hand_speeds, timings)
+                         n_elbows, show_velocity, hand_speeds, timings,
+                         finger_rows, relative_fingers)
                 cv2.imshow(CAMERA_WINDOW, frame)
                 frame_idx += 1
 

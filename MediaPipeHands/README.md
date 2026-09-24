@@ -39,7 +39,8 @@ Se abre una ventana con la cámara en modo espejo, como si te vieras en un espej
 - Junto a la muñeca, la etiqueta **`Left #0` / `Right #1`**: indica qué mano es (izquierda/derecha real de la persona) y un número que identifica a esa mano mientras siga en cámara.
 - El **antebrazo** en azul, desde el **codo** hasta la muñeca: **grueso y sólido** si YOLO ve el codo, **fino y punteado** con la etiqueta `Codo (estimado)` si no lo ve y se estima por la dirección de la palma (ver [Antebrazo](#antebrazo-forearmpy)).
 - **Flechas amarillas de velocidad** en la muñeca, las puntas de los dedos y el codo: apuntan hacia donde se mueve cada punto y son más largas cuanto más rápido va (ver [Velocidad](#velocidad-kinematicspy)).
-- Arriba a la izquierda, el **panel de estado**: FPS, manos, antebrazos (cuántos de YOLO y cuántos estimados), frames grabados, la **velocidad de la muñeca de cada mano en cm/s** y cuántos ms tarda cada etapa (`mano`, `yolo`, `3D`), para ver qué frena si los FPS bajan.
+- Junto al nombre de cada dedo, su **velocidad en cm/s** (p. ej. `Indice 32`).
+- Arriba a la izquierda, el **panel de estado**: FPS, manos, antebrazos (cuántos de YOLO y cuántos estimados), frames grabados, la **velocidad de la muñeca** y la **de cada dedo** de cada mano en cm/s, y cuántos ms tarda cada etapa (`mano`, `yolo`, `3D`), para ver qué frena si los FPS bajan.
 
 Además se abre una segunda ventana, **Vista 3D - dos POV**, con la misma mano en 3D vista desde dos ángulos a la vez: el **POV 1** arranca desde el lado de la cámara y el **POV 2** girado **180°**, desde atrás. **Cada POV es una cámara virtual independiente**: al girarlo, moverlo o hacerle zoom, el otro no se mueve. Todo se aplica al POV que tenga el mouse encima (el marcado como `(activo)`). Si quieres que se muevan juntos a 180°, activa **Vincular 180** (tecla `l`). Los controles completos están en [Vista 3D con dos POV](#vista-3d-con-dos-pov-viewer3dpy).
 
@@ -48,7 +49,8 @@ Las teclas funcionan con **cualquiera de las dos ventanas** activa (haz clic en 
 | Tecla | Qué hace |
 |-------|----------|
 | `n` | Muestra/oculta los nombres de los dedos |
-| `v` | Muestra/oculta las flechas de velocidad (en las dos ventanas) |
+| `v` | Muestra/oculta las flechas y los números de velocidad (en las dos ventanas) |
+| `f` | Cambia la velocidad de cada dedo entre **absoluta** y **relativa a la muñeca** |
 | `s` | Guarda una foto de la vista de la cámara en `capturas/` |
 | `q` o `Esc` | Termina y guarda los datos |
 | `1` `3` `7` `9` `.` `r` `+` `-` | Controles del POV bajo el mouse en la vista 3D (ver más abajo) |
@@ -178,7 +180,8 @@ Mientras corre la ventana de la cámara:
 | Tecla | Acción |
 |-------|--------|
 | `q` o `Esc` | Salir y exportar el CSV de la sesión a `capturas/` (también cerrando la ventana de la cámara o con `Ctrl+C`) |
-| `v` | Mostrar/ocultar las flechas de velocidad |
+| `v` | Mostrar/ocultar las flechas y los números de velocidad |
+| `f` | Velocidad de cada dedo: absoluta ↔ relativa a la muñeca |
 | `n` | Mostrar/ocultar los nombres de los dedos (útil si se enciman con el puño cerrado o la mano de perfil) |
 | `s` | Guardar una foto del frame actual en `capturas/screenshot_<fecha>.png` (con el esqueleto dibujado, sin el panel de estado) |
 
@@ -262,6 +265,8 @@ Un archivo por ejecución, nombrado `hand_data_<YYYYMMDD_HHMMSS>.csv`, con **una
 | `img_w`, `img_h` | Tamaño en píxeles del frame capturado (desde 2026-09-24). Lo usa `plot_csv.py --3d` para reconstruir la escena con la proporción correcta |
 | `vx`, `vy`, `vz` | Velocidad del punto en **anchos de frame por segundo**, los tres ejes en la misma escala. `vy` positiva = hacia abajo; `vz` positiva = alejándose de la cámara (ver [Velocidad](#velocidad-kinematicspy)) |
 | `rapidez_cm_s` | Módulo de la velocidad en **cm/s aproximados** |
+| `rapidez_rel_cm_s` | Rapidez **respecto a la muñeca** (cm/s): lo que el punto se mueve dentro de la mano. En las puntas (4, 8, 12, 16, 20) es la velocidad relativa de ese dedo; en la muñeca siempre es 0 |
+| `dedo` | A qué parte pertenece el punto: `Pulgar`, `Índice`, `Medio`, `Anular`, `Meñique`, `Muñeca` o `Codo`. Para filtrar por dedo sin memorizar índices |
 | `fuente` | De dónde sale el punto: `mediapipe` (0–20), `yolo` o `estimado` (codo) |
 
 Cada mano/frame produce 21 filas consecutivas (una por `landmark_index`, en orden 0→20) y, si se detectó su antebrazo, **una fila 22 con `landmark_index = 21` (el codo)**.
@@ -318,7 +323,8 @@ Controles que afectan a los dos POV:
 | Acción | Qué hace |
 |--------|----------|
 | `l` o botón **Vincular 180** (en el medio; azul = activo) | **Apagado por defecto.** Si lo activas, al girar un POV el otro lo sigue girado 180° en horizontal (misma elevación, azimut + 180°), para ver la mano por delante y por detrás a la vez. Solo vincula la **rotación**: zoom, desplazamiento y encuadre siguen siendo de cada POV |
-| `v` | Muestra/oculta las flechas de velocidad |
+| `v` | Muestra/oculta las flechas y los números de velocidad |
+| `f` | Velocidad de cada dedo: absoluta ↔ relativa a la muñeca |
 
 Arriba de cada POV se ve su estado: `elev` (elevación), `azim` (azimut), `zoom` y `encuadre si/no`. La pirámide gris marca dónde está la **cámara**, para ubicarse al girar.
 
@@ -400,6 +406,25 @@ Dónde se ve:
 
 Cada flecha apunta a donde estaría el punto dentro de 0.15 s si siguiera igual; por debajo de 4 cm/s no se dibuja (es temblor, no movimiento). Tecla `v` para mostrarlas/ocultarlas.
 
+### Velocidad de cada dedo
+
+La velocidad de un dedo es la de su **punta** (landmarks 4, 8, 12, 16, 20): es el punto que más se mueve y el que describe lo que hace el dedo. Se muestra de dos formas, que se alternan con la tecla **`f`**:
+
+| Modo | Cálculo | Para qué sirve |
+|------|---------|----------------|
+| **Absoluta** (por defecto) | Rapidez de la punta tal cual | Movimiento real del dedo en el espacio. Si mueves toda la mano, los cinco dedos "van rápido" |
+| **Relativa a la muñeca** | Rapidez de `v_punta − v_muñeca` | Solo lo que el dedo se mueve **dentro de la mano** (doblarlo, estirarlo, tocar algo). Con la mano quieta y un dedo moviéndose, solo ese dedo sube |
+
+Comprobado con datos simulados: mover solo el índice da velocidad solo en el índice (en los dos modos); mover la mano entera da los cinco dedos a la misma velocidad en absoluta y **0** en relativa.
+
+Dónde se ve:
+
+- **Ventana de la cámara:** el número junto al nombre de cada dedo (necesita los nombres visibles, tecla `n`), y una fila por mano en el panel de estado: `Right #0: Pul 12  Ind 30  Med 8  Anu 5  Men 4`.
+- **Vista 3D:** el número junto a cada punta, en el color del dedo, en los dos POV, y un panel en el POV 1 con una **barra por dedo** (tope visual 100 cm/s) para comparar de un vistazo cuál se mueve más.
+- **CSV:** `rapidez_cm_s` (absoluta) y `rapidez_rel_cm_s` (relativa) en cada fila, y la columna `dedo` para filtrar. Por ejemplo, la velocidad del índice son las filas con `landmark_index = 8`.
+
+Las flechas siempre muestran la velocidad **absoluta** (hacia dónde se mueve el punto de verdad); `f` solo cambia los números de los dedos.
+
 ## `plot_csv.py` — graficar los puntos del CSV
 
 Reconstruye, a partir de un CSV ya guardado, exactamente los mismos puntos y conexiones que se dibujan en vivo en `Prueba.py` (reutiliza la misma constante `HAND_CONNECTIONS` de MediaPipe), pero con `matplotlib` en vez de la ventana de la cámara.
@@ -434,7 +459,7 @@ Detalles de la visualización:
 - La leyenda combina ambas claves: color por dedo y estilo de línea por lateralidad.
 - El eje Y se invierte porque las coordenadas de MediaPipe crecen hacia abajo (igual que en una imagen), así la orientación coincide con lo que se ve en la cámara.
 - Sin `--3d` grafica solo el plano `x`/`y` con matplotlib; con `--3d` usa también `z` en el mismo visor de dos POV de la captura en vivo (ver [Vista 3D con dos POV](#vista-3d-con-dos-pov-viewer3dpy)), con flechas de velocidad. La velocidad se recalcula al leer (desde `x`, `y`, `z` y `timestamp_ms`), así funciona también con CSVs viejos.
-- Teclas en la reproducción 3D: `espacio` pausa/sigue, `a`/`d` frame anterior/siguiente, `v` velocidad, `q`/`Esc` salir, más todas las del visor (`1`, `3`, `7`, `9`, `.`, `l`, `r`, `+`, `-`, mouse). Los POV son independientes igual que en la captura en vivo.
+- Teclas en la reproducción 3D: `espacio` pausa/sigue, `a`/`d` frame anterior/siguiente, `v` velocidad, `f` velocidad de dedos absoluta/relativa, `q`/`Esc` salir, más todas las del visor (`1`, `3`, `7`, `9`, `.`, `l`, `r`, `+`, `-`, mouse). Los POV son independientes igual que en la captura en vivo.
 - Si el CSV tiene codo (landmark 21), el antebrazo se dibuja en azul en ambos modos.
 - Sin cámara ni modelo `.task` de por medio: solo lee el CSV, así que corre incluso sin permisos de cámara.
 
@@ -449,6 +474,7 @@ El 2026-09-24 hubo tres versiones seguidas, que se nombran así en las tablas:
 | **24-A** (primera) | Eje `z` en 3D, vista de dos POV con **matplotlib**, antebrazo con YOLO (`yolo11n`) |
 | **24-B** (segunda, tras la primera prueba con cámara) | Visor rehecho con **OpenCV**, corrección de `q`, de la lentitud y del antebrazo, velocidad |
 | **24-C** (tercera) | **POV independientes**: cada uno con su rotación, zoom, desplazamiento y encuadre |
+| **24-D** (cuarta) | **Velocidad de cada dedo** (absoluta y relativa a la muñeca, tecla `f`) |
 
 ### Comandos actuales (referencia completa)
 
@@ -482,9 +508,9 @@ Teclas:
 
 | Dónde | Teclas |
 |-------|--------|
-| Captura (cualquiera de las dos ventanas) | `q`/`Esc` salir y guardar · `n` nombres · `v` velocidad · `s` foto |
+| Captura (cualquiera de las dos ventanas) | `q`/`Esc` salir y guardar · `n` nombres · `v` velocidad · `f` dedos absoluta/relativa · `s` foto |
 | Vista 3D (POV bajo el mouse) | arrastrar = girar · `Shift`+arrastrar o botón central = mover · rueda/clic derecho/`+`/`-` = zoom · `1` `3` `7` `9` vistas · `.` encuadrar · `r` reiniciar |
-| Vista 3D (los dos POV) | `l` vincular 180 · `v` velocidad |
+| Vista 3D (los dos POV) | `l` vincular 180 · `v` velocidad · `f` dedos absoluta/relativa |
 | Reproducción `--3d` | `espacio` pausa · `a`/`d` frame anterior/siguiente · `q`/`Esc` salir · más las de la vista 3D |
 
 ### Comandos, teclas y comportamientos que cambiaron o se quitaron
@@ -506,6 +532,8 @@ Teclas:
 | `r` reiniciaba los dos POV | `r` reinicia solo el POV bajo el mouse | 24-C | Independencia |
 | Sin desplazamiento: solo girar y zoom | `Shift`+arrastrar o botón central = **mover** cada POV | 24-C | Poder reubicar cada cámara virtual, como en Blender |
 | El zoom ya era por POV | Igual (sin cambio) | — | — |
+| Solo la velocidad de la muñeca en números (los dedos solo tenían flecha) | Velocidad de **cada dedo** en números: junto al nombre, en el panel de estado y en un panel con barras en la vista 3D; tecla `f` absoluta ↔ relativa | 24-D | Pedido: velocidad de cada dedo |
+| Nombres de los dedos en la vista de la cámara con contorno grueso | Sombra de 1 px | 24-D | Al agregar el número de velocidad, el contorno grueso dejaba letras repetidas al final |
 
 ### Partes del código quitadas o reemplazadas
 
@@ -533,7 +561,8 @@ Teclas:
 | Inicial | `frame, timestamp_ms, hand_index, handedness, score, landmark_index, x, y, z` | Sí |
 | Con `HandTracker` | `hand_index` → `hand_id` | Sí |
 | 24-A | + `img_w, img_h`; fila extra `landmark_index = 21` (codo) | Sí |
-| 24-B (actual) | + `vx, vy, vz, rapidez_cm_s, fuente` | Sí (en CSVs viejos la velocidad se calcula al leer) |
+| 24-B | + `vx, vy, vz, rapidez_cm_s, fuente` | Sí (en CSVs viejos la velocidad se calcula al leer) |
+| 24-D (actual) | + `rapidez_rel_cm_s, dedo` (entre `rapidez_cm_s` y `fuente`) | Sí |
 
 ## Flujo típico
 

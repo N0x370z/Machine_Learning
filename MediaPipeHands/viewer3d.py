@@ -395,10 +395,13 @@ class DualPOVViewer:
 
     # ------------------------------------------------------------ dibujo
 
-    def render(self, hands, subtitle="", show_velocity=True):
+    def render(self, hands, subtitle="", show_velocity=True, relative_fingers=False):
         """
         Dibuja las dos vistas y la barra inferior y muestra la ventana.
         hands: lista de hands_to_scene (o frame_to_scene de plot_csv.py).
+        show_velocity: flechas y velocidades (tecla 'v').
+        relative_fingers: velocidad de cada dedo relativa a la muñeca en
+        vez de absoluta (tecla 'f', ver kinematics.finger_speeds).
         """
         if not self._open:
             return
@@ -411,20 +414,22 @@ class DualPOVViewer:
             self._draw_grid(img, proj, center, size)
             self._draw_camera(img, proj)
             for hand in hands:
-                self._draw_hand(img, proj, hand, show_velocity)
+                self._draw_hand(img, proj, hand, show_velocity, relative_fingers)
             self._draw_gizmo(img, pov)
             _text(img, f"POV {idx + 1}" + ("  (activo)" if idx == self._hover else ""),
                   (12, 24), TEXT, 0.6)
             _text(img, f"elev {pov.elev:+.0f}  azim {pov.azim:+.0f}  "
                        f"zoom {pov.zoom:.1f}x  encuadre {'si' if pov.fit else 'no'}",
                   (12, 46), TEXT_DIM, 0.4)
+            if show_velocity and idx == 0:
+                self._draw_finger_panel(img, hands, relative_fingers)
             views.append(img)
         top = np.hstack(views)
         cv2.line(top, (VIEW_W, 0), (VIEW_W, VIEW_H), OUTLINE, 2)
         if subtitle:
             (tw, _), _ = cv2.getTextSize(subtitle, FONT, 0.5, 1)
             _text(top, subtitle, (2 * VIEW_W - tw - 12, 24), TEXT, 0.5)
-        canvas = np.vstack([top, self._draw_bar(show_velocity)])
+        canvas = np.vstack([top, self._draw_bar(show_velocity, relative_fingers)])
         cv2.imshow(WINDOW, canvas)
         return canvas
 
@@ -453,7 +458,7 @@ class DualPOVViewer:
         x, y = proj.px(apex)
         _text(img, "Camara", (x - 25, y + 18), CAMERA_COLOR, 0.4)
 
-    def _draw_hand(self, img, proj, hand, show_velocity):
+    def _draw_hand(self, img, proj, hand, show_velocity, relative_fingers=False):
         """
         Dibuja una mano con sus conexiones ordenadas de atrás hacia
         adelante (algoritmo del pintor), para que los dedos más cercanos
@@ -487,7 +492,7 @@ class DualPOVViewer:
             draw()
 
         if show_velocity:
-            self._draw_velocity(img, proj, hand, pts)
+            self._draw_velocity(img, proj, hand, pts, relative_fingers)
 
         wx, wy = px[0]
         _text(img, f"{hand['label']} #{hand['id']}", (wx + 10, wy + 22), TEXT, 0.45)
@@ -498,8 +503,14 @@ class DualPOVViewer:
                 label += " (estimado)"
             _text(img, label, (ex + 10, ey + 5), forearm_color, 0.42)
 
-    def _draw_velocity(self, img, proj, hand, pts):
-        """Flechas de velocidad en muñeca, puntas y codo (ver ARROW_*)."""
+    def _draw_velocity(self, img, proj, hand, pts, relative_fingers=False):
+        """
+        Flechas de velocidad en muñeca, puntas y codo (ver ARROW_*), la
+        rapidez de la muñeca y, junto a cada punta, la rapidez de ese dedo
+        en cm/s (absoluta o relativa a la muñeca, ver finger_speeds).
+        Las flechas siempre muestran la velocidad absoluta: es hacia donde
+        se mueve el punto de verdad.
+        """
         vels = hand.get("velocities") or {}
         scale = kinematics.cm_per_unit(hand["points"])
         for i in ARROW_POINTS:
@@ -518,6 +529,37 @@ class DualPOVViewer:
             wx, wy = proj.px(_to_plot(pts[0]))
             _text(img, f"{kinematics.speed_cm_s(wrist_v, scale):.0f} cm/s",
                   (wx + 10, wy + 42), ARROW_COLOR, 0.42)
+        speeds = kinematics.finger_speeds(hand["points"], vels)
+        for tip, finger in hand_style.FINGERTIPS.items():
+            value = speeds[finger][1 if relative_fingers else 0]
+            color = hand_style.rgb_to_bgr(hand_style.FINGER_COLORS_RGB[finger])
+            tx, ty = proj.px(_to_plot(pts[tip]))
+            _text(img, f"{value:.0f}", (tx + 9, ty - 8), color, 0.4)
+
+    def _draw_finger_panel(self, img, hands, relative_fingers):
+        """
+        Panel con la rapidez de los cinco dedos de cada mano (cm/s), en la
+        esquina superior del POV 1. Una barra por dedo, en su color, para
+        comparar de un vistazo qué dedo se mueve más.
+        """
+        mode = "relativa a la muneca" if relative_fingers else "absoluta"
+        _text(img, f"Velocidad de cada dedo (cm/s, {mode}) [f]", (12, 72),
+              TEXT_DIM, 0.4)
+        y = 94
+        for hand in hands:
+            speeds = kinematics.finger_speeds(hand["points"], hand.get("velocities") or {})
+            _text(img, f"{hand['label']} #{hand['id']}", (12, y), TEXT, 0.4)
+            x = 100
+            for finger, abbr in hand_style.FINGER_ABBR.items():
+                value = speeds[finger][1 if relative_fingers else 0]
+                color = hand_style.rgb_to_bgr(hand_style.FINGER_COLORS_RGB[finger])
+                # Barra proporcional a la rapidez (tope visual: 100 cm/s).
+                bar_w = int(min(value, 100.0) / 100.0 * 40)
+                cv2.rectangle(img, (x, y - 9), (x + 40, y + 1), (60, 60, 60), -1)
+                cv2.rectangle(img, (x, y - 9), (x + bar_w, y + 1), color, -1)
+                _text(img, f"{abbr} {value:3.0f}", (x + 44, y), color, 0.38)
+                x += 102
+            y += 20
 
     def _draw_gizmo(self, img, pov):
         """Ejes de orientación en la esquina inferior izquierda, como Blender."""
@@ -532,7 +574,7 @@ class DualPOVViewer:
             cv2.line(img, origin, end, AXIS_COLORS[name], 2, cv2.LINE_AA)
             _text(img, name, (end[0] + 3, end[1] + 4), AXIS_COLORS[name], 0.38)
 
-    def _draw_bar(self, show_velocity):
+    def _draw_bar(self, show_velocity, relative_fingers=False):
         """Barra inferior: botones de vista por POV, interruptores y ayuda."""
         bar = np.full((BAR_H, 2 * VIEW_W, 3), (30, 30, 30), np.uint8)
         self._buttons = []
@@ -559,7 +601,8 @@ class DualPOVViewer:
         help_text = ("Todo actua sobre el POV bajo el mouse: arrastrar girar | "
                      "shift+arrastrar mover | rueda o +/- zoom | 1 3 7 9 vistas | "
                      f". encuadrar | r reiniciar | l vincular | v velocidad "
-                     f"({'si' if show_velocity else 'no'}) | q salir")
+                     f"({'si' if show_velocity else 'no'}) | f dedos "
+                     f"({'relativa' if relative_fingers else 'absoluta'}) | q salir")
         _text(bar, help_text, (10, 60), TEXT_DIM, 0.4)
         return bar
 
