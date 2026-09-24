@@ -1,6 +1,6 @@
 # MediaPipeHands
 
-> Última actualización: **2026-09-24**. Historial completo de errores, cambios y mejoras en [`CHANGELOG.md`](CHANGELOG.md).
+> Última actualización: **2026-09-24**. Historial completo de errores, cambios y mejoras en [`CHANGELOG.md`](CHANGELOG.md). Resumen de **comandos nuevos y antiguos, partes quitadas y por qué** en [Cambios: comandos, partes quitadas y por qué](#cambios-comandos-partes-quitadas-y-por-qué).
 
 Detección de manos en tiempo real con [MediaPipe Tasks API](https://ai.google.dev/edge/mediapipe/solutions/vision/hand_landmarker), vista 3D de la mano con **dos puntos de vista (POV)** a la vez (como los viewports de Blender) usando la profundidad `z`, el esqueleto extendido **hasta el antebrazo** (codo detectado con YOLO pose), la **velocidad** de cada punto (a partir de `x`, `y`, `z` y del tiempo de cada fotograma), captura de los 21 landmarks por mano (+ el codo) en un CSV, y un script separado para volver a graficar esos mismos puntos a partir del CSV (sin necesidad de la cámara).
 
@@ -41,7 +41,7 @@ Se abre una ventana con la cámara en modo espejo, como si te vieras en un espej
 - **Flechas amarillas de velocidad** en la muñeca, las puntas de los dedos y el codo: apuntan hacia donde se mueve cada punto y son más largas cuanto más rápido va (ver [Velocidad](#velocidad-kinematicspy)).
 - Arriba a la izquierda, el **panel de estado**: FPS, manos, antebrazos (cuántos de YOLO y cuántos estimados), frames grabados, la **velocidad de la muñeca de cada mano en cm/s** y cuántos ms tarda cada etapa (`mano`, `yolo`, `3D`), para ver qué frena si los FPS bajan.
 
-Además se abre una segunda ventana, **Vista 3D - dos POV**, con la misma mano en 3D vista desde dos ángulos a la vez: el **POV 1** desde el lado de la cámara y el **POV 2** girado **180°**, desde atrás. Arrastra con el mouse sobre cualquiera de las dos para girarla; con "Vincular 180" activado la otra la sigue desde el lado opuesto. Los controles completos están en [Vista 3D con dos POV](#vista-3d-con-dos-pov-viewer3dpy).
+Además se abre una segunda ventana, **Vista 3D - dos POV**, con la misma mano en 3D vista desde dos ángulos a la vez: el **POV 1** arranca desde el lado de la cámara y el **POV 2** girado **180°**, desde atrás. **Cada POV es una cámara virtual independiente**: al girarlo, moverlo o hacerle zoom, el otro no se mueve. Todo se aplica al POV que tenga el mouse encima (el marcado como `(activo)`). Si quieres que se muevan juntos a 180°, activa **Vincular 180** (tecla `l`). Los controles completos están en [Vista 3D con dos POV](#vista-3d-con-dos-pov-viewer3dpy).
 
 Las teclas funcionan con **cualquiera de las dos ventanas** activa (haz clic en una si no responde):
 
@@ -51,7 +51,8 @@ Las teclas funcionan con **cualquiera de las dos ventanas** activa (haz clic en 
 | `v` | Muestra/oculta las flechas de velocidad (en las dos ventanas) |
 | `s` | Guarda una foto de la vista de la cámara en `capturas/` |
 | `q` o `Esc` | Termina y guarda los datos |
-| `1` `3` `7` `9` `.` `l` `r` `+` `-` | Controles de la vista 3D (ver más abajo) |
+| `1` `3` `7` `9` `.` `r` `+` `-` | Controles del POV bajo el mouse en la vista 3D (ver más abajo) |
+| `l` | Vincular/desvincular la rotación de los dos POV a 180° |
 
 ### 3. Terminar y guardar
 
@@ -292,27 +293,34 @@ La tercera dimensión es la `z` de MediaPipe: profundidad de cada punto **relati
 
 La proyección es **ortográfica** (sin perspectiva), como las vistas numéricas de Blender. Los dedos más cercanos a la vista tapan a los más lejanos al girar.
 
-### Controles
+### Controles: cada POV es independiente
 
-Las teclas funcionan con la vista 3D o con la ventana de la cámara activa. Las de vista (`1`, `3`, `7`, `9`, `+`, `-`) actúan sobre el POV que tenga el mouse encima (resaltado con un fondo un poco más claro), igual que en Blender:
+Cada POV es una **cámara virtual independiente**, con su propio ángulo, zoom, desplazamiento y encuadre. Todo lo que hagas (mouse, teclas, botones) se aplica **solo al POV que tiene el mouse encima**, marcado como `(activo)` y con un fondo un poco más claro, igual que en Blender. Si empiezas a arrastrar en un POV y el mouse cruza al otro, el arrastre sigue afectando solo al POV donde empezó.
 
-| Acción | Qué hace |
-|--------|----------|
-| Arrastrar con clic izquierdo sobre una vista | Gira esa vista (órbita) |
-| Rueda del mouse, clic derecho arrastrando, o `+` / `-` | Zoom de esa vista |
+Las teclas funcionan con la vista 3D o con la ventana de la cámara activa.
+
+| Acción | Qué hace (en el POV bajo el mouse) |
+|--------|-------------------------------------|
+| Arrastrar con clic izquierdo | **Gira** ese POV (órbita) |
+| `Shift` + arrastrar, o arrastrar con el botón central | **Mueve** (desplaza) ese POV sin girarlo |
+| Rueda del mouse, clic derecho arrastrando, o `+` / `-` | **Zoom** de ese POV |
 | `1` | Vista de **frente** (como la ve la cámara) |
 | `3` | Vista de **lado** |
 | `7` | Vista desde **arriba** |
 | `9` | Vista **opuesta** a la actual (frente ↔ atrás, arriba ↔ abajo), como en Blender |
-| `.` | Activa/desactiva **Encuadrar** |
-| `l` | Activa/desactiva **Vincular 180** |
-| `r` | Reinicia ambas vistas y el zoom |
-| `v` | Muestra/oculta las flechas de velocidad |
-| Botones *Frente / Atras / Lado / Arriba* | Lo mismo que las teclas, bajo cada vista |
-| Botón **Vincular 180** (azul = activo) | Activo por defecto: al girar una vista la otra la sigue a 180°. Apágalo para mover cada POV por su cuenta |
-| Botón **Encuadrar** (azul = activo) | Activo por defecto: la vista sigue a las manos para verlas grandes (con un seguimiento suavizado para que no vibre). Apagado, se ve el frame completo de la cámara |
+| `.` | Activa/desactiva **Encuadrar** en ese POV |
+| `r` | **Reinicia** ese POV (ángulo inicial, zoom, desplazamiento y encuadre) |
+| Botones *Frente / Atras / Lado / Arriba* bajo cada POV | Lo mismo que `1`, `3`, `7` y la vista de atrás, para ese POV |
+| Botón **Encuadrar** bajo cada POV (azul = activo) | Activo por defecto: el POV sigue a las manos para verlas grandes (con seguimiento suavizado para que no vibre). Apagado, muestra el frame completo de la cámara. Cada POV tiene el suyo: puedes tener uno encuadrado en la mano y el otro con la escena entera |
 
-La pirámide gris marca dónde está la **cámara**, para ubicarse al girar.
+Controles que afectan a los dos POV:
+
+| Acción | Qué hace |
+|--------|----------|
+| `l` o botón **Vincular 180** (en el medio; azul = activo) | **Apagado por defecto.** Si lo activas, al girar un POV el otro lo sigue girado 180° en horizontal (misma elevación, azimut + 180°), para ver la mano por delante y por detrás a la vez. Solo vincula la **rotación**: zoom, desplazamiento y encuadre siguen siendo de cada POV |
+| `v` | Muestra/oculta las flechas de velocidad |
+
+Arriba de cada POV se ve su estado: `elev` (elevación), `azim` (azimut), `zoom` y `encuadre si/no`. La pirámide gris marca dónde está la **cámara**, para ubicarse al girar.
 
 ### Ejes
 
@@ -426,9 +434,106 @@ Detalles de la visualización:
 - La leyenda combina ambas claves: color por dedo y estilo de línea por lateralidad.
 - El eje Y se invierte porque las coordenadas de MediaPipe crecen hacia abajo (igual que en una imagen), así la orientación coincide con lo que se ve en la cámara.
 - Sin `--3d` grafica solo el plano `x`/`y` con matplotlib; con `--3d` usa también `z` en el mismo visor de dos POV de la captura en vivo (ver [Vista 3D con dos POV](#vista-3d-con-dos-pov-viewer3dpy)), con flechas de velocidad. La velocidad se recalcula al leer (desde `x`, `y`, `z` y `timestamp_ms`), así funciona también con CSVs viejos.
-- Teclas en la reproducción 3D: `espacio` pausa/sigue, `a`/`d` frame anterior/siguiente, `v` velocidad, `q`/`Esc` salir, más todas las del visor (`1`, `3`, `7`, `9`, `.`, `l`, `r`, `+`, `-`, mouse).
+- Teclas en la reproducción 3D: `espacio` pausa/sigue, `a`/`d` frame anterior/siguiente, `v` velocidad, `q`/`Esc` salir, más todas las del visor (`1`, `3`, `7`, `9`, `.`, `l`, `r`, `+`, `-`, mouse). Los POV son independientes igual que en la captura en vivo.
 - Si el CSV tiene codo (landmark 21), el antebrazo se dibuja en azul en ambos modos.
 - Sin cámara ni modelo `.task` de por medio: solo lee el CSV, así que corre incluso sin permisos de cámara.
+
+## Cambios: comandos, partes quitadas y por qué
+
+Resumen de todo lo que cambió en el proyecto: los comandos de ahora, los de antes, lo que se quitó o reemplazó en el código y por qué. El detalle fechado de cada error y corrección está en [`CHANGELOG.md`](CHANGELOG.md).
+
+El 2026-09-24 hubo tres versiones seguidas, que se nombran así en las tablas:
+
+| Versión | Qué trajo |
+|---------|-----------|
+| **24-A** (primera) | Eje `z` en 3D, vista de dos POV con **matplotlib**, antebrazo con YOLO (`yolo11n`) |
+| **24-B** (segunda, tras la primera prueba con cámara) | Visor rehecho con **OpenCV**, corrección de `q`, de la lentitud y del antebrazo, velocidad |
+| **24-C** (tercera) | **POV independientes**: cada uno con su rotación, zoom, desplazamiento y encuadre |
+
+### Comandos actuales (referencia completa)
+
+`Prueba.py` (captura en vivo):
+
+| Comando / flag | Default | Qué hace | Desde |
+|----------------|---------|----------|-------|
+| `./venv/bin/python3 Prueba.py` | — | Cámara + vista 3D de dos POV + antebrazo + velocidad | — |
+| `--max-hands N` | `4` | Máximo de manos a la vez | Inicial |
+| `--min-detection-confidence X` | `0.5` | Confianza para detectar una mano nueva | 2026-09-23 |
+| `--min-presence-confidence X` | `0.5` | Confianza para seguir considerando presente una mano | 2026-09-23 |
+| `--min-tracking-confidence X` | `0.5` | Confianza del tracking entre frames | 2026-09-23 |
+| `--cam-width W` / `--cam-height H` | `1280` / `720` | Resolución pedida a la cámara | 2026-09-23 |
+| `--sin-antebrazo` | apagado | No carga YOLO; el esqueleto llega hasta la muñeca | 24-A |
+| `--sin-3d` | apagado | No abre la vista 3D | 24-A |
+| `--yolo-modelo {n,s,m}` | `s` | Modelo YOLO pose: `n` rápido, `s` equilibrado, `m` preciso | 24-B |
+| `--antebrazo-solo-yolo` | apagado | No dibuja antebrazos estimados | 24-B |
+
+`plot_csv.py` (reproducir un CSV):
+
+| Comando / flag | Qué hace | Desde |
+|----------------|----------|-------|
+| `./venv/bin/python3 plot_csv.py` | Anima en 2D el último CSV de `capturas/` | Inicial |
+| `plot_csv.py capturas/archivo.csv` | Usa un CSV específico | Inicial |
+| `--frame N` | Un solo frame (en 2D estático; en 3D arranca en pausa ahí) | Inicial (en 3D: 24-B) |
+| `--interval MS` | ms entre frames de la animación (default `33`) | Inicial |
+| `--swap-hands` | Invierte Left/Right (CSVs de antes del 2026-09-23) | 2026-09-23 |
+| `--3d` | Reproduce en la vista 3D de dos POV | 24-A (visor OpenCV: 24-B) |
+
+Teclas:
+
+| Dónde | Teclas |
+|-------|--------|
+| Captura (cualquiera de las dos ventanas) | `q`/`Esc` salir y guardar · `n` nombres · `v` velocidad · `s` foto |
+| Vista 3D (POV bajo el mouse) | arrastrar = girar · `Shift`+arrastrar o botón central = mover · rueda/clic derecho/`+`/`-` = zoom · `1` `3` `7` `9` vistas · `.` encuadrar · `r` reiniciar |
+| Vista 3D (los dos POV) | `l` vincular 180 · `v` velocidad |
+| Reproducción `--3d` | `espacio` pausa · `a`/`d` frame anterior/siguiente · `q`/`Esc` salir · más las de la vista 3D |
+
+### Comandos, teclas y comportamientos que cambiaron o se quitaron
+
+| Antes | Ahora | Cuándo | Por qué |
+|-------|-------|--------|---------|
+| La cámara abría a la resolución que traía por defecto (a menudo 640×480) | Pide `1280×720`; flags `--cam-width`/`--cam-height` | 2026-09-23 | Con pocos píxeles por mano MediaPipe reconocía mal la mano |
+| Umbrales de confianza fijos en `0.5` dentro del código | Flags `--min-*-confidence` | 2026-09-23 | Poder ajustarlos según luz/cámara sin editar el script |
+| `plot_csv.py` sin forma de corregir Left/Right | `--swap-hands` | 2026-09-23 | Los CSVs viejos tenían la lateralidad invertida |
+| `--vista3d-cada N` (default `3`) | **Eliminado** | 24-B | Existía porque el visor de matplotlib tardaba ~90 ms por frame; el de OpenCV tarda ~3 ms y se redibuja en todos los frames |
+| `q` solo en la ventana de la cámara; con el visor 3D activo, `q` cerraba solo el visor | `q` **o** `Esc` en cualquiera de las dos ventanas; también se sale cerrando la ventana de la cámara o con `Ctrl+C`, y siempre se guarda el CSV | 24-B | Bug: `q` es la tecla de matplotlib para cerrar su ventana, y matplotlib se comía las teclas de OpenCV |
+| Casillas de matplotlib *Vincular 180°* y *Encuadrar manos* | Botones dibujados con OpenCV (azul = activo) | 24-B | El visor dejó de ser de matplotlib |
+| `plot_csv.py --3d` se cerraba con la ventana de matplotlib y no se podía pausar | `espacio`, `a`/`d`, `v`, `q`/`Esc` | 24-B | Visor nuevo con controles de reproducción |
+| Modelo YOLO fijo `yolo11n-pose` | `--yolo-modelo`, default `s` | 24-B | `n` detectaba mal el codo a distancia de webcam |
+| El antebrazo desaparecía si YOLO no veía el codo | Memoria de 10 frames + codo **estimado** (punteado); `--antebrazo-solo-yolo` para no estimar | 24-B | El antebrazo tardaba en salir y parpadeaba |
+| Sin velocidad | Flechas, cm/s en el panel, tecla `v`, columnas en el CSV | 24-B | Pedido: velocidad a partir de `x`, `y`, `z` y los fotogramas |
+| **Vincular 180 activado por defecto**: al girar un POV el otro también giraba | **Apagado por defecto**; se activa con `l` o el botón | 24-C | Pedido: mover cada cámara (POV) de forma independiente |
+| **Encuadrar** era uno solo para los dos POV (`.` y el botón cambiaban ambos) | Un **Encuadrar por POV** (`.` y un botón bajo cada POV) | 24-C | Independencia: poder tener un POV sobre la mano y otro con la escena entera |
+| `r` reiniciaba los dos POV | `r` reinicia solo el POV bajo el mouse | 24-C | Independencia |
+| Sin desplazamiento: solo girar y zoom | `Shift`+arrastrar o botón central = **mover** cada POV | 24-C | Poder reubicar cada cámara virtual, como en Blender |
+| El zoom ya era por POV | Igual (sin cambio) | — | — |
+
+### Partes del código quitadas o reemplazadas
+
+| Qué se quitó / reemplazó | Dónde estaba | Qué lo reemplaza | Por qué |
+|--------------------------|--------------|------------------|---------|
+| Índices numéricos 0–20 dibujados en cada landmark | `Prueba.py`, `plot_csv.py` | Nombre del dedo solo en la punta | Saturaban la vista (2026-09-23) |
+| Iniciales en inglés `T`/`I`/`M`/`R`/`P` | `hand_style.py` | Nombres en español (`Pulgar`…) | Claridad (2026-09-23) |
+| Un color por lateralidad para toda la mano | `Prueba.py`, `plot_csv.py` | Un color por dedo (`hand_style.py`); lateralidad por etiqueta y estilo de línea | Identificar dedos de un vistazo (2026-09-23) |
+| Columna `hand_index` del CSV | `Prueba.py` | `hand_id` persistente (`HandTracker`) | El índice por frame no identificaba a la misma mano entre frames. `plot_csv.py` sigue leyendo ambos |
+| Visor 3D con matplotlib (`Axes3D`, widgets `Button`/`CheckButtons`, `set_hands()`, `refresh()`, `show_nonblocking()`, parámetros `max_hands` y `title`) | `viewer3d.py` (24-A) | Visor con OpenCV (`render()`, `handle_key()`, `is_open()`, `close()`) | Bug de `q` y ~90 ms por frame. OpenCV ya no necesita crear de antemano un grupo de líneas por mano, así que `max_hands` sobraba |
+| Constante `DEFAULT_VIEW3D_EVERY` | `Prueba.py` (24-A) | — | Ver `--vista3d-cada` arriba |
+| `ForearmDetector.match_elbows()` que devolvía tuplas `(x, y, z)` | `forearm.py` (24-A) | `ForearmDetector.update()` que devuelve `Elbow(x, y, z, source)` | Hacía falta saber si el codo viene de YOLO o es estimado, y guardar memoria entre frames |
+| Constantes `MIN_KEYPOINT_CONF = 0.4` y `MAX_WRIST_MATCH_DIST = 0.12` | `forearm.py` (24-A) | `MIN_ELBOW_CONF`/`MIN_WRIST_CONF = 0.25`, `MIN_WRIST_MATCH_DIST` + `WRIST_MATCH_PALMS`, `HOLD_FRAMES`, `YOLO_PERSON_CONF` | Umbrales demasiado estrictos y distancia fija: el codo casi no se detectaba |
+| `landmarks_to_rows(frame, ts, tracked_hands, elbows, w, h)` | `Prueba.py` (24-A) | `landmarks_to_rows(frame, ts, hands_scene, scores, w, h)` | Las filas ahora incluyen velocidad y `fuente` |
+| `load_frames()` devolvía 3 valores | `plot_csv.py` (24-A) | Devuelve 4 (agrega el origen de cada codo) | Dibujar el codo estimado distinto al de YOLO |
+| Texto con "contorno" (el mismo texto más grueso debajo) | `viewer3d.py`, `Prueba.py` (codo) | Sombra de 1 px | En OpenCV el contorno grueso sale más largo que el texto y se veían letras repetidas al final |
+| `DualPOVViewer.fit` y `_fit`, un solo encuadre para los dos POV | `viewer3d.py` (24-B) | `fit` y `fit_state` dentro de cada POV (`_POV`) | POV independientes (24-C) |
+| `DualPOVViewer.reset()` sin argumentos (reiniciaba los dos) | `viewer3d.py` (24-B) | `reset(idx)` (solo ese POV) | POV independientes (24-C) |
+| `linked = True` al crear el visor | `viewer3d.py` (24-A y 24-B) | `linked = False` | POV independientes (24-C) |
+
+### Versiones del formato del CSV
+
+| Versión | Columnas | `plot_csv.py` la lee |
+|---------|----------|----------------------|
+| Inicial | `frame, timestamp_ms, hand_index, handedness, score, landmark_index, x, y, z` | Sí |
+| Con `HandTracker` | `hand_index` → `hand_id` | Sí |
+| 24-A | + `img_w, img_h`; fila extra `landmark_index = 21` (codo) | Sí |
+| 24-B (actual) | + `vx, vy, vz, rapidez_cm_s, fuente` | Sí (en CSVs viejos la velocidad se calcula al leer) |
 
 ## Flujo típico
 
@@ -439,4 +544,4 @@ Detalles de la visualización:
 
 ## Historial de cambios
 
-Todo error corregido, cambio y mejora se documenta con fecha en [`CHANGELOG.md`](CHANGELOG.md). Última entrada: **2026-09-24** (eje z en 3D, visor de dos POV, antebrazo con YOLO pose, velocidad; corregidos: `q` no cerraba bien, lentitud y detección del antebrazo).
+Todo error corregido, cambio y mejora se documenta con fecha en [`CHANGELOG.md`](CHANGELOG.md). Última entrada: **2026-09-24** (eje z en 3D, visor de dos POV, antebrazo con YOLO pose, velocidad; corregidos: `q` no cerraba bien, lentitud y detección del antebrazo; POV independientes).

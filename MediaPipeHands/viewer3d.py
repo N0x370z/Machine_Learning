@@ -18,26 +18,36 @@ matplotlib. La primera versión usaba matplotlib y tenía dos problemas
 Ahora todo (cámara y visor) vive en un solo sistema de ventanas, y
 cv2.waitKey recibe las teclas de las dos ventanas.
 
+Desde la tercera versión (2026-09-24) los dos POV son INDEPENDIENTES por
+defecto: cada uno tiene su propia rotación, zoom, desplazamiento y
+encuadre, como dos cámaras virtuales que se mueven por separado. Antes
+"Vincular 180°" venía activado y al girar una vista la otra también se
+movía; ahora eso es opcional (tecla l o botón "Vincular 180").
+
 Lo usan:
   - Prueba.py (en vivo, junto a la ventana de la cámara).
   - plot_csv.py --3d (reproducción de un CSV ya grabado).
 
-Controles (con cualquiera de las ventanas activa):
-  - Arrastrar con clic izquierdo sobre una vista: la gira (órbita).
+Controles (con cualquiera de las ventanas activa). Todo se aplica SOLO
+al POV sobre el que está el mouse (el resaltado), igual que en Blender:
+  - Arrastrar con clic izquierdo: gira ese POV (órbita).
+  - Shift + arrastrar, o arrastrar con el botón central: desplaza ese POV.
   - Rueda del mouse, clic derecho arrastrando o teclas + / -: zoom.
-  - Teclas tipo numpad de Blender, aplicadas a la vista bajo el mouse:
+  - Teclas tipo numpad de Blender:
         1 = Frente (como la ve la cámara)   3 = Lado   7 = Arriba
         9 = Vista opuesta (frente <-> atrás, arriba <-> abajo)
-        . = Encuadrar manos on/off (como "View Selected" de Blender)
-        l = Vincular 180° on/off         r = reiniciar vistas y zoom
-  - Botones abajo: Frente / Atras / Lado / Arriba de cada vista, y los
-    interruptores Vincular 180 y Encuadrar.
-  - "Vincular 180°" (activo por defecto): el POV 2 sigue siempre al POV 1
-    girado 180° en horizontal (misma elevación, azimut + 180°), así una
-    vista muestra la mano por delante y la otra por detrás. Si se gira el
-    POV 2, el POV 1 lo sigue igual. Apagado, cada vista va por su cuenta.
-  - "Encuadrar" (activo por defecto): la vista sigue a las manos para
-    verlas grandes. Apagado, se ve el frame completo de la cámara.
+        . = Encuadrar manos on/off en ese POV ("View Selected" de Blender)
+        r = reiniciar ese POV (ángulo, zoom, desplazamiento y encuadre)
+        l = Vincular 180° on/off (afecta a los dos)
+  - Botones abajo de cada POV: Frente / Atras / Lado / Arriba y
+    Encuadrar (de ese POV). En el medio: Vincular 180.
+  - "Vincular 180°" (APAGADO por defecto): si se activa, al girar un POV
+    el otro lo sigue girado 180° en horizontal (misma elevación, azimut
+    + 180°). Solo vincula la rotación: zoom, desplazamiento y encuadre
+    siguen siendo de cada POV.
+  - "Encuadrar" (activo por defecto en cada POV): la vista sigue a las
+    manos para verlas grandes. Apagado, se ve el frame completo de la
+    cámara. Se puede tener uno encuadrado y el otro con la escena entera.
 
 Proyección ortográfica (como las vistas numéricas de Blender): sin
 perspectiva, así las distancias se comparan igual en toda la vista.
@@ -208,8 +218,22 @@ def scene_points(hand):
 
 
 class _POV:
+    """
+    Estado de una cámara virtual (un POV). Todo es propio de cada POV:
+    ángulo, zoom, desplazamiento (pan) y encuadre, para que se muevan de
+    forma independiente.
+    """
+
     def __init__(self, elev, azim):
-        self.elev, self.azim, self.zoom = elev, azim, 1.0
+        self.home = (elev, azim)  # vista a la que vuelve con 'r'
+        self.reset()
+
+    def reset(self):
+        self.elev, self.azim = self.home
+        self.zoom = 1.0
+        self.pan = np.zeros(2)  # desplazamiento en píxeles de pantalla
+        self.fit = True         # encuadrar manos
+        self.fit_state = None   # (centro, tamaño) suavizado del encuadre
 
     def set(self, elev, azim):
         self.elev = max(-90.0, min(90.0, elev))
@@ -223,11 +247,12 @@ class _Projector:
         self.right, self.up, self.eye = _basis(pov.elev, pov.azim)
         self.center = center
         self.scale = 0.85 * min(VIEW_W, VIEW_H) / size * pov.zoom
+        self.pan = pov.pan
 
     def px(self, p):
         rel = np.asarray(p, float) - self.center
-        x = VIEW_W / 2 + self.scale * float(rel @ self.right)
-        y = VIEW_H / 2 - self.scale * float(rel @ self.up)
+        x = VIEW_W / 2 + self.pan[0] + self.scale * float(rel @ self.right)
+        y = VIEW_H / 2 + self.pan[1] - self.scale * float(rel @ self.up)
         # Recorte a un rango razonable: cv2 falla con coordenadas enormes
         # (p. ej. la pirámide de la cámara con mucho zoom).
         return (int(max(-10000, min(10000, x))), int(max(-10000, min(10000, y))))
@@ -242,12 +267,12 @@ class DualPOVViewer:
 
     def __init__(self, aspect=9 / 16):
         self.aspect = aspect
-        self.linked = True
-        self.fit = True
+        # Apagado por defecto: cada POV se mueve por su cuenta (ver
+        # docstring del módulo). Antes (segunda versión) venía activado.
+        self.linked = False
         self.povs = [_POV(*DEFAULT_POV1), _POV(*opposite_180(*DEFAULT_POV1))]
-        self._fit = None      # (centro, tamaño) suavizado del encuadre
         self._hover = 0       # POV bajo el mouse (para las teclas 1/3/7/9)
-        self._drag = None     # (pov, botón, x, y) mientras se arrastra
+        self._drag = None     # (pov, modo, x, y) mientras se arrastra
         self._buttons = []    # [(x0, y0, x1, y1, acción)] de la barra
         self._open = True
         cv2.namedWindow(WINDOW, cv2.WINDOW_AUTOSIZE)
@@ -256,23 +281,29 @@ class DualPOVViewer:
     # ------------------------------------------------------------ vistas
 
     def set_view(self, idx, elev, azim):
-        """Pone una vista en (elev, azim); si están vinculadas, la otra la sigue."""
+        """Pone un POV en (elev, azim). Solo si "Vincular 180" está activo,
+        el otro POV también gira (a 180°); si no, no se toca."""
         self.povs[idx].set(elev, azim)
         if self.linked:
             self.povs[1 - idx].set(*opposite_180(self.povs[idx].elev,
                                                   self.povs[idx].azim))
 
-    def reset(self):
-        self.povs = [_POV(*DEFAULT_POV1), _POV(*opposite_180(*DEFAULT_POV1))]
+    def reset(self, idx):
+        """Reinicia solo ese POV (ángulo, zoom, desplazamiento, encuadre)."""
+        self.povs[idx].reset()
+        if self.linked:
+            self.set_view(idx, self.povs[idx].elev, self.povs[idx].azim)
 
     def toggle_link(self):
+        """Al activarlo, el POV 2 se acomoda a 180° del POV 1."""
         self.linked = not self.linked
         if self.linked:
             self.set_view(0, self.povs[0].elev, self.povs[0].azim)
 
-    def toggle_fit(self):
-        self.fit = not self.fit
-        self._fit = None
+    def toggle_fit(self, idx):
+        pov = self.povs[idx]
+        pov.fit = not pov.fit
+        pov.fit_state = None
 
     def handle_key(self, key):
         """
@@ -290,11 +321,11 @@ class DualPOVViewer:
         elif key == ord("9"):
             self.set_view(self._hover, *opposite_blender(pov.elev, pov.azim))
         elif key == ord("."):
-            self.toggle_fit()
+            self.toggle_fit(self._hover)
         elif key == ord("l"):
             self.toggle_link()
         elif key == ord("r"):
-            self.reset()
+            self.reset(self._hover)
         elif key in (ord("+"), ord("=")):
             pov.zoom *= 1.15
         elif key == ord("-"):
@@ -311,44 +342,55 @@ class DualPOVViewer:
                 if x0 <= x <= x1 and y0 <= y <= y1:
                     action()
             return
-        if event in (cv2.EVENT_LBUTTONDOWN, cv2.EVENT_RBUTTONDOWN) and y < VIEW_H:
-            self._drag = (self._hover, event, x, y)
-        elif event in (cv2.EVENT_LBUTTONUP, cv2.EVENT_RBUTTONUP):
+        down = {cv2.EVENT_LBUTTONDOWN: "girar", cv2.EVENT_RBUTTONDOWN: "zoom",
+                cv2.EVENT_MBUTTONDOWN: "mover"}
+        if event in down and y < VIEW_H:
+            mode = down[event]
+            # Shift + clic izquierdo = mover (para trackpads sin botón central).
+            if mode == "girar" and flags & cv2.EVENT_FLAG_SHIFTKEY:
+                mode = "mover"
+            self._drag = (self._hover, mode, x, y)
+        elif event in (cv2.EVENT_LBUTTONUP, cv2.EVENT_RBUTTONUP, cv2.EVENT_MBUTTONUP):
             self._drag = None
         elif event == cv2.EVENT_MOUSEMOVE and self._drag is not None:
-            idx, button, x0, y0 = self._drag
+            # El arrastre se queda en el POV donde empezó aunque el mouse
+            # cruce al otro: nunca mueve los dos a la vez (salvo Vincular).
+            idx, mode, x0, y0 = self._drag
             dx, dy = x - x0, y - y0
             pov = self.povs[idx]
-            if button == cv2.EVENT_LBUTTONDOWN:
+            if mode == "girar":
                 # Arrastrar a la derecha gira la escena a la derecha, como
                 # la órbita de Blender. 0.4° por píxel.
                 self.set_view(idx, pov.elev + dy * 0.4, pov.azim - dx * 0.4)
+            elif mode == "mover":
+                pov.pan = pov.pan + (dx, dy)
             else:
                 pov.zoom *= 1.01 ** (-dy)
-            self._drag = (idx, button, x, y)
+            self._drag = (idx, mode, x, y)
         elif event == cv2.EVENT_MOUSEWHEEL:
             delta = cv2.getMouseWheelDelta(flags)
             self.povs[self._hover].zoom *= 1.1 if delta > 0 else 1 / 1.1
 
     # ------------------------------------------------------------ encuadre
 
-    def _frame_target(self, hands):
-        """(centro, tamaño) de la región a mostrar, en coords de vista."""
-        if not self.fit:
-            return np.array([0.5, 0.0, -self.aspect / 2]), 1.1
+    def _frame_target(self, pov, hands):
+        """(centro, tamaño) de la región que muestra ESE POV (cada uno
+        lleva su propio encuadre suavizado)."""
+        whole = (np.array([0.5, 0.0, -self.aspect / 2]), 1.1)
+        if not pov.fit:
+            return whole
         if not hands:
-            if self._fit is None:
-                return np.array([0.5, 0.0, -self.aspect / 2]), 1.1
-            return self._fit  # sin manos: se queda donde estaba
+            # Sin manos: se queda donde estaba.
+            return pov.fit_state if pov.fit_state is not None else whole
         pts = [_to_plot(p) for h in hands for p in scene_points(h).values()]
         lo, hi = np.min(pts, axis=0), np.max(pts, axis=0)
         target = ((lo + hi) / 2,
                   max(FIT_MIN_SIZE, FIT_PADDING * float(np.max(hi - lo))))
-        if self._fit is not None:
+        if pov.fit_state is not None:
             a = FIT_SMOOTHING
-            target = (a * target[0] + (1 - a) * self._fit[0],
-                      a * target[1] + (1 - a) * self._fit[1])
-        self._fit = target
+            target = (a * target[0] + (1 - a) * pov.fit_state[0],
+                      a * target[1] + (1 - a) * pov.fit_state[1])
+        pov.fit_state = target
         return target
 
     # ------------------------------------------------------------ dibujo
@@ -360,19 +402,21 @@ class DualPOVViewer:
         """
         if not self._open:
             return
-        center, size = self._frame_target(hands)
         views = []
         for idx, pov in enumerate(self.povs):
             img = np.full((VIEW_H, VIEW_W, 3),
                           BG_ACTIVE if idx == self._hover else BG, np.uint8)
+            center, size = self._frame_target(pov, hands)
             proj = _Projector(pov, center, size)
             self._draw_grid(img, proj, center, size)
             self._draw_camera(img, proj)
             for hand in hands:
                 self._draw_hand(img, proj, hand, show_velocity)
             self._draw_gizmo(img, pov)
-            _text(img, f"POV {idx + 1}", (12, 24), TEXT, 0.6)
-            _text(img, f"elev {pov.elev:+.0f}  azim {pov.azim:+.0f}  zoom {pov.zoom:.1f}x",
+            _text(img, f"POV {idx + 1}" + ("  (activo)" if idx == self._hover else ""),
+                  (12, 24), TEXT, 0.6)
+            _text(img, f"elev {pov.elev:+.0f}  azim {pov.azim:+.0f}  "
+                       f"zoom {pov.zoom:.1f}x  encuadre {'si' if pov.fit else 'no'}",
                   (12, 46), TEXT_DIM, 0.4)
             views.append(img)
         top = np.hstack(views)
@@ -503,17 +547,19 @@ class DualPOVViewer:
             # Coordenadas en la ventana completa (la barra va debajo).
             self._buttons.append((x, VIEW_H + y, x + w, VIEW_H + y + 26, action))
 
-        # Botones de vista bajo cada POV.
+        # Botones de cada POV: vistas + su propio Encuadrar.
         for idx, left in enumerate((10, VIEW_W + 10)):
             for j, name in enumerate(VIEWS):
                 button(left + j * 74, 68, name,
                        lambda i=idx, n=name: self.set_view(i, *VIEWS[n]))
-        # Interruptores en el hueco de la derecha de cada grupo.
-        button(320, 150, "Vincular 180", self.toggle_link, self.linked)
-        button(480, 150, "Encuadrar", self.toggle_fit, self.fit)
-        help_text = (f"[v] velocidad: {'si' if show_velocity else 'no'}   "
-                     "arrastrar: girar | rueda o +/-: zoom | 1 frente  3 lado  "
-                     "7 arriba  9 opuesta | . encuadrar | l vincular | r reiniciar | q salir")
+            button(left + 4 * 74, 100, "Encuadrar",
+                   lambda i=idx: self.toggle_fit(i), self.povs[idx].fit)
+        # Único control compartido: vincular la rotación de los dos POV.
+        button(VIEW_W - 216, 200, "Vincular 180", self.toggle_link, self.linked)
+        help_text = ("Todo actua sobre el POV bajo el mouse: arrastrar girar | "
+                     "shift+arrastrar mover | rueda o +/- zoom | 1 3 7 9 vistas | "
+                     f". encuadrar | r reiniciar | l vincular | v velocidad "
+                     f"({'si' if show_velocity else 'no'}) | q salir")
         _text(bar, help_text, (10, 60), TEXT_DIM, 0.4)
         return bar
 
