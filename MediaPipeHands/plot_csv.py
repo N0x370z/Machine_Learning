@@ -8,9 +8,21 @@ Uso:
     ./venv/bin/python3 plot_csv.py capturas/archivo.csv  # CSV específico
     ./venv/bin/python3 plot_csv.py --frame 38            # solo un frame, estático
     ./venv/bin/python3 plot_csv.py --swap-hands          # CSV viejo con Left/Right invertidos
+    ./venv/bin/python3 plot_csv.py --3d                  # en 3D (x, y, z), dos POV
+
+Con --3d usa el mismo visor de dos puntos de vista que la captura en vivo
+(viewer3d.py, ventana de OpenCV), incluyendo la profundidad z, el
+antebrazo (codo, landmark 21) si el CSV lo tiene y las flechas de
+velocidad. La velocidad se recalcula al leer, desde x, y, z y el
+timestamp de cada fotograma (kinematics.py), así funciona también con
+CSVs viejos que no traen las columnas vx/vy/vz.
+
+Teclas en la reproducción 3D (además de las del visor, ver viewer3d.py):
+    espacio = pausa / seguir     a / d = frame anterior / siguiente
+    v = flechas de velocidad     q o Esc = salir
 
 Historial de cambios relevantes: ver CHANGELOG.md.
-Última actualización: 2026-09-23.
+Última actualización: 2026-09-24.
 """
 
 import argparse
@@ -23,7 +35,11 @@ import matplotlib.animation as animation
 from matplotlib.lines import Line2D
 from mediapipe.tasks.python import vision
 
+import cv2
+
 import hand_style
+import kinematics
+import viewer3d
 
 CAPTURAS_DIR = Path(__file__).parent / "capturas"
 HAND_CONNECTIONS = vision.HandLandmarksConnections.HAND_CONNECTIONS
@@ -54,11 +70,20 @@ def latest_csv():
 def load_frames(csv_path, swap_hands=False):
     """frame_idx -> {(hand_id, handedness): {landmark_index: (x, y, z)}, ...}
 
+    También devuelve el aspecto (alto/ancho) del frame original, tomado de
+    las columnas img_w/img_h (CSVs desde el 2026-09-24). En CSVs más
+    viejos no existen y se asume 16:9 (1280x720, la resolución por defecto
+    de Prueba.py). El landmark 21, si está, es el codo (ver forearm.py).
+    Y devuelve {(frame_idx, hand_id): "yolo"|"estimado"} con el origen de
+    cada codo (columna "fuente", desde el 2026-09-24; si falta, "yolo").
+
     swap_hands invierte Left/Right al leer: sirve para CSVs grabados antes
     del 2026-09-23, cuando Prueba.py exportaba la lateralidad invertida.
     """
     frames = defaultdict(lambda: defaultdict(dict))
     timestamps = {}
+    aspect = 720 / 1280
+    elbow_sources = {}
     with open(csv_path, newline="") as f:
         for row in csv.DictReader(f):
             frame_idx = int(row["frame"])
@@ -73,7 +98,31 @@ def load_frames(csv_path, swap_hands=False):
                 float(row["x"]), float(row["y"]), float(row["z"]),
             )
             timestamps[frame_idx] = int(row["timestamp_ms"])
-    return frames, timestamps
+            if int(row["landmark_index"]) == hand_style.ELBOW_INDEX:
+                elbow_sources[(frame_idx, key[0])] = row.get("fuente") or "yolo"
+            if row.get("img_w") and row.get("img_h"):
+                aspect = int(row["img_h"]) / int(row["img_w"])
+    return frames, timestamps, aspect, elbow_sources
+
+
+def frame_to_scene(hands_in_frame, aspect, frame_idx=None, elbow_sources=None):
+    """Manos de un frame del CSV -> formato de escena de viewer3d
+    (sin velocidades: las agrega show_3d con kinematics.py)."""
+    elbow_sources = elbow_sources or {}
+    hands = []
+    for (hand_id, label), landmarks in hands_in_frame.items():
+        elbow = landmarks.get(hand_style.ELBOW_INDEX)
+        hands.append({
+            "id": hand_id,
+            "label": label,
+            "points": [(x, y * aspect, z) for x, y, z in
+                       (landmarks[i] for i in range(21))],
+            "elbow": (elbow[0], elbow[1] * aspect, elbow[2]) if elbow else None,
+            "elbow_source": elbow_sources.get((frame_idx, hand_id), "yolo")
+                            if elbow else None,
+            "velocities": {},
+        })
+    return hands
 
 
 def draw_frame(ax, hands_in_frame):
@@ -91,8 +140,22 @@ def draw_frame(ax, hands_in_frame):
     seen_sides = set()
     for (hand_id, label), landmarks in hands_in_frame.items():
         linestyle = HAND_LINESTYLE.get(label, "solid")
-        points = [landmarks[i] for i in sorted(landmarks)]
+        # Solo los 21 de MediaPipe; el codo (21) va aparte, abajo.
+        points = [landmarks[i] for i in range(21)]
         seen_sides.add(label)
+
+        # Antebrazo (codo -> muñeca), debajo de la mano como en la vista
+        # en vivo. Solo existe en CSVs grabados con YOLO activo.
+        elbow = landmarks.get(hand_style.ELBOW_INDEX)
+        if elbow is not None:
+            fcolor = _mpl_color(hand_style.FINGER_COLORS_RGB["forearm"])
+            ax.plot([elbow[0], points[0][0]], [elbow[1], points[0][1]],
+                    color=fcolor, linewidth=5, solid_capstyle="round",
+                    zorder=0)
+            ax.scatter([elbow[0]], [elbow[1]], s=60, color=fcolor, zorder=0)
+            ax.annotate(hand_style.ELBOW_NAME, elbow[:2], xytext=(6, 0),
+                        textcoords="offset points", fontsize=7,
+                        color=fcolor, zorder=3)
 
         # Conexiones: color por dedo (gris neutro para las conexiones
         # muñeca-nudillo, que son estructura de la palma, no un dedo).
@@ -152,18 +215,27 @@ def main():
     parser.add_argument("--swap-hands", action="store_true",
                          help="Invierte Left/Right (para CSVs grabados antes "
                               "del 2026-09-23, con la lateralidad invertida)")
+    parser.add_argument("--3d", dest="three_d", action="store_true",
+                         help="Grafica en 3D (x, y, z) con dos puntos de vista "
+                              "(ver viewer3d.py)")
     args = parser.parse_args()
 
     csv_path = args.csv_path or latest_csv()
-    frames, timestamps = load_frames(csv_path, args.swap_hands)
+    frames, timestamps, aspect, elbow_sources = load_frames(csv_path, args.swap_hands)
     frame_indices = sorted(frames)
+
+    if args.frame is not None and args.frame not in frames:
+        raise SystemExit(f"El frame {args.frame} no existe en {csv_path}")
+
+    if args.three_d:
+        show_3d(csv_path, frames, timestamps, aspect, elbow_sources,
+                frame_indices, args)
+        return
 
     fig, ax = plt.subplots(figsize=(6, 6))
     fig.patch.set_facecolor(SURFACE)
 
     if args.frame is not None:
-        if args.frame not in frames:
-            raise SystemExit(f"El frame {args.frame} no existe en {csv_path}")
         draw_frame(ax, frames[args.frame])
         ax.set_title(f"{csv_path.name} — frame {args.frame} "
                      f"({timestamps[args.frame]} ms)", color=INK)
@@ -179,6 +251,62 @@ def main():
         fig, update, frames=frame_indices, interval=args.interval, repeat=True,
     )
     plt.show()
+
+
+def show_3d(csv_path, frames, timestamps, aspect, elbow_sources,
+            frame_indices, args):
+    """
+    Reproduce el CSV en el visor de dos POV de OpenCV (viewer3d.py), en
+    bucle. Con --frame arranca en pausa en ese frame.
+
+    Las velocidades se calculan una sola vez, recorriendo los frames en
+    orden, para que pausar o retroceder no las altere.
+    """
+    velocity = kinematics.VelocityEstimator()
+    scenes = {}
+    for frame_idx in frame_indices:
+        hands = frame_to_scene(frames[frame_idx], aspect, frame_idx, elbow_sources)
+        for hand in hands:
+            hand["velocities"] = velocity.update(
+                hand["id"], timestamps[frame_idx] / 1000,
+                viewer3d.scene_points(hand))
+        scenes[frame_idx] = hands
+
+    viewer = viewer3d.DualPOVViewer(aspect=aspect)
+    pos = frame_indices.index(args.frame) if args.frame is not None else 0
+    paused = args.frame is not None
+    show_velocity = True
+    try:
+        while True:
+            frame_idx = frame_indices[pos]
+            state = "  [pausa]" if paused else ""
+            viewer.render(scenes[frame_idx],
+                          f"{csv_path.name}  frame {frame_idx} "
+                          f"({timestamps[frame_idx]} ms){state}", show_velocity)
+            key = cv2.waitKey(args.interval) & 0xFF
+            if key in (ord("q"), 27):
+                break
+            if key == ord(" "):
+                paused = not paused
+            elif key == ord("a"):
+                paused, pos = True, (pos - 1) % len(frame_indices)
+            elif key == ord("d"):
+                paused, pos = True, (pos + 1) % len(frame_indices)
+            elif key == ord("v"):
+                show_velocity = not show_velocity
+            else:
+                viewer.handle_key(key)
+            if not paused:
+                pos = (pos + 1) % len(frame_indices)
+            if not viewer.is_open():
+                break
+    except KeyboardInterrupt:
+        pass
+    finally:
+        viewer.close()
+        # En macOS la ventana no desaparece hasta procesar sus eventos.
+        for _ in range(10):
+            cv2.waitKey(1)
 
 
 if __name__ == "__main__":
