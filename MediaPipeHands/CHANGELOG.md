@@ -3,7 +3,45 @@
 Historial de cambios del proyecto. Formato libre pero cronológico
 (más reciente arriba), en español porque así está el resto del repo.
 
-## 2026-09-24 (segunda parte: correcciones tras la primera prueba con cámara)
+## 2026-09-24 (tercera parte: POV independientes — versión 24-C)
+
+### Cambiado: cada POV es una cámara virtual independiente
+Pedido: poder mover una cámara (POV) sin que se mueva la otra. En la
+versión anterior, "Vincular 180°" venía **activado por defecto**, así que
+al girar un POV el otro también giraba, y el encuadre y el reinicio eran
+compartidos.
+
+- **"Vincular 180" ahora está apagado por defecto.** Cada POV gira por
+  su cuenta. Sigue disponible (tecla `l` o botón en el medio) y, cuando
+  está activo, solo vincula la **rotación**.
+- **Encuadrar por POV:** cada POV tiene su propio botón *Encuadrar* y
+  la tecla `.` actúa sobre el POV bajo el mouse. Antes era uno solo para
+  los dos. Así se puede tener un POV siguiendo la mano y el otro con la
+  escena entera.
+- **`r` reinicia solo el POV bajo el mouse** (ángulo inicial, zoom,
+  desplazamiento y encuadre). Antes reiniciaba los dos.
+- **Nuevo: desplazar (pan) cada POV** con `Shift` + arrastrar o
+  arrastrando con el botón central, como en Blender.
+- Un arrastre que empieza en un POV sigue afectando solo a ese POV
+  aunque el mouse cruce al otro.
+- El POV bajo el mouse se marca como `(activo)` y muestra su estado
+  (`elev`, `azim`, `zoom`, `encuadre`).
+
+### Código
+- `viewer3d.py`: `_POV` guarda ahora su propio `zoom`, `pan`, `fit` y
+  `fit_state` (encuadre suavizado), y `reset()`. `DualPOVViewer` pierde
+  `fit`/`_fit` globales; `toggle_fit(idx)` y `reset(idx)` reciben el POV;
+  `linked` arranca en `False`; `_frame_target(pov, hands)` calcula el
+  encuadre de cada POV por separado.
+
+### Documentación
+- `README.md`: sección de controles reescrita ("cada POV es
+  independiente") y sección nueva **Cambios: comandos, partes quitadas y
+  por qué**, con los comandos actuales, los que cambiaron o se quitaron,
+  las partes del código reemplazadas y las versiones del formato del CSV,
+  cada una con su motivo.
+
+## 2026-09-24 (segunda parte: correcciones tras la primera prueba con cámara — versión 24-B)
 
 ### Corregido
 - **Bug: `q` no cerraba bien.** Con la vista 3D (matplotlib) abierta:
@@ -85,7 +123,7 @@ Historial de cambios del proyecto. Formato libre pero cronológico
   `rapidez_cm_s` y `fuente` (`mediapipe`, `yolo` o `estimado`).
   `plot_csv.py` sigue leyendo todos los formatos anteriores.
 
-## 2026-09-24 (primera parte)
+## 2026-09-24 (primera parte — versión 24-A)
 
 ### Añadido: eje z y vista 3D con dos puntos de vista (POV)
 - Nuevo módulo `viewer3d.py`: ventana de matplotlib con **dos vistas 3D
