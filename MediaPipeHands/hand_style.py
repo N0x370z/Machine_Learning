@@ -80,6 +80,24 @@ FINGER_COLORS_RGB = {
 ELBOW_INDEX = 21
 ELBOW_NAME = "Codo"
 
+# Abreviaturas para mostrar la velocidad de los cinco dedos en poco
+# espacio (panel de estado y vista 3D). ASCII para las fuentes de OpenCV.
+FINGER_ABBR = {
+    "thumb": "Pul",
+    "index": "Ind",
+    "middle": "Med",
+    "ring": "Anu",
+    "pinky": "Men",
+}
+
+
+def point_name(landmark_index):
+    """Nombre legible de un punto para el CSV: dedo, "Muñeca" o "Codo"."""
+    if landmark_index == ELBOW_INDEX:
+        return ELBOW_NAME
+    finger = LANDMARK_FINGER.get(landmark_index, "wrist")
+    return "Muñeca" if finger == "wrist" else FINGER_NAMES[finger]
+
 
 def finger_of(landmark_index):
     """Dedo ('thumb'..'pinky') al que pertenece un landmark, o 'wrist'."""

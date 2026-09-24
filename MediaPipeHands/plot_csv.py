@@ -20,6 +20,7 @@ CSVs viejos que no traen las columnas vx/vy/vz.
 Teclas en la reproducción 3D (además de las del visor, ver viewer3d.py):
     espacio = pausa / seguir     a / d = frame anterior / siguiente
     v = flechas de velocidad     q o Esc = salir
+    f = velocidad de cada dedo absoluta / relativa a la muñeca
 
 Historial de cambios relevantes: ver CHANGELOG.md.
 Última actualización: 2026-09-24.
@@ -276,13 +277,15 @@ def show_3d(csv_path, frames, timestamps, aspect, elbow_sources,
     pos = frame_indices.index(args.frame) if args.frame is not None else 0
     paused = args.frame is not None
     show_velocity = True
+    relative_fingers = False
     try:
         while True:
             frame_idx = frame_indices[pos]
             state = "  [pausa]" if paused else ""
             viewer.render(scenes[frame_idx],
                           f"{csv_path.name}  frame {frame_idx} "
-                          f"({timestamps[frame_idx]} ms){state}", show_velocity)
+                          f"({timestamps[frame_idx]} ms){state}", show_velocity,
+                          relative_fingers)
             key = cv2.waitKey(args.interval) & 0xFF
             if key in (ord("q"), 27):
                 break
@@ -294,6 +297,8 @@ def show_3d(csv_path, frames, timestamps, aspect, elbow_sources,
                 paused, pos = True, (pos + 1) % len(frame_indices)
             elif key == ord("v"):
                 show_velocity = not show_velocity
+            elif key == ord("f"):
+                relative_fingers = not relative_fingers
             else:
                 viewer.handle_key(key)
             if not paused:

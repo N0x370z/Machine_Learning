@@ -19,6 +19,17 @@ Cómo se calcula (para cada punto, en cada frame):
     encontrar), la velocidad se reinicia en 0 en lugar de calcular un
     salto enorme entre dos posiciones muy separadas en el tiempo.
 
+Velocidad de cada dedo (finger_speeds, desde la versión 24-D):
+  La velocidad de un dedo es la de su PUNTA (landmarks 4, 8, 12, 16, 20):
+  es el punto que más se mueve y el que describe lo que "hace" el dedo.
+  Se da de dos formas:
+  - absoluta: rapidez de la punta tal cual (incluye el movimiento de
+    toda la mano; si mueves el brazo, todos los dedos "van rápido").
+  - relativa a la muñeca: rapidez de (v_punta - v_muñeca), o sea, solo
+    lo que el dedo se mueve respecto a la mano (doblarlo, estirarlo,
+    tocar algo). Con la mano quieta y un dedo moviéndose, solo ese dedo
+    sube.
+
 Unidades:
   - vx, vy, vz: anchos de frame por segundo (u/s). vy positiva = hacia
     abajo en la imagen; vz positiva = alejándose de la cámara.
@@ -31,6 +42,8 @@ Unidades:
 """
 
 import math
+
+import hand_style
 
 # Largo típico de la palma adulta (muñeca -> nudillo del dedo medio).
 PALM_LENGTH_CM = 9.5
@@ -97,3 +110,28 @@ class VelocityEstimator:
 def speed_cm_s(velocity, scale_cm_per_unit):
     """Rapidez (módulo de la velocidad) en cm/s aproximados."""
     return _norm(velocity) * scale_cm_per_unit
+
+
+def finger_speeds(points, velocities):
+    """
+    Rapidez de cada dedo en cm/s, usando su punta (ver docstring).
+
+    points: los 21 puntos de la mano (X, Y, Z); velocities: {índice:
+    (vx, vy, vz)} de VelocityEstimator.update. Devuelve {dedo: (absoluta,
+    relativa_a_la_muñeca)} con dedo = "thumb", "index", "middle", "ring",
+    "pinky" (nombres en español en hand_style.FINGER_NAMES).
+    """
+    scale = cm_per_unit(points)
+    wrist = velocities.get(0, (0.0, 0.0, 0.0))
+    speeds = {}
+    for tip, finger in hand_style.FINGERTIPS.items():
+        v = velocities.get(tip, (0.0, 0.0, 0.0))
+        rel = tuple(a - b for a, b in zip(v, wrist))
+        speeds[finger] = (speed_cm_s(v, scale), speed_cm_s(rel, scale))
+    return speeds
+
+
+def relative_speed_cm_s(velocity, wrist_velocity, scale_cm_per_unit):
+    """Rapidez de un punto respecto a la muñeca, en cm/s aproximados."""
+    rel = tuple(a - b for a, b in zip(velocity, wrist_velocity))
+    return speed_cm_s(rel, scale_cm_per_unit)

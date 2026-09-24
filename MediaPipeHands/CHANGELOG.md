@@ -3,6 +3,34 @@
 Historial de cambios del proyecto. Formato libre pero cronológico
 (más reciente arriba), en español porque así está el resto del repo.
 
+## 2026-09-24 (cuarta parte: velocidad de cada dedo — versión 24-D)
+
+### Añadido
+- **Velocidad de cada dedo** (`kinematics.finger_speeds`): la de su punta
+  (landmarks 4, 8, 12, 16, 20), en dos modos que se alternan con la tecla
+  **`f`**:
+  - *absoluta*: rapidez de la punta (incluye el movimiento de la mano);
+  - *relativa a la muñeca*: rapidez de `v_punta − v_muñeca`, solo lo que
+    el dedo se mueve dentro de la mano.
+  Verificado con datos simulados: mover solo el índice da velocidad solo
+  en el índice; mover la mano entera da los cinco dedos iguales en
+  absoluta y 0 en relativa.
+- Ventana de la cámara: la velocidad junto al nombre de cada dedo
+  (`Indice 32`) y una fila por mano en el panel de estado
+  (`Pul 12  Ind 30  Med 8  Anu 5  Men 4`).
+- Vista 3D: la velocidad junto a cada punta en los dos POV y un panel en
+  el POV 1 con una barra por dedo.
+- `plot_csv.py --3d`: también con la tecla `f`.
+- CSV: columnas `rapidez_rel_cm_s` (rapidez respecto a la muñeca) y
+  `dedo` (Pulgar, Índice, Medio, Anular, Meñique, Muñeca o Codo).
+- `hand_style.py`: `FINGER_ABBR` (abreviaturas) y `point_name()`.
+
+### Corregido
+- Los nombres de los dedos en la vista de la cámara usaban el contorno
+  grueso; con el número de velocidad agregado el texto es más largo y
+  aparecían letras repetidas al final. Ahora usan la sombra de 1 px, como
+  la vista 3D.
+
 ## 2026-09-24 (tercera parte: POV independientes — versión 24-C)
 
 ### Cambiado: cada POV es una cámara virtual independiente
