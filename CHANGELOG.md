@@ -1,7 +1,36 @@
-# Changelog
+# Changelog — HandMotion3D (antes MediaPipeHands)
 
 Historial de cambios del proyecto. Formato libre pero cronológico
 (más reciente arriba), en español porque así está el resto del repo.
+
+## 2026-09-24 (quinta parte: nombre y estructura — versión 24-E)
+
+### Cambiado
+- **Nombre del proyecto: `MediaPipeHands` → `HandMotion3D`.** El
+  proyecto ya no es solo un ejercicio de Machine Learning: detecta la
+  mano y el antebrazo, los muestra en 3D con dos POV y mide velocidades.
+  El nombre describe eso (mano + movimiento + 3D).
+- **Estructura:** los archivos salieron de la carpeta `MediaPipeHands/`
+  y pasaron a la **raíz del repositorio**, que ahora es todo del
+  proyecto. Se movieron con `git mv`, así que conservan su historial
+  (`git log --follow <archivo>`). `venv/`, `models/` y `capturas/`
+  (fuera de git) también se movieron a la raíz. El código no cambió:
+  todas las rutas se calculan desde la carpeta del propio script.
+- La carpeta local y el repositorio de GitHub pasan de `Machine_Learning`
+  a `HandMotion3D` (el de GitHub se renombra a mano desde sus ajustes;
+  GitHub redirige la URL vieja).
+- `.gitignore`: las reglas `MediaPipeHands/models/*` y
+  `MediaPipeHands/capturas/*` pasan a `models/*` y `capturas/*`; sin
+  este cambio los modelos (~34 MB) y las capturas se habrían subido a git.
+- README: título, descripción, "desde dónde correr los comandos",
+  estructura del proyecto e instalación actualizados.
+
+### Corregido
+- `./venv/bin/pip` no funcionaba: el script `pip` de un venv guarda la
+  ruta absoluta donde se creó (este venv venía de
+  `/Users/atreus/Programacion/MediaPipeHands/`), y deja de funcionar si
+  la carpeta se mueve. El README ahora usa `./venv/bin/python3 -m pip`,
+  que funciona siempre.
 
 ## 2026-09-24 (cuarta parte: velocidad de cada dedo — versión 24-D)
 

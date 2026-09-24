@@ -10,9 +10,11 @@ __pycache__/
 # Sistema
 .DS_Store
 
-# MediaPipeHands: modelo grande descargado aparte (ver README) y CSVs
-# de capturas de sesiones locales, no forman parte del código.
-MediaPipeHands/models/*.task
-MediaPipeHands/capturas/*.csv
-MediaPipeHands/capturas/*.png
-MediaPipeHands/models/*.pt
+# Modelos grandes que se descargan aparte (ver README): el de MediaPipe
+# (.task) y los de YOLO pose (.pt, se descargan solos).
+models/*.task
+models/*.pt
+
+# Capturas de sesiones locales (CSVs y fotos), no forman parte del código.
+capturas/*.csv
+capturas/*.png
