@@ -95,6 +95,11 @@ QUIT_KEYS = (ord("q"), 27)
 
 
 class HandTrack:
+    """
+    Una mano física seguida entre frames: su id, último centroide,
+    historial de votos Left/Right (HANDEDNESS_WINDOW frames) y cuántos
+    frames lleva sin verse (age, para descartarla tras TRACK_MAX_AGE).
+    """
     _next_id = 0
 
     def __init__(self, centroid, label, score):
@@ -112,6 +117,7 @@ class HandTrack:
 
     @property
     def stable_label(self):
+        """Left/Right ganador del voto ponderado por score en la ventana."""
         totals = Counter()
         for label, score in self.history:
             totals[label] += score
@@ -119,6 +125,7 @@ class HandTrack:
 
     @property
     def stable_score(self):
+        """Score promedio de los frames que votaron por stable_label."""
         scores = [score for label, score in self.history if label == self.stable_label]
         return sum(scores) / len(scores)
 
@@ -143,6 +150,17 @@ class HandTracker:
         self.tracks = []
 
     def update(self, hand_landmarks_list, handedness_list):
+        """
+        Empareja las manos de este frame con los tracks existentes.
+
+        Emparejamiento voraz por distancia de centroides (el par más cercano
+        primero, hasta TRACK_MATCH_MAX_DIST); las manos sin pareja abren un
+        track nuevo. Los tracks sin mano envejecen y se descartan después de
+        TRACK_MAX_AGE frames.
+
+        Devuelve [(track_id, handedness_estable, score_estable, landmarks)],
+        en el mismo orden que hand_landmarks_list.
+        """
         centroids = [_centroid(lm) for lm in hand_landmarks_list]
 
         pairs = []
@@ -201,12 +219,14 @@ def _swap_handedness(label):
 
 
 def _centroid(hand_landmarks):
+    """Centro (x, y) promedio de los 21 landmarks, para emparejar manos."""
     xs = [lm.x for lm in hand_landmarks]
     ys = [lm.y for lm in hand_landmarks]
     return (sum(xs) / len(xs), sum(ys) / len(ys))
 
 
 def _distance(a, b):
+    """Distancia euclídea 2D entre dos puntos (x, y) normalizados."""
     return ((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2) ** 0.5
 
 
@@ -464,6 +484,11 @@ def landmarks_to_rows(frame_idx, timestamp_ms, hands_scene, scores,
 
 
 def export_to_csv(records):
+    """
+    Escribe las filas acumuladas en capturas/hand_data_<fecha>.csv con
+    CSV_HEADER. Si no hay filas (ninguna mano en toda la sesión), solo
+    avisa y no crea el archivo.
+    """
     if not records:
         print("No se detectaron manos, no hay datos que exportar.")
         return
@@ -480,6 +505,7 @@ def export_to_csv(records):
 
 
 def parse_args():
+    """Flags de línea de comandos (ver la tabla del README)."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--max-hands", type=int, default=DEFAULT_MAX_HANDS,
@@ -554,6 +580,11 @@ def parse_args():
 
 
 def main():
+    """
+    Bucle de captura: cámara -> MediaPipe -> tracker -> YOLO (codo) ->
+    velocidad -> dibujo (cámara + vista 3D) -> teclas. Al salir (q, Esc,
+    cerrar la ventana, Ctrl+C o error) libera todo y exporta el CSV.
+    """
     args = parse_args()
 
     if not MODEL_PATH.exists():

@@ -58,10 +58,12 @@ SURFACE = "#fcfcfb"
 
 
 def _mpl_color(rgb_255):
+    """Convierte un color RGB 0-255 (hand_style) al formato 0-1 de matplotlib."""
     return tuple(c / 255 for c in rgb_255)
 
 
 def latest_csv():
+    """El CSV más reciente de capturas/ (por nombre, que lleva la fecha)."""
     files = sorted(CAPTURAS_DIR.glob("hand_data_*.csv"))
     if not files:
         raise FileNotFoundError(f"No hay CSVs en {CAPTURAS_DIR}")
@@ -127,6 +129,11 @@ def frame_to_scene(hands_in_frame, aspect, frame_idx=None, elbow_sources=None):
 
 
 def draw_frame(ax, hands_in_frame):
+    """
+    Dibuja en 2D (x, y) todas las manos de un frame: color por dedo,
+    punteado = Left, sólido = Right, nombre en las puntas y antebrazo si
+    hay codo.
+    """
     ax.clear()
     ax.set_facecolor(SURFACE)
     ax.set_xlim(0, 1)
@@ -207,6 +214,11 @@ def draw_frame(ax, hands_in_frame):
 
 
 def main():
+    """
+    Lee el CSV (el indicado o el último) y lo muestra: en 2D con
+    matplotlib (animado o un frame con --frame) o con --3d en el visor de
+    dos POV.
+    """
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("csv_path", nargs="?", type=Path, default=None)
     parser.add_argument("--frame", type=int, default=None,

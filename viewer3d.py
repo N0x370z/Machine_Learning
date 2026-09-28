@@ -229,6 +229,7 @@ class _POV:
         self.reset()
 
     def reset(self):
+        """Vuelve a la vista inicial, zoom 1, sin desplazamiento y encuadrando."""
         self.elev, self.azim = self.home
         self.zoom = 1.0
         self.pan = np.zeros(2)  # desplazamiento en píxeles de pantalla
@@ -236,6 +237,7 @@ class _POV:
         self.fit_state = None   # (centro, tamaño) suavizado del encuadre
 
     def set(self, elev, azim):
+        """Fija el ángulo: elevación limitada a ±90° y azimut en [-180, 180)."""
         self.elev = max(-90.0, min(90.0, elev))
         self.azim = (azim + 180) % 360 - 180
 
@@ -250,6 +252,7 @@ class _Projector:
         self.pan = pov.pan
 
     def px(self, p):
+        """Proyecta un punto 3D de la escena a píxeles (x, y) de este POV."""
         rel = np.asarray(p, float) - self.center
         x = VIEW_W / 2 + self.pan[0] + self.scale * float(rel @ self.right)
         y = VIEW_H / 2 + self.pan[1] - self.scale * float(rel @ self.up)
@@ -301,6 +304,7 @@ class DualPOVViewer:
             self.set_view(0, self.povs[0].elev, self.povs[0].azim)
 
     def toggle_fit(self, idx):
+        """Activa/desactiva Encuadrar solo en ese POV (tecla '.' o botón)."""
         pov = self.povs[idx]
         pov.fit = not pov.fit
         pov.fit_state = None
@@ -335,6 +339,12 @@ class DualPOVViewer:
         return True
 
     def _on_mouse(self, event, x, y, flags, _param):
+        """
+        Mouse del visor: marca el POV bajo el cursor, atiende los botones de
+        la barra y arrastra (girar, mover con Shift o botón central, zoom con
+        clic derecho) y la rueda, siempre sobre el POV donde empezó el
+        arrastre.
+        """
         if y < VIEW_H:
             self._hover = 0 if x < VIEW_W else 1
         if event == cv2.EVENT_LBUTTONDOWN and y >= VIEW_H:
@@ -619,6 +629,7 @@ class DualPOVViewer:
         return self._open
 
     def close(self):
+        """Cierra la ventana del visor (sin error si ya estaba cerrada)."""
         if self._open:
             try:
                 cv2.destroyWindow(WINDOW)

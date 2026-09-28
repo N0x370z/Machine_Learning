@@ -101,6 +101,10 @@ class VelocityEstimator:
         return velocities
 
     def _forget_old(self, t_s):
+        """
+        Borra los puntos que no se ven hace más de FORGET_AFTER_S, para que
+        el estado no crezca con manos que ya salieron de cámara.
+        """
         stale = [k for k, (t0, _p, _v) in self._state.items()
                  if t_s - t0 > FORGET_AFTER_S]
         for k in stale:

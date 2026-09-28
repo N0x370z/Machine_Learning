@@ -4,7 +4,7 @@ Seguimiento de la **mano y el antebrazo en 3D** con una sola webcam: esqueleto d
 
 > **Nombre y estructura (2026-09-24, versión 24-E):** el proyecto se llamaba **MediaPipeHands** y vivía en la carpeta `MediaPipeHands/` de un repositorio general de Machine Learning (`Machine_Learning`). Como ya no es solo un ejercicio de ML sino un proyecto propio (detección, 3D, antebrazo, velocidad), pasó a llamarse **HandMotion3D** y sus archivos se movieron a la **raíz del repositorio**. Detalle en [Cambios: comandos, partes quitadas y por qué](#cambios-comandos-partes-quitadas-y-por-qué).
 
-> Última actualización: **2026-09-24**. Historial completo de errores, cambios y mejoras en [`CHANGELOG.md`](CHANGELOG.md). Resumen de **comandos nuevos y antiguos, partes quitadas y por qué** en [Cambios: comandos, partes quitadas y por qué](#cambios-comandos-partes-quitadas-y-por-qué).
+> Última actualización: **2026-09-28**. Historial completo de errores, cambios y mejoras en [`CHANGELOG.md`](CHANGELOG.md). Resumen de **comandos nuevos y antiguos, partes quitadas y por qué** en [Cambios: comandos, partes quitadas y por qué](#cambios-comandos-partes-quitadas-y-por-qué).
 
 Detección de manos en tiempo real con [MediaPipe Tasks API](https://ai.google.dev/edge/mediapipe/solutions/vision/hand_landmarker), vista 3D de la mano con **dos puntos de vista (POV)** a la vez (como los viewports de Blender) usando la profundidad `z`, el esqueleto extendido **hasta el antebrazo** (codo detectado con YOLO pose), la **velocidad** de cada punto (a partir de `x`, `y`, `z` y del tiempo de cada fotograma), captura de los 21 landmarks por mano (+ el codo) en un CSV, y un script separado para volver a graficar esos mismos puntos a partir del CSV (sin necesidad de la cámara).
 
@@ -87,13 +87,12 @@ No necesita cámara: solo lee el CSV. En 2D, cierra la ventana de matplotlib par
 | `No se pudo abrir la cámara` | Da permiso de cámara a la terminal (ver paso 1) y ciérrala y ábrela de nuevo. Cierra otras apps que estén usando la cámara (Zoom, FaceTime…). |
 | `No se encontró el modelo en models/hand_landmarker.task` | Falta descargar el modelo (ver paso 1). |
 | Le cuesta detectar la mano o la pierde | Más luz, acerca la mano, o baja el umbral: `./venv/bin/python3 Prueba.py --min-detection-confidence 0.3 --min-tracking-confidence 0.3` |
-| Va lento (FPS bajos en el panel) | `--max-hands 2` y/o menos resolución: `--cam-width 960 --cam-height 540` |
 | Los nombres de los dedos se enciman | Tecla `n` para ocultarlos |
 | Crashea con `Service is unavailable` | Se actualizó `mediapipe`; reinstala la versión fijada: `./venv/bin/python3 -m pip install -r requirements.txt` (ver abajo) |
 | Las teclas no hacen nada | Haz clic sobre cualquiera de las dos ventanas (cámara o vista 3D) para darle el foco |
 | El antebrazo sale punteado, como `Codo (estimado)` | YOLO no ve el codo: aléjate para que el codo entre en cámara, con buena luz y sin ropa del mismo color que el fondo. Si detecta mal, prueba el modelo más preciso: `--yolo-modelo m` |
 | No quiero ver antebrazos estimados | `--antebrazo-solo-yolo` (solo se dibuja cuando YOLO ve el codo de verdad) |
-| Va lento (FPS bajos) | Mira la línea `ms:` del panel de estado para ver qué etapa tarda más. Si es `yolo`: `--yolo-modelo n` o `--sin-antebrazo`; si es `mano`: `--max-hands 2` o menos resolución |
+| Va lento (FPS bajos) | Mira la línea `ms:` del panel de estado para ver qué etapa tarda más. Si es `yolo`: `--yolo-modelo n` o `--sin-antebrazo`; si es `mano`: `--max-hands 2` o menos resolución (`--cam-width 960 --cam-height 540`) |
 | Error al cargar YOLO / descargar `yolo11s-pose.pt` | Falta internet la primera vez, o no está instalado: `./venv/bin/python3 -m pip install -r requirements.txt`. Mientras tanto: `--sin-antebrazo` |
 
 Los detalles de cada script y todas sus opciones están en las secciones siguientes.
@@ -102,14 +101,15 @@ Los detalles de cada script y todas sus opciones están en las secciones siguien
 
 ```
 HandMotion3D/          # raíz del repositorio
-├── Prueba.py          # Captura en vivo: cámara + MediaPipe + export a CSV
+├── Prueba.py           # Captura en vivo: cámara + MediaPipe + export a CSV
 ├── plot_csv.py         # Grafica los landmarks guardados en un CSV
-├── hand_style.py        # Colores por dedo (y antebrazo) compartidos por todas las vistas
-├── viewer3d.py          # Visor 3D con dos POV (estilo viewports de Blender)
-├── forearm.py           # Antebrazo: codo con YOLO pose + estimación de su z
-├── kinematics.py        # Velocidad de cada punto (x, y, z + tiempo de cada fotograma)
-├── requirements.txt     # Dependencias (mediapipe fijado a 0.10.35, ver más abajo)
-├── CHANGELOG.md          # Registro fechado de errores, cambios y mejoras
+├── hand_style.py       # Colores por dedo (y antebrazo) compartidos por todas las vistas
+├── viewer3d.py         # Visor 3D con dos POV (estilo viewports de Blender)
+├── forearm.py          # Antebrazo: codo con YOLO pose + estimación de su z
+├── kinematics.py       # Velocidad de cada punto (x, y, z + tiempo de cada fotograma)
+├── requirements.txt    # Dependencias (mediapipe fijado a 0.10.35, ver más abajo)
+├── CHANGELOG.md        # Registro fechado de errores, cambios y mejoras
+├── .gitignore          # Deja fuera de git venv/, modelos y capturas
 ├── models/
 │   ├── hand_landmarker.task   # Modelo de MediaPipe (se descarga aparte, no va en git)
 │   └── yolo11s-pose.pt        # Modelo YOLO pose (se descarga solo, no va en git)
@@ -125,7 +125,7 @@ HandMotion3D/          # raíz del repositorio
 
 ```bash
 python3 -m venv venv
-./venv/bin/pip install -r requirements.txt
+./venv/bin/python3 -m pip install -r requirements.txt
 ```
 
 Descargar el modelo de landmarks de mano y colocarlo en `models/hand_landmarker.task`:
@@ -191,7 +191,7 @@ Mientras corre la ventana de la cámara:
 | `n` | Mostrar/ocultar los nombres de los dedos (útil si se enciman con el puño cerrado o la mano de perfil) |
 | `s` | Guardar una foto del frame actual en `capturas/screenshot_<fecha>.png` (con el esqueleto dibujado, sin el panel de estado) |
 
-En la esquina superior izquierda hay un panel de estado con los **FPS** reales, las **manos** detectadas en el frame, los **antebrazos** (de YOLO / estimados), los **frames grabados** hasta ahora para el CSV, la **velocidad de la muñeca** de cada mano en cm/s y los **ms por etapa** (`mano` = MediaPipe, `yolo` = antebrazo, `3D` = dibujar la vista 3D). Si los FPS bajan mucho, reduce `--max-hands` o la resolución (`--cam-width`/`--cam-height`). Si "Frames grabados" sigue en 0, no se está detectando ninguna mano y al salir no se va a generar CSV.
+En la esquina superior izquierda hay un panel de estado con los **FPS** reales, las **manos** detectadas en el frame, los **antebrazos** (de YOLO / estimados), los **frames grabados** hasta ahora para el CSV, la **velocidad de la muñeca** de cada mano en cm/s, una fila por mano con la **velocidad de cada dedo** (`Pul`, `Ind`, `Med`, `Anu`, `Men`; absoluta o relativa según la tecla `f`, se oculta con `v`), los **ms por etapa** (`mano` = MediaPipe, `yolo` = antebrazo, `3D` = dibujar la vista 3D) y una línea con el estado de las teclas `n`, `v`, `f`, `s` y `q`. Si los FPS bajan mucho, reduce `--max-hands` o la resolución (`--cam-width`/`--cam-height`). Si "Frames grabados" sigue en 0, no se está detectando ninguna mano y al salir no se va a generar CSV.
 
 ### ⚠️ Corregido: reconocimiento poco confiable de manos
 
@@ -215,9 +215,12 @@ Qué hace:
    - Los 21 landmarks coloreados **por dedo** (ver "Identificación por dedo" más abajo), con antialiasing y un trazo oscuro de contraste debajo de cada línea.
    - Las conexiones del "esqueleto" (`HandLandmarksConnections.HAND_CONNECTIONS`), también coloreadas por dedo (gris neutro para las conexiones muñeca-nudillo).
    - La etiqueta `Left`/`Right` + el id de track sobre la muñeca (p. ej. `Left #0`), con un fondo oscurecido para que se lea sobre cualquier color de piel/ropa/fondo.
-4. Acumula en memoria un registro por landmark por frame detectado.
-5. Muestra el panel de estado y atiende las teclas `n`/`s` (ver "Controles y panel de estado").
-6. Al presionar `q` (o cerrar la ventana), libera la cámara y exporta todo lo acumulado a un nuevo CSV en `capturas/`.
+4. Si hay manos, busca el **codo** de cada una con YOLO pose y dibuja el antebrazo (salvo con `--sin-antebrazo`; ver [Antebrazo](#antebrazo-forearmpy)).
+5. Calcula la **velocidad** de cada punto y de cada dedo y dibuja las flechas y los números (ver [Velocidad](#velocidad-kinematicspy)).
+6. Dibuja la **vista 3D con dos POV** (salvo con `--sin-3d`; ver [Vista 3D](#vista-3d-con-dos-pov-viewer3dpy)).
+7. Acumula en memoria un registro por landmark por frame detectado (más el codo, si lo hay).
+8. Muestra el panel de estado y atiende las teclas `n`, `v`, `f`, `s` y las de la vista 3D (ver "Controles y panel de estado").
+9. Al presionar `q` o `Esc` (o cerrar la ventana de la cámara, o `Ctrl+C`), libera la cámara, cierra las ventanas y exporta todo lo acumulado a un nuevo CSV en `capturas/`.
 
 Si no se detectó ninguna mano en toda la sesión, no se genera CSV (se imprime un aviso).
 
@@ -314,7 +317,7 @@ Las teclas funcionan con la vista 3D o con la ventana de la cámara activa.
 |--------|-------------------------------------|
 | Arrastrar con clic izquierdo | **Gira** ese POV (órbita) |
 | `Shift` + arrastrar, o arrastrar con el botón central | **Mueve** (desplaza) ese POV sin girarlo |
-| Rueda del mouse, clic derecho arrastrando, o `+` / `-` | **Zoom** de ese POV |
+| Rueda del mouse, clic derecho arrastrando, o `+` / `-` (`=` también acerca, para no usar `Shift` en teclados donde `+` lo necesita) | **Zoom** de ese POV |
 | `1` | Vista de **frente** (como la ve la cámara) |
 | `3` | Vista de **lado** |
 | `7` | Vista desde **arriba** |
@@ -408,7 +411,7 @@ Dónde se ve:
 
 - **Ventana de la cámara:** flechas amarillas en muñeca, puntas de los dedos y codo (solo la parte paralela a la imagen, `vx`/`vy`), y la rapidez de la muñeca de cada mano en el panel de estado.
 - **Vista 3D:** las mismas flechas pero en 3D (incluyen `vz`: al girar la vista se ve si el punto se acerca o se aleja de la cámara), y la rapidez de la muñeca junto a cada mano.
-- **CSV:** columnas `vx`, `vy`, `vz`, `rapidez_cm_s` para cada punto.
+- **CSV:** columnas `vx`, `vy`, `vz`, `rapidez_cm_s` y `rapidez_rel_cm_s` para cada punto (ver [Velocidad de cada dedo](#velocidad-de-cada-dedo)).
 
 Cada flecha apunta a donde estaría el punto dentro de 0.15 s si siguiera igual; por debajo de 4 cm/s no se dibuja (es temblor, no movimiento). Tecla `v` para mostrarlas/ocultarlas.
 
@@ -473,7 +476,7 @@ Detalles de la visualización:
 
 Resumen de todo lo que cambió en el proyecto: los comandos de ahora, los de antes, lo que se quitó o reemplazó en el código y por qué. El detalle fechado de cada error y corrección está en [`CHANGELOG.md`](CHANGELOG.md).
 
-El 2026-09-24 hubo tres versiones seguidas, que se nombran así en las tablas:
+El 2026-09-24 hubo cinco versiones seguidas, que se nombran así en las tablas:
 
 | Versión | Qué trajo |
 |---------|-----------|
@@ -585,4 +588,4 @@ Teclas:
 
 ## Historial de cambios
 
-Todo error corregido, cambio y mejora se documenta con fecha en [`CHANGELOG.md`](CHANGELOG.md). Última entrada: **2026-09-24** (eje z en 3D, visor de dos POV, antebrazo con YOLO pose, velocidad; corregidos: `q` no cerraba bien, lentitud y detección del antebrazo; POV independientes).
+Todo error corregido, cambio y mejora se documenta con fecha en [`CHANGELOG.md`](CHANGELOG.md). Última entrada: **2026-09-28** (revisión de la documentación: README, CHANGELOG y docstrings al día con el código). Antes, el **2026-09-24**: eje z en 3D, visor de dos POV, antebrazo con YOLO pose y velocidad (24-A/24-B), POV independientes (24-C), velocidad de cada dedo (24-D) y el cambio de nombre a HandMotion3D (24-E).

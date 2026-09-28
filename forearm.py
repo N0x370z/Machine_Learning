@@ -245,6 +245,10 @@ class ForearmDetector:
         return matches
 
     def _smooth(self, track_id, point):
+        """
+        Media exponencial del codo de esa mano (ELBOW_SMOOTHING) para quitar
+        el temblor de YOLO entre frames.
+        """
         prev = self._smoothed.get(track_id)
         if prev is not None:
             a = ELBOW_SMOOTHING

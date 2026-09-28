@@ -3,6 +3,44 @@
 Historial de cambios del proyecto. Formato libre pero cronológico
 (más reciente arriba), en español porque así está el resto del repo.
 
+## 2026-09-28 (revisión de la documentación)
+
+Sin cambios de comportamiento: solo documentación.
+
+### Corregido (documentación)
+- README, *Instalación*: todavía decía `./venv/bin/pip install`, justo
+  debajo de la nota que explica por qué no usarlo. Ahora
+  `./venv/bin/python3 -m pip install`, igual que la guía rápida.
+- README, *Problemas comunes*: la fila "Va lento" estaba dos veces; se
+  unieron en una.
+- README, `Prueba.py` → *Qué hace*: describía el flujo de antes del
+  24-A (solo teclas `n`/`s`, salir solo con `q`). Ahora incluye el codo
+  con YOLO, la velocidad, la vista 3D, las teclas `v`/`f` y las otras
+  formas de salir (`Esc`, cerrar la ventana, `Ctrl+C`).
+- README, panel de estado: faltaban la fila de velocidad de cada dedo y
+  la línea de teclas.
+- README, *Velocidad* → *Dónde se ve*: faltaba la columna
+  `rapidez_rel_cm_s`.
+- README, *Cambios*: decía "tres versiones" el 2026-09-24; fueron cinco
+  (24-A a 24-E).
+- README: la tecla `=` también acerca el zoom del POV y no estaba
+  documentada.
+- README, *Historial de cambios*: el resumen de la última entrada no
+  mencionaba 24-D ni 24-E.
+- CHANGELOG, 24-E: las reglas nuevas de `.gitignore` son
+  `models/*.task`, `models/*.pt`, `capturas/*.csv` y `capturas/*.png`,
+  no `models/*` y `capturas/*`.
+
+### Añadido (docstrings)
+- `Prueba.py`: `HandTrack` (y `stable_label`/`stable_score`),
+  `HandTracker.update` (cómo empareja y cuándo descarta un track),
+  `_centroid`, `_distance`, `export_to_csv`, `parse_args`, `main`.
+- `plot_csv.py`: `_mpl_color`, `latest_csv`, `draw_frame`, `main`.
+- `viewer3d.py`: `_POV.reset`, `_POV.set`, `_Projector.px`,
+  `DualPOVViewer.toggle_fit`, `_on_mouse`, `close`.
+- `forearm.py`: `ForearmDetector._smooth`. `kinematics.py`:
+  `VelocityEstimator._forget_old`.
+
 ## 2026-09-24 (quinta parte: nombre y estructura — versión 24-E)
 
 ### Cambiado
@@ -20,8 +58,9 @@ Historial de cambios del proyecto. Formato libre pero cronológico
   a `HandMotion3D` (el de GitHub se renombra a mano desde sus ajustes;
   GitHub redirige la URL vieja).
 - `.gitignore`: las reglas `MediaPipeHands/models/*` y
-  `MediaPipeHands/capturas/*` pasan a `models/*` y `capturas/*`; sin
-  este cambio los modelos (~34 MB) y las capturas se habrían subido a git.
+  `MediaPipeHands/capturas/*` pasan a `models/*.task`, `models/*.pt`,
+  `capturas/*.csv` y `capturas/*.png`; sin este cambio los modelos
+  (~34 MB) y las capturas se habrían subido a git.
 - README: título, descripción, "desde dónde correr los comandos",
   estructura del proyecto e instalación actualizados.
 
