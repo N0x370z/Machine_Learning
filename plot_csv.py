@@ -279,6 +279,7 @@ def main():
         return
 
     def update(frame_idx):
+        """Dibuja un frame de la animación 2D (lo llama FuncAnimation)."""
         draw_frame(ax, frames[frame_idx])
         ax.set_title(f"{csv_path.name} — frame {frame_idx} "
                      f"({timestamps[frame_idx]} ms)", color=INK)

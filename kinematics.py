@@ -92,6 +92,7 @@ FORGET_AFTER_S = 1.0
 
 
 def _norm(v):
+    """Módulo (largo) de un vector."""
     return math.sqrt(sum(c * c for c in v))
 
 

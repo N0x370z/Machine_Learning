@@ -3,6 +3,70 @@
 Historial de cambios del proyecto. Formato libre pero cronológico
 (más reciente arriba), en español porque así está el resto del repo.
 
+## 2026-09-28 (versión 28-F: pruebas, registro de comandos y de revisiones)
+
+### Corregido
+- **`estereo.py` triangulaba puntos fuera de la imagen.** MediaPipe
+  devuelve puntos algo fuera del cuadro cuando un dedo se sale de la
+  imagen (los extrapola). Fuera de la imagen el modelo de distorsión del
+  lente de la calibración no vale, y el punto triangulado se corría: en
+  una prueba, 6.45 cm, con un error de reproyección medio de solo
+  1.08 px (así que el emparejamiento lo aceptaba). Ahora solo se
+  triangulan los puntos dentro de las dos imágenes (`_inside`,
+  `INSIDE_MARGIN_FRAC = 0`); los de afuera conservan la `z` de MediaPipe
+  y quedan sin `x_cm`/`y_cm`/`z_cm`. Hacen falta la muñeca y 8 puntos
+  visibles (`MIN_VISIBLE_POINTS`); la palma solo se mide si también se ve
+  el nudillo del medio. `StereoHand.points_cm` puede tener `None` y
+  `palm_cm` puede ser `None` hasta que se pueda medir (el panel muestra
+  `palma ?`).
+- **Prueba de punta a punta irreal:** la cámara 2 simulada "veía" la
+  mano aunque estuviera fuera de su imagen. Ahora no la detecta si la
+  muñeca queda fuera (como MediaPipe real), y los números de la 28-D se
+  volvieron a medir (README y `REVISION.md`).
+- Se completaron los últimos 6 docstrings que faltaban
+  (`HandTrack.update`, `_norm`, y las funciones internas de dibujo y de
+  la animación 2D). `forearm.py`: fecha de actualización.
+
+### Añadido
+- **`pruebas/`**: las comprobaciones que hasta la 28-E se hacían con
+  scripts sueltos fuera del repositorio, ahora con tolerancias, `OK` /
+  `FALLA` y código de salida:
+  - `filtro_velocidad.py`: One Euro contra la media exponencial
+    (`--buscar` repite la búsqueda de las 72 combinaciones);
+  - `estereo_simulado.py`: calibración, guardar/leer, triangulación,
+    emparejamiento, dedos fuera de cuadro y casos borde;
+  - `captura_simulada.py`: `captura.py` y `plot_csv.py` de punta a punta
+    con cámaras, ventanas y MediaPipe simulados;
+  - `correr_todo.py`: las tres, cada una en su proceso, con resumen.
+  - `pruebas/README.md`: qué comprueba cada una, qué se encontró al
+    pasarlas y qué **no** cubren.
+- **`COMANDOS.md`**: registro de comandos. Referencia de todos los
+  comandos, flags y teclas; comandos que cambiaron o se quitaron; y una
+  bitácora de los comandos de mantenimiento ejecutados sobre el
+  repositorio (git, pip), con cómo verificarlos y deshacerlos.
+- **`REVISION.md`**: registro de las tres revisiones del 2026-09-28
+  (documentación, código completo, pruebas), con lo encontrado, lo
+  corregido y el estado de los pendientes.
+- README: tabla de documentos del proyecto, índice, sección **Pruebas**,
+  comportamiento de los dedos fuera de cuadro en estéreo y números
+  actualizados.
+
+### Historial de git
+- Se quitó la línea `Co-Authored-By` de un asistente de IA de los 5
+  commits que la tenían, reescribiendo los mensajes con
+  `git filter-branch --msg-filter` y subiendo con
+  `git push --force-with-lease`. Solo cambiaron los mensajes: los
+  archivos, el autor y las fechas son los mismos (verificado con
+  `git diff` contra el respaldo y comparando los 9 mensajes). Los hashes
+  cambiaron; la correspondencia, los comandos exactos y cómo deshacerlo
+  están en `COMANDOS.md` (bitácora). Queda un respaldo **local** en la
+  rama `respaldo-historial-con-coautor` (no se subió).
+
+### Encontrado (pendiente)
+- El repositorio de GitHub **sigue llamándose `Machine_Learning`**: el
+  renombre a `HandMotion3D` que menciona la 24-E no se hizo. Pasos en
+  `COMANDOS.md`.
+
 ## 2026-09-28 (versión 28-E: correcciones de la revisión completa)
 
 Revisión de todo el código y de cómo se venía manejando el proyecto.
@@ -32,13 +96,13 @@ anotado al final de esta entrada.
   2026-09-18 y del 2026-09-24).
 
 ### Proceso (anotado, no es código)
-- Los commits desde `b960527` hasta `a2ef70f` llevan una línea
-  `Co-Authored-By` de un asistente. Desde ahora los commits van solo a
-  nombre del autor. Quitarla de los commits viejos requiere reescribir el
-  historial (`git push --force`), así que queda a decisión del autor.
+- Los commits desde `b960527` hasta `a2ef70f` (hoy `1fa9399` a `b0bfa33`)
+  llevaban una línea `Co-Authored-By` de un asistente. Desde ahora los
+  commits van solo a nombre del autor. **Resuelto en la 28-F**: se
+  reescribió el historial.
 - Las comprobaciones "con datos simulados" (24-D y las de hoy) se
-  hicieron con scripts sueltos que no quedaron en el repositorio. Pasarlas
-  a tests (`pytest`) permitiría repetirlas en cada cambio.
+  hicieron con scripts sueltos que no quedaron en el repositorio.
+  **Resuelto en la 28-F**: `pruebas/`.
 - Muchas funciones nuevas no se pueden probar sin hardware (cámaras
   reales, dos webcams). Las pruebas de hoy reemplazan cámaras, ventanas y
   MediaPipe por simulaciones; falta probar `--estereo` y
@@ -81,6 +145,10 @@ anotado al final de esta entrada.
   visor 3D reales), mano de 8.5 cm a 20 cm/s: palma 8.48–8.52 cm,
   19.9 cm/s. Con la cámara 2 viendo la mano de a ratos: 20.2 cm/s de
   mediana, sin picos.
+- **Corrección (28-F):** en esas pruebas la mano quedaba en parte fuera
+  de la imagen de la cámara 2 sin que se notara, y la simulación la
+  seguía "viendo". Los números se volvieron a medir en la 28-F (palma
+  9.01 cm, error máximo 0.45 cm con la mano entera en las dos imágenes).
 
 ## 2026-09-28 (versión 28-C: velocidad con filtro One Euro)
 
@@ -200,7 +268,8 @@ Sin cambios de comportamiento: solo documentación.
   todas las rutas se calculan desde la carpeta del propio script.
 - La carpeta local y el repositorio de GitHub pasan de `Machine_Learning`
   a `HandMotion3D` (el de GitHub se renombra a mano desde sus ajustes;
-  GitHub redirige la URL vieja).
+  GitHub redirige la URL vieja). **Nota (28-F):** al 2026-09-28 el de
+  GitHub todavía no se había renombrado; pasos en `COMANDOS.md`.
 - `.gitignore`: las reglas `MediaPipeHands/models/*` y
   `MediaPipeHands/capturas/*` pasan a `models/*.task`, `models/*.pt`,
   `capturas/*.csv` y `capturas/*.png`; sin este cambio los modelos

@@ -45,7 +45,7 @@ Profundidad (z) del codo:
   postura normal al mostrarle la mano a la webcam. Es una estimación, no
   una medición: sirve para visualizar, no para medir ángulos exactos.
 
-Última actualización: 2026-09-24. Historial: ver CHANGELOG.md.
+Última actualización: 2026-09-28. Historial: ver CHANGELOG.md.
 """
 
 import math

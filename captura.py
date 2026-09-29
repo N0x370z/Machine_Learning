@@ -128,6 +128,7 @@ class HandTrack:
         self.age = 0
 
     def update(self, centroid, label, score):
+        """La mano se volvió a ver: nueva posición, un voto más y age a 0."""
         self.centroid = centroid
         self.history.append((label, score))
         self.age = 0
@@ -494,7 +495,8 @@ def landmarks_to_rows(frame_idx, timestamp_ms, hands_scene, scores,
     - x_cm, y_cm, z_cm: solo con --estereo, posición absoluta del punto
       en cm respecto a la cámara 1: x hacia la derecha de la imagen en
       espejo (como se ve en la ventana), y hacia abajo, z = distancia a
-      lo largo del eje de la cámara. Vacías sin --estereo y en el codo.
+      lo largo del eje de la cámara. Vacías sin --estereo, en el codo y
+      en los puntos fuera de cuadro en alguna de las dos cámaras.
 
     hands_scene: lista de viewer3d.hands_to_scene (tiene posiciones,
     codo, velocidades y escala de cada mano); scores: {track_id: score}.
@@ -514,7 +516,7 @@ def landmarks_to_rows(frame_idx, timestamp_ms, hands_scene, scores,
             else:
                 source = hand["elbow_source"]
             abs_cm = (points_cm[idx] if points_cm is not None and idx < 21
-                      else ("", "", ""))
+                      else None) or ("", "", "")
             rows.append([
                 frame_idx, timestamp_ms, hand["id"], hand["label"],
                 scores[hand["id"]], idx, X, Y / aspect, Z, img_w, img_h,
@@ -965,9 +967,10 @@ def main():
                     for h in hands_scene:
                         info = stereo_info.get(h["id"])
                         if info is not None:
+                            palm = "?" if info.palm_cm is None else f"{info.palm_cm:.1f}"
                             stereo_lines.append(
                                 f"  {h['label']} #{h['id']}: a {info.distance_cm:.0f} cm, "
-                                f"palma {info.palm_cm:.1f} cm, error {info.error_px:.1f} px")
+                                f"palma {palm} cm, error {info.error_px:.1f} px")
                 draw_hud(frame, fps, n_hands, frames_recorded, show_names,
                          n_elbows, show_velocity, hand_speeds, timings,
                          finger_rows, relative_fingers, stereo_lines)

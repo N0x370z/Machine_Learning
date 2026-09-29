@@ -34,6 +34,9 @@ Qué cambia en la captura con --estereo (ver captura.py):
     z_cm, respecto a la cámara 1) y fuente = "estereo".
   - Si una mano de la cámara 1 no se encuentra en la cámara 2 (tapada,
     fuera de cuadro), esa mano sigue como antes (z de MediaPipe).
+  - Si solo algunos puntos quedan fuera de la imagen de alguna cámara
+    (un dedo que se sale del cuadro), esos puntos conservan la z de
+    MediaPipe y quedan sin x_cm/y_cm/z_cm; el resto se triangula.
 
 Cómo se empareja cada mano de la cámara 1 con la de la cámara 2: se
 triangulan los 21 puntos con cada combinación posible y se mide el error
@@ -87,6 +90,17 @@ RECOMMENDED_PAIRS = 15
 # un error de algunos píxeles es normal.
 MAX_REPROJ_FRAC = 0.015
 
+# MediaPipe devuelve landmarks algo FUERA de la imagen cuando un dedo se
+# sale del cuadro (los extrapola). Esos puntos no se triangulan: fuera de
+# la imagen el modelo de distorsión del lente de la calibración no vale y
+# el punto 3D sale corrido varios cm aunque el error de reproyección sea
+# bajo (encontrado al pasar las pruebas a pruebas/estereo_simulado.py).
+# Margen tolerado fuera del borde, como fracción del ancho.
+INSIDE_MARGIN_FRAC = 0.0
+# Mínimo de puntos visibles en las dos cámaras (muñeca incluida) para
+# triangular una mano; con menos, la mano sigue con la z de MediaPipe.
+MIN_VISIBLE_POINTS = 8
+
 # Suavizado del largo de la palma medido (1 = sin suavizar). La palma no
 # cambia de tamaño, así que se suaviza mucho: lo que varía entre frames es
 # ruido de medición.
@@ -96,8 +110,10 @@ PALM_SMOOTHING = 0.1
 Landmark = namedtuple("Landmark", "x y z")
 
 # Resultado estéreo de una mano:
-#   points_cm: 21 x (x, y, z) en cm respecto a la cámara 1, con x en espejo
-#   palm_cm: largo de la palma medido (suavizado)
+#   points_cm: 21 x (x, y, z) en cm respecto a la cámara 1, con x en espejo,
+#              o None en los puntos fuera de cuadro en alguna cámara
+#   palm_cm: largo de la palma medido (suavizado), o None si todavía no se
+#            pudo medir (muñeca o nudillo del medio fuera de cuadro)
 #   error_px: error de reproyección medio
 #   distance_cm: distancia de la muñeca a la cámara 1
 StereoHand = namedtuple("StereoHand", "points_cm palm_cm error_px distance_cm")
@@ -216,6 +232,12 @@ class StereoHands:
         self.w, self.h = img_w, img_h
         self._palm = {}  # track_id -> largo de palma suavizado (cm)
 
+    def _inside(self, px):
+        """True para cada punto que cae dentro de la imagen (con margen)."""
+        m = INSIDE_MARGIN_FRAC * self.w
+        return ((px[:, 0] >= -m) & (px[:, 0] < self.w + m)
+                & (px[:, 1] >= -m) & (px[:, 1] < self.h + m))
+
     def update(self, tracked_hands, hands2):
         """
         tracked_hands: salida de HandTracker.update (cámara 1, en espejo).
@@ -230,42 +252,57 @@ class StereoHands:
             px1 = landmarks_px(lms1, self.w, self.h, mirrored=True)
             for d_idx, lms2 in enumerate(hands2):
                 px2 = landmarks_px(lms2, self.w, self.h, mirrored=False)
-                X, err = self.rig.triangulate(px1, px2)
+                # Solo los puntos que están DENTRO de las dos imágenes (ver
+                # MIN_VISIBLE_POINTS); la muñeca tiene que ser uno de ellos,
+                # porque la z de todos se mide respecto a ella.
+                visible = self._inside(px1) & self._inside(px2)
+                if not visible[0] or visible.sum() < MIN_VISIBLE_POINTS:
+                    continue
+                X, err = self.rig.triangulate(px1[visible], px2[visible])
                 if np.all(X[:, 2] > 0):  # delante de la cámara
-                    candidates.append((err, t_idx, d_idx, X))
+                    candidates.append((err, t_idx, d_idx, X, visible))
         candidates.sort(key=lambda c: c[0])
 
         max_err = MAX_REPROJ_FRAC * self.w
         used_t, used_d, found = set(), set(), {}
-        for err, t_idx, d_idx, X in candidates:
+        for err, t_idx, d_idx, X, visible in candidates:
             if err > max_err:
                 break
             if t_idx in used_t or d_idx in used_d:
                 continue
             used_t.add(t_idx)
             used_d.add(d_idx)
-            found[t_idx] = (X, err)
+            found[t_idx] = (X, err, visible)
 
         new_hands, info = [], {}
         for t_idx, (tid, label, score, lms1) in enumerate(tracked_hands):
             if t_idx not in found:
                 new_hands.append((tid, label, score, lms1))
                 continue
-            X, err = found[t_idx]
+            X_vis, err, visible = found[t_idx]
+            X = np.full((len(lms1), 3), np.nan)
+            X[visible] = X_vis
             wrist_z = X[0, 2]
             # Ancho del frame en cm a la distancia de la muñeca: pasa la
             # profundidad de cm a "anchos de frame", la unidad de MediaPipe.
             frame_w_cm = self.w * wrist_z / fx
-            lms = [Landmark(lm.x, lm.y, float((X[i, 2] - wrist_z) / frame_w_cm))
+            # Puntos fuera de cuadro en alguna cámara: se quedan con la z de
+            # MediaPipe, que ya está en la misma convención.
+            lms = [Landmark(lm.x, lm.y, float((X[i, 2] - wrist_z) / frame_w_cm)
+                            if visible[i] else lm.z)
                    for i, lm in enumerate(lms1)]
             new_hands.append((tid, label, score, lms))
 
-            palm = float(np.linalg.norm(X[9] - X[0]))
-            prev = self._palm.get(tid)
-            if prev is not None:
-                palm = PALM_SMOOTHING * palm + (1 - PALM_SMOOTHING) * prev
-            self._palm[tid] = palm
-            points_cm = [(float(-x), float(y), float(z)) for x, y, z in X]
+            # La palma solo se mide si la muñeca (0) y el nudillo del medio
+            # (9) se ven en las dos cámaras; si no, se conserva la anterior.
+            palm = self._palm.get(tid)
+            if visible[9]:
+                measured = float(np.linalg.norm(X[9] - X[0]))
+                palm = measured if palm is None else (
+                    PALM_SMOOTHING * measured + (1 - PALM_SMOOTHING) * palm)
+                self._palm[tid] = palm
+            points_cm = [(float(-x), float(y), float(z)) if visible[i] else None
+                         for i, (x, y, z) in enumerate(X)]
             info[tid] = StereoHand(points_cm, palm, err, float(wrist_z))
 
         alive = {t[0] for t in tracked_hands}

@@ -2,11 +2,30 @@
 
 Seguimiento de la **mano y el antebrazo en 3D** con una webcam (o dos, para medir la profundidad real): esqueleto de la mano con MediaPipe, codo con YOLO pose, vista 3D con dos puntos de vista independientes (como Blender) y velocidad de cada punto y de cada dedo.
 
-> **Novedades del 2026-09-28 (versiones 28-A a 28-E):** `Prueba.py` pasa a llamarse **`captura.py`**; dependencias con **versiones fijas**; el CSV se **escribe mientras se graba**; **`--palma-cm`** para que los cm/s usen el tamaño de tu mano; velocidad con **filtro One Euro** (menos temblor y menos retraso); y **dos cámaras** (`--estereo`, [`estereo.py`](#dos-cámaras-estereopy)) para medir la profundidad y la palma de verdad. Detalle en [Cambios](#cambios-comandos-partes-quitadas-y-por-qué) y en [`CHANGELOG.md`](CHANGELOG.md).
+> **Novedades del 2026-09-28 (versiones 28-A a 28-F):** `Prueba.py` pasa a llamarse **`captura.py`**; dependencias con **versiones fijas**; el CSV se **escribe mientras se graba**; **`--palma-cm`** para que los cm/s usen el tamaño de tu mano; velocidad con **filtro One Euro** (menos temblor y menos retraso); y **dos cámaras** (`--estereo`, [`estereo.py`](#dos-cámaras-estereopy)) para medir la profundidad y la palma de verdad. Además, desde la 28-F hay **pruebas sin cámara** ([`pruebas/`](pruebas/README.md)), un **registro de comandos** ([`COMANDOS.md`](COMANDOS.md)) y un **registro de revisiones** ([`REVISION.md`](REVISION.md)). Detalle en [Cambios](#cambios-comandos-partes-quitadas-y-por-qué) y en [`CHANGELOG.md`](CHANGELOG.md).
 
 > **Nombre y estructura (2026-09-24, versión 24-E):** el proyecto se llamaba **MediaPipeHands** y vivía en la carpeta `MediaPipeHands/` de un repositorio general de Machine Learning (`Machine_Learning`). Como ya no es solo un ejercicio de ML sino un proyecto propio (detección, 3D, antebrazo, velocidad), pasó a llamarse **HandMotion3D** y sus archivos se movieron a la **raíz del repositorio**. Detalle en [Cambios: comandos, partes quitadas y por qué](#cambios-comandos-partes-quitadas-y-por-qué).
 
 > Última actualización: **2026-09-28**. Historial completo de errores, cambios y mejoras en [`CHANGELOG.md`](CHANGELOG.md). Resumen de **comandos nuevos y antiguos, partes quitadas y por qué** en [Cambios: comandos, partes quitadas y por qué](#cambios-comandos-partes-quitadas-y-por-qué).
+
+### Documentos del proyecto
+
+| Documento | Para qué |
+|-----------|----------|
+| **README.md** (este) | Qué hace el proyecto, cómo usarlo y cómo funciona cada parte |
+| [`COMANDOS.md`](COMANDOS.md) | **Registro de comandos**: todos los comandos, flags y teclas en un lugar; los que cambiaron; y la bitácora de comandos de mantenimiento ejecutados (git, pip) con cómo deshacerlos |
+| [`CHANGELOG.md`](CHANGELOG.md) | Historial fechado, versión por versión |
+| [`REVISION.md`](REVISION.md) | Revisiones del proyecto: qué se encontró, qué se corrigió y qué queda pendiente |
+| [`pruebas/README.md`](pruebas/README.md) | Pruebas sin cámara: qué comprueba cada una y qué no cubren |
+
+### Índice
+
+1. [Guía rápida de uso](#guía-rápida-de-uso) · [Problemas comunes](#problemas-comunes)
+2. [Estructura del proyecto](#estructura-del-proyecto) · [Instalación](#instalación) · [Versiones fijadas](#versiones-fijadas)
+3. [`captura.py` — captura en vivo](#capturapy--captura-en-vivo) · [Formato del CSV](#formato-del-csv-exportado)
+4. [Vista 3D con dos POV](#vista-3d-con-dos-pov-viewer3dpy) · [Antebrazo](#antebrazo-forearmpy) · [Velocidad](#velocidad-kinematicspy)
+5. [Dos cámaras (`estereo.py`)](#dos-cámaras-estereopy) · [`plot_csv.py`](#plot_csvpy--graficar-los-puntos-del-csv)
+6. [Pruebas](#pruebas) · [Cambios: comandos, partes quitadas y por qué](#cambios-comandos-partes-quitadas-y-por-qué) · [Historial](#historial-de-cambios)
 
 Detección de manos en tiempo real con [MediaPipe Tasks API](https://ai.google.dev/edge/mediapipe/solutions/vision/hand_landmarker), vista 3D de la mano con **dos puntos de vista (POV)** a la vez (como los viewports de Blender) usando la profundidad `z`, el esqueleto extendido **hasta el antebrazo** (codo detectado con YOLO pose), la **velocidad** de cada punto (a partir de `x`, `y`, `z` y del tiempo de cada fotograma), opcionalmente la **profundidad real con dos cámaras** (triangulación estéreo), captura de los 21 landmarks por mano (+ el codo) en un CSV, y un script separado para volver a graficar esos mismos puntos a partir del CSV (sin necesidad de la cámara).
 
@@ -120,6 +139,8 @@ Con dos webcams fijas, separadas 10–30 cm y mirando a la misma zona, la profun
 | `La cámara abrió a ... pero la calibración es de ...` | Usa la misma resolución que al calibrar (`--cam-width`/`--cam-height`) o vuelve a calibrar |
 | Con `--estereo` el panel dice `Estereo: 0/1 manos` | La cámara 2 no ve la mano (mira su ventana, *Camara 2*) o una cámara se movió después de calibrar: vuelve a calibrar. Si `cam2 ve 0`, revisa `--cam2` |
 | `La cámara dejó de entregar imágenes` | Se desconectó la cámara o la tomó otra app. El CSV hasta ese momento queda guardado |
+| Con `--estereo`, algunas filas tienen `x_cm`/`y_cm`/`z_cm` vacías | Esos puntos estaban fuera de la imagen de alguna cámara (un dedo que se sale del cuadro) y no se triangulan a propósito (28-F). Acerca la mano al centro de las dos imágenes |
+| Quiero comprobar que todo funciona sin cámara | `./venv/bin/python3 pruebas/correr_todo.py` (ver [Pruebas](#pruebas)) |
 | Las teclas no hacen nada | Haz clic sobre cualquiera de las dos ventanas (cámara o vista 3D) para darle el foco |
 | El antebrazo sale punteado, como `Codo (estimado)` | YOLO no ve el codo: aléjate para que el codo entre en cámara, con buena luz y sin ropa del mismo color que el fondo. Si detecta mal, prueba el modelo más preciso: `--yolo-modelo m` |
 | No quiero ver antebrazos estimados | `--antebrazo-solo-yolo` (solo se dibuja cuando YOLO ve el codo de verdad) |
@@ -139,6 +160,13 @@ HandMotion3D/           # raíz del repositorio
 ├── forearm.py          # Antebrazo: codo con YOLO pose + estimación de su z
 ├── kinematics.py       # Velocidad (filtro One Euro) y escala en cm (palma)
 ├── estereo.py          # Dos cámaras: calibración y triangulación (profundidad real)
+├── pruebas/            # Pruebas sin cámara (ver pruebas/README.md)
+│   ├── correr_todo.py        # Corre las tres y resume
+│   ├── filtro_velocidad.py   # One Euro vs media exponencial
+│   ├── estereo_simulado.py   # Calibración y triangulación simuladas
+│   └── captura_simulada.py   # captura.py y plot_csv.py de punta a punta
+├── COMANDOS.md         # Registro de comandos (referencia + bitácora de mantenimiento)
+├── REVISION.md         # Registro de revisiones: hallazgos, correcciones, pendientes
 ├── requirements.txt    # Dependencias con versiones fijas (ver más abajo)
 ├── CHANGELOG.md        # Registro fechado de errores, cambios y mejoras
 ├── .gitignore          # Deja fuera de git venv/, modelos, capturas y calibración
@@ -350,7 +378,7 @@ Un archivo por ejecución, nombrado `hand_data_<YYYYMMDD_HHMMSS>.csv` con la hor
 | `dedo` | A qué parte pertenece el punto: `Pulgar`, `Índice`, `Medio`, `Anular`, `Meñique`, `Muñeca` o `Codo`. Para filtrar por dedo sin memorizar índices |
 | `fuente` | De dónde sale el punto: `mediapipe` (0–20, una cámara), `estereo` (0–20, `z` medida con dos cámaras; desde la 28-D), `yolo` o `estimado` (codo) |
 | `palma_cm` | Largo de palma con el que se pasó a cm/s: `--palma-cm` (default 9.5) o, con `--estereo`, el **medido** para esa mano. `plot_csv.py --3d` lo reutiliza (desde la 28-B) |
-| `x_cm`, `y_cm`, `z_cm` | Solo con `--estereo` (desde la 28-D): posición **absoluta** del punto en cm respecto a la cámara 1. `x_cm` hacia la derecha de la imagen en espejo (como se ve en la ventana), `y_cm` hacia abajo, `z_cm` = distancia a lo largo del eje de la cámara. Vacías sin `--estereo`, en manos que la cámara 2 no vio y en el codo |
+| `x_cm`, `y_cm`, `z_cm` | Solo con `--estereo` (desde la 28-D): posición **absoluta** del punto en cm respecto a la cámara 1. `x_cm` hacia la derecha de la imagen en espejo (como se ve en la ventana), `y_cm` hacia abajo, `z_cm` = distancia a lo largo del eje de la cámara. Vacías sin `--estereo`, en manos que la cámara 2 no vio, en puntos fuera de la imagen de alguna de las dos cámaras (desde la 28-F) y en el codo |
 
 Cada mano/frame produce 21 filas consecutivas (una por `landmark_index`, en orden 0→20) y, si se detectó su antebrazo, **una fila 22 con `landmark_index = 21` (el codo)**.
 
@@ -488,7 +516,7 @@ Antes se suavizaba con una media exponencial fija (`VELOCITY_SMOOTHING = 0.35`).
 | Golpeteo de un dedo (4 Hz, 1.5 cm): pico medido | 49 % del real | 49 % del real |
 | Movimiento constante: oscilación de la rapidez | **0.9 cm/s** | 2.0 cm/s |
 
-Es decir: la mitad de temblor y la mitad de retraso, a cambio de un poco más de oscilación mientras la mano se mueve parejo. Con la mano quieta la rapidez de ruido queda por debajo del umbral de 4 cm/s de las flechas, así que ya casi no aparecen flechas "fantasma". Parámetros en `kinematics.py` (`EURO_MIN_CUTOFF = 0.5`, `EURO_BETA = 10`, `EURO_D_CUTOFF = 2`), elegidos probando 72 combinaciones con esas mismas simulaciones.
+Es decir: la mitad de temblor y la mitad de retraso, a cambio de un poco más de oscilación mientras la mano se mueve parejo. Con la mano quieta la rapidez de ruido queda por debajo del umbral de 4 cm/s de las flechas, así que ya casi no aparecen flechas "fantasma". Parámetros en `kinematics.py` (`EURO_MIN_CUTOFF = 0.5`, `EURO_BETA = 10`, `EURO_D_CUTOFF = 2`), elegidos probando 72 combinaciones con esas mismas simulaciones. Se repite con `./venv/bin/python3 pruebas/filtro_velocidad.py` (y `--buscar` para las 72 combinaciones).
 Unidades:
 
 | Magnitud | Unidad |
@@ -498,7 +526,7 @@ Unidades:
 
 #### La palma como regla (`--palma-cm`)
 
-Con una sola cámara no se sabe el tamaño real de nada: una mano grande lejos se ve igual que una chica cerca. Para pasar a cm se usa la palma: si en la imagen mide `p` unidades y en la realidad `palma_cm`, cada unidad son `palma_cm / p` cm. Por eso el error de la palma pasa **entero** a todas las velocidades: con 9.5 cm supuestos y una palma real de 8.5 cm, todo sale ~12 % más rápido. En la prueba simulada de la 28-B (mano de 8.5 cm a 20 cm/s): 22.2 cm/s con el default, **20.0 cm/s con `--palma-cm 8.5`**, 19.9 cm/s con `--estereo`.
+Con una sola cámara no se sabe el tamaño real de nada: una mano grande lejos se ve igual que una chica cerca. Para pasar a cm se usa la palma: si en la imagen mide `p` unidades y en la realidad `palma_cm`, cada unidad son `palma_cm / p` cm. Por eso el error de la palma pasa **entero** a todas las velocidades: con 9.5 cm supuestos y una palma real de 8.5 cm, todo sale ~12 % más rápido. En la prueba simulada (mano de 8.5 cm a 20 cm/s, `pruebas/captura_simulada.py`): ~22–23 cm/s con el default, **~20 cm/s con `--palma-cm 8.5`** y con `--estereo` (los decimales varían un poco entre corridas porque la prueba usa tiempos reales).
 
 Cómo medirla: con la mano abierta y estirada, desde el pliegue de la muñeca (el más cercano a la palma) hasta el nudillo del dedo medio, donde el dedo se une a la palma, por el lado de la palma. Se aceptan valores entre 5 y 15 cm.
 
@@ -598,18 +626,24 @@ Qué cambia con `--estereo`:
 
 **La imagen de la cámara 1 se voltea en espejo** antes de MediaPipe, como siempre; para triangular se "desvoltea" (`u = (1 − x) · ancho`). La cámara 2 no se voltea para procesarla (su ventana se muestra en espejo solo para mirarla).
 
+**Dedos fuera del cuadro** (desde la 28-F): MediaPipe devuelve puntos algo **fuera de la imagen** cuando un dedo se sale del cuadro (los extrapola). Esos puntos no se triangulan: fuera de la imagen el modelo de distorsión del lente de la calibración no vale y el punto se correría varios cm (en las pruebas, hasta 6.45 cm) aunque el error de reproyección se vea bajo. Solo se triangulan los puntos que están **dentro de las dos imágenes**; los demás conservan la `z` de MediaPipe y quedan con `x_cm`/`y_cm`/`z_cm` vacías. Hace falta ver la muñeca y al menos 8 puntos en las dos cámaras (`MIN_VISIBLE_POINTS`); la palma solo se mide si además se ve el nudillo del medio. Ver [REVISION.md](REVISION.md#revisión-3--al-pasar-las-comprobaciones-al-repositorio-versión-28-f).
+
 ### Qué tan preciso es (pruebas simuladas)
 
-No se pudo probar con dos webcams reales al hacer esta versión. Se probó con un par de cámaras **simulado** (lentes con distorsión, cámaras separadas 18 cm y giradas 12°, tableros y manos proyectados con 0.2–1 px de ruido):
+No se pudo probar con dos webcams reales. Se probó con un par de cámaras **simulado** (lentes con distorsión, cámaras separadas 18 cm y giradas 12°, tableros y manos proyectados con 0.2–1 px de ruido). Todo se repite con `./venv/bin/python3 pruebas/estereo_simulado.py` y `pruebas/captura_simulada.py` (ver [Pruebas](#pruebas)):
 
 | Prueba | Resultado |
 |--------|-----------|
-| Calibración con 18 pares | Distancia entre cámaras 18.04 cm (real 18.0), RMS 0.28 px |
-| Mano a 45 cm, palma de 9.0 cm | Palma medida 9.12 cm, distancia 45.0 cm, error de posición máx. 0.9 cm |
-| Mano a 60 cm, palma de 8.0 cm | Palma 8.01 cm, distancia 60.2 cm, error máx. 0.6 cm |
+| Calibración con 18 pares | Distancia entre cámaras 18.04 cm (real 18.03), RMS 0.28 px |
+| Mano a 45 cm, palma de 9.0 cm, entera en las dos imágenes | Palma medida 9.01 cm, distancia 44.9 cm, error de posición máx. 0.45 cm |
+| Mano a 60 cm, palma de 8.0 cm | Palma 8.04 cm, distancia 59.9 cm, error máx. 0.75 cm |
+| Mano con 5 de 21 puntos fuera de la imagen de la cámara 2 | Esos puntos sin cm; los otros 15 con error máx. 0.27 cm; palma 9.04 |
+| Mano con puntos lejos de la imagen | Triangulando todo daba 2.6–6.5 cm de error; ahora esos puntos no se triangulan |
 | Dos manos, la cámara 2 las entrega en otro orden | Emparejadas bien |
-| Captura completa (`captura.py --estereo` con cámaras y MediaPipe simulados, YOLO y visor 3D reales), mano de 8.5 cm a 20 cm/s | Palma 8.48–8.52 cm, **19.9 cm/s**, distancia 45.0 cm |
-| La cámara 2 ve la mano de a ratos | Rapidez mediana 20.2 cm/s, sin picos por cambio de escala |
+| Captura completa (`captura.py --estereo` con cámaras y MediaPipe simulados, YOLO y visor 3D reales), mano de 8.5 cm a 20 cm/s | Palma 8.49–8.53 cm, **20.1 cm/s**, distancia 45.0 cm |
+| La cámara 2 ve la mano de a ratos | Rapidez mediana ~20.2–20.6 cm/s, p95 < 25: sin picos por cambio de escala |
+
+> Los números de la 28-D eran algo distintos (palma 9.12 cm, error 0.9 cm): la mano de aquella prueba quedaba en parte fuera de la imagen de la cámara 2 sin que se notara. Se corrigió en la 28-F (ver [REVISION.md](REVISION.md#revisión-3--al-pasar-las-comprobaciones-al-repositorio-versión-28-f)).
 
 Con cámaras reales el error será mayor: las webcams no están sincronizadas (se toman los frames lo más juntos posible, pero con movimientos muy rápidos puede haber unos ms de diferencia) y MediaPipe tiembla más que la simulación.
 
@@ -661,11 +695,27 @@ Detalles de la visualización:
 - Si el CSV tiene codo (landmark 21), el antebrazo se dibuja en azul en ambos modos.
 - Sin cámara ni modelo `.task` de por medio: solo lee el CSV, así que corre incluso sin permisos de cámara.
 
+## Pruebas
+
+Desde la versión **28-F** el repositorio trae pruebas que se corren **sin cámara ni pantalla**: reemplazan las webcams, las ventanas y el detector de MediaPipe por simulaciones de resultado conocido, y comparan lo que mide el programa con ese resultado. Todos los números de precisión de este README salen de ellas.
+
+```bash
+./venv/bin/python3 pruebas/correr_todo.py      # las tres, con resumen (~30 s)
+```
+
+| Prueba | Qué comprueba |
+|--------|---------------|
+| `pruebas/filtro_velocidad.py` | One Euro contra la media exponencial de antes: menos ruido quieto, menos retraso, mismos golpeteos |
+| `pruebas/estereo_simulado.py` | Calibración, triangulación, emparejamiento de manos, dedos fuera de cuadro, casos borde |
+| `pruebas/captura_simulada.py` | `captura.py` de punta a punta (una cámara, `--palma-cm`, `--estereo`, CSV durante la sesión, `Ctrl+C`, sin manos, nombres de CSV) y `plot_csv.py` con ese CSV |
+
+Lo que **no** cubren: las cámaras reales (temblor, luz, sincronización), lo que se ve en las ventanas y YOLO sobre personas reales. Detalle en [`pruebas/README.md`](pruebas/README.md).
+
 ## Cambios: comandos, partes quitadas y por qué
 
 Resumen de todo lo que cambió en el proyecto: los comandos de ahora, los de antes, lo que se quitó o reemplazó en el código y por qué. El detalle fechado de cada error y corrección está en [`CHANGELOG.md`](CHANGELOG.md).
 
-Las versiones se nombran por día y letra. El 2026-09-24 hubo cinco (24-A a 24-E) y el 2026-09-28 otras cinco (28-A a 28-E):
+Las versiones se nombran por día y letra. El 2026-09-24 hubo cinco (24-A a 24-E) y el 2026-09-28 seis (28-A a 28-F). Todos los comandos en un solo lugar: [`COMANDOS.md`](COMANDOS.md).
 
 | Versión | Qué trajo |
 |---------|-----------|
@@ -679,6 +729,7 @@ Las versiones se nombran por día y letra. El 2026-09-24 hubo cinco (24-A a 24-E
 | **28-C** | Velocidad con **filtro One Euro** en vez de media exponencial |
 | **28-D** | **Dos cámaras** (`estereo.py`, `--estereo`): calibración, triangulación, palma medida, columnas `x_cm`/`y_cm`/`z_cm` |
 | **28-E** | **Correcciones de la revisión completa**: reloj monotónico, CSV que se pisaba, cámara que se desconecta, título de la ventana |
+| **28-F** | **Pruebas en el repositorio** (`pruebas/`), **registro de comandos** (`COMANDOS.md`) y **de revisiones** (`REVISION.md`); `estereo.py` ya no triangula puntos fuera de la imagen; historial de git sin la línea `Co-Authored-By` |
 
 ### Comandos actuales (referencia completa)
 
@@ -800,6 +851,8 @@ Teclas:
 | Constante `VELOCITY_SMOOTHING` y el estado `(t, pos, vel)` por punto | `kinematics.py` | Clase `OneEuroFilter` (una por mano y punto) y `EURO_MIN_CUTOFF`, `EURO_BETA`, `EURO_D_CUTOFF` | Filtro One Euro (28-C) |
 | `load_frames()` devolvía 4 valores | `plot_csv.py` | Devuelve 5 (agrega `palma_cm` de cada mano y frame) | Reproducir con la misma escala con la que se grabó (28-B) |
 | `time.time()` para timestamps y FPS | `captura.py` | `time.monotonic()` y timestamps que siempre crecen | La hora del sistema puede saltar hacia atrás y MediaPipe exige timestamps crecientes (28-E) |
+| `StereoHands.update` triangulaba los 21 puntos siempre | `estereo.py` | Solo los puntos dentro de las dos imágenes (`_inside`, `MIN_VISIBLE_POINTS`, `INSIDE_MARGIN_FRAC`); `StereoHand.points_cm` tiene `None` en los de afuera y `palm_cm` puede ser `None` hasta poder medirla | Fuera de la imagen el modelo del lente no vale y el punto se corría varios cm (28-F) |
+| Scripts de comprobación sueltos, fuera del repositorio | — | `pruebas/` (`correr_todo.py`, `filtro_velocidad.py`, `estereo_simulado.py`, `captura_simulada.py`) | Poder repetir cada número documentado (28-F) |
 
 ### Versiones del formato del CSV
 
@@ -829,4 +882,8 @@ Con dos cámaras (calibradas una vez con `estereo.py calibrar`):
 
 ## Historial de cambios
 
-Todo error corregido, cambio y mejora se documenta con fecha en [`CHANGELOG.md`](CHANGELOG.md). Última entrada: **2026-09-28**, versiones **28-A** (`captura.py`, versiones fijas), **28-B** (CSV mientras se graba, `--palma-cm`), **28-C** (filtro One Euro), **28-D** (dos cámaras) y **28-E** (correcciones de la revisión completa), más la revisión de la documentación de ese mismo día. Antes, el **2026-09-24**: eje z en 3D, visor de dos POV, antebrazo con YOLO pose y velocidad (24-A/24-B), POV independientes (24-C), velocidad de cada dedo (24-D) y el cambio de nombre a HandMotion3D (24-E).
+Todo error corregido, cambio y mejora se documenta con fecha en [`CHANGELOG.md`](CHANGELOG.md); las revisiones, en [`REVISION.md`](REVISION.md); los comandos ejecutados sobre el repositorio, en la [bitácora de `COMANDOS.md`](COMANDOS.md#3-bitácora-de-mantenimiento).
+
+Última entrada: **2026-09-28**, versiones **28-A** (`captura.py`, versiones fijas), **28-B** (CSV mientras se graba, `--palma-cm`), **28-C** (filtro One Euro), **28-D** (dos cámaras), **28-E** (correcciones de la revisión completa) y **28-F** (pruebas, registro de comandos y de revisiones, puntos fuera de cuadro en estéreo, historial sin `Co-Authored-By`), más la revisión de la documentación de ese mismo día. Antes, el **2026-09-24**: eje z en 3D, visor de dos POV, antebrazo con YOLO pose y velocidad (24-A/24-B), POV independientes (24-C), velocidad de cada dedo (24-D) y el cambio de nombre a HandMotion3D (24-E).
+
+> **Hashes de commits:** el 2026-09-28 se reescribió el historial para quitar una línea `Co-Authored-By` de los mensajes, así que los commits anteriores tienen hashes nuevos (el contenido es el mismo). La tabla de correspondencia está en [`COMANDOS.md`](COMANDOS.md#2026-09-28--versión-28-f-quitar-la-línea-co-authored-by-del-historial).

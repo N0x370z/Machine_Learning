@@ -600,6 +600,7 @@ class DualPOVViewer:
         self._buttons = []
 
         def button(x, w, label, action, on=False):
+            """Dibuja un botón en la barra y registra su zona de clic (on = azul)."""
             y = 8
             cv2.rectangle(bar, (x, y), (x + w, y + 26), BTN_ON if on else BTN, -1)
             cv2.rectangle(bar, (x, y), (x + w, y + 26), (95, 95, 95), 1)
@@ -651,6 +652,7 @@ class DualPOVViewer:
 def _segment(img, p0, p1, color, thick, dashed):
     """Función que dibuja un hueso (con contorno) cuando se la llama."""
     def draw():
+        """Dibuja el hueso: contorno oscuro y encima el color."""
         line = _dashed if dashed else (
             lambda im, a, b, c, t: cv2.line(im, a, b, c, t, cv2.LINE_AA))
         line(img, p0, p1, OUTLINE, thick + 2)
@@ -661,6 +663,7 @@ def _segment(img, p0, p1, color, thick, dashed):
 def _dot(img, p, radius, color, tip):
     """Función que dibuja una articulación (punta = con aro blanco)."""
     def draw():
+        """Dibuja la articulación: contorno, relleno y aro si es punta."""
         cv2.circle(img, p, radius + 1, OUTLINE, -1, cv2.LINE_AA)
         cv2.circle(img, p, radius, color, -1, cv2.LINE_AA)
         if tip:
