@@ -18,3 +18,8 @@ models/*.pt
 # Capturas de sesiones locales (CSVs y fotos), no forman parte del código.
 capturas/*.csv
 capturas/*.png
+
+# Calibración estéreo (estereo.py): es de TUS cámaras y de dónde están
+# puestas; en otra máquina no sirve. El tablero PNG se genera con
+# "estereo.py tablero".
+calibracion/

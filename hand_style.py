@@ -1,21 +1,21 @@
 """
 Estilo visual compartido para el dibujo de manos: colores por dedo y el
-mapeo landmark -> dedo. Lo usan tanto la vista en vivo (Prueba.py, OpenCV
+mapeo landmark -> dedo. Lo usan tanto la vista en vivo (captura.py, OpenCV
 en BGR) como el reproductor de CSV (plot_csv.py, matplotlib en RGB
 0-1), para que ambas vistas se vean siempre igual y no se desincronicen
 si alguien cambia un color en un solo archivo.
 
-Antes de esta versión, tanto Prueba.py como plot_csv.py coloreaban todo
+Antes de esta versión, tanto la captura en vivo como plot_csv.py coloreaban todo
 el esqueleto de una mano con un único color según su lateralidad
 (Left/Right). Eso identificaba manos pero no dedos: no se podía saber,
 de un vistazo, cuál landmark pertenecía a qué dedo sin contar índices.
 Ahora el color primario identifica el dedo (consistente entre ambas
-vistas) y la lateralidad se indica aparte (ver Prueba.py/plot_csv.py).
+vistas) y la lateralidad se indica aparte (ver captura.py/plot_csv.py).
 
 Desde el 2026-09-24 también define el estilo del antebrazo (codo ->
 muñeca), detectado con YOLO pose (ver forearm.py).
 
-Última actualización: 2026-09-24
+Última actualización: 2026-09-28
 """
 
 # Nombre de cada dedo, usado como etiqueta junto a la punta (y en la
@@ -60,7 +60,7 @@ FINGERTIPS = {idxs[-1]: finger for finger, idxs in
 # diseñada para seguir siendo distinguible en las formas más comunes de
 # daltonismo (protanopía/deuteranopía) y no solo por matiz "semáforo"
 # rojo/verde. "palm" son las conexiones muñeca-nudillo que no pertenecen
-# a ningún dedo (ver HAND_CONNECTIONS en Prueba.py/plot_csv.py).
+# a ningún dedo (ver HAND_CONNECTIONS en captura.py/plot_csv.py).
 FINGER_COLORS_RGB = {
     "thumb":  (230, 159, 0),    # ámbar
     "index":  (86, 180, 233),   # azul cielo
@@ -76,7 +76,7 @@ FINGER_COLORS_RGB = {
 
 # Índice "virtual" del codo. Los landmarks de MediaPipe van de 0 a 20;
 # el codo lo aporta YOLO pose y se guarda en el CSV como landmark 21
-# para no cambiar el formato de filas (ver Prueba.py/plot_csv.py).
+# para no cambiar el formato de filas (ver captura.py/plot_csv.py).
 ELBOW_INDEX = 21
 ELBOW_NAME = "Codo"
 

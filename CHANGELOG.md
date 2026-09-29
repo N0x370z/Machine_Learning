@@ -3,6 +3,150 @@
 Historial de cambios del proyecto. Formato libre pero cronológico
 (más reciente arriba), en español porque así está el resto del repo.
 
+## 2026-09-28 (versión 28-E: correcciones de la revisión completa)
+
+Revisión de todo el código y de cómo se venía manejando el proyecto.
+Lo que era un error se corrigió aquí; lo que era de proceso quedó
+anotado al final de esta entrada.
+
+### Corregido
+- **Timestamps con la hora del sistema.** `captura.py` usaba
+  `time.time()`, que puede saltar hacia atrás (ajuste de hora por red).
+  MediaPipe en modo `VIDEO` exige timestamps estrictamente crecientes y
+  habría fallado a mitad de la sesión. Ahora `time.monotonic()`, y el
+  timestamp siempre es al menos 1 ms mayor que el anterior.
+- **Dos sesiones en el mismo segundo se pisaban el CSV** (mismo nombre).
+  Ahora se agrega `_2`, `_3`… Se encontró en las pruebas de la 28-B.
+- **Cámara desconectada:** si la cámara dejaba de entregar imágenes, el
+  programa terminaba sin decir nada. Ahora avisa (y el CSV queda
+  guardado).
+- **Título de la ventana:** seguía siendo `MediaPipe Hands`, el nombre
+  viejo del proyecto. Ahora `HandMotion3D - Camara`.
+- CHANGELOG: la entrada 24-E tenía la ruta absoluta de la carpeta
+  personal del autor; se reemplazó por "la carpeta vieja del proyecto".
+
+### Revisado sin cambios (funciona como está)
+- `HandTracker`, `forearm.py` (emparejamiento, memoria, estimación),
+  `viewer3d.py` (proyección, encuadre, mouse, teclas) y `plot_csv.py`
+  (lectura de los seis formatos de CSV, probada con CSVs reales del
+  2026-09-18 y del 2026-09-24).
+
+### Proceso (anotado, no es código)
+- Los commits desde `b960527` hasta `a2ef70f` llevan una línea
+  `Co-Authored-By` de un asistente. Desde ahora los commits van solo a
+  nombre del autor. Quitarla de los commits viejos requiere reescribir el
+  historial (`git push --force`), así que queda a decisión del autor.
+- Las comprobaciones "con datos simulados" (24-D y las de hoy) se
+  hicieron con scripts sueltos que no quedaron en el repositorio. Pasarlas
+  a tests (`pytest`) permitiría repetirlas en cada cambio.
+- Muchas funciones nuevas no se pueden probar sin hardware (cámaras
+  reales, dos webcams). Las pruebas de hoy reemplazan cámaras, ventanas y
+  MediaPipe por simulaciones; falta probar `--estereo` y
+  `estereo.py calibrar` con dos webcams reales.
+
+## 2026-09-28 (versión 28-D: profundidad real con dos cámaras)
+
+### Añadido
+- **`estereo.py`**: dos webcams fijas miden la posición 3D real de los
+  21 puntos de la mano por triangulación, en vez de la `z` relativa que
+  estima MediaPipe.
+  - `estereo.py tablero`: genera un tablero de ajedrez para imprimir
+    (`calibracion/tablero_9x6.png`).
+  - `estereo.py calibrar --cuadro-mm MM`: calibra el par con 15–20
+    fotos del tablero (`espacio` guarda, `c` calcula). Primero calibra
+    cada cámara (`cv2.calibrateCamera`) y después la pose entre las dos
+    (`cv2.stereoCalibrate` con `CALIB_FIX_INTRINSIC`). Guarda
+    `calibracion/estereo.npz` e informa el error RMS y la distancia entre
+    cámaras.
+  - `StereoHands`: empareja cada mano de la cámara 1 con la de la cámara
+    2 por el error de reproyección (acepta hasta el 1.5 % del ancho),
+    triangula, reemplaza la `z` (misma convención que MediaPipe) y mide
+    la palma (suavizada). Si la cámara 2 pierde la mano, esa mano vuelve
+    a la `z` de MediaPipe pero conserva la última palma medida
+    (`known_palm`), para que la escala no salte.
+- `captura.py`: flags `--estereo`, `--cam`, `--cam2` y `--calibracion`;
+  ventana `HandMotion3D - Camara 2`; en el panel, manos trianguladas,
+  distancia, palma medida y error; etapa `estereo` en los ms.
+- CSV: columnas `x_cm`, `y_cm`, `z_cm` (posición absoluta respecto a la
+  cámara 1, solo con `--estereo`) y `fuente = estereo`.
+- `.gitignore`: `calibracion/` (la calibración es de cada par de cámaras).
+
+### Probado (con cámaras simuladas; no con webcams reales)
+- Calibración con 18 pares simulados: distancia entre cámaras 18.04 cm
+  (real 18.0), RMS 0.28 px.
+- Mano a 45 cm con palma de 9.0 cm: palma medida 9.12 cm, distancia
+  45.0 cm, error de posición máximo 0.9 cm. Dos manos en distinto orden
+  en cada cámara: emparejadas bien.
+- `captura.py --estereo` completo (cámaras y MediaPipe simulados, YOLO y
+  visor 3D reales), mano de 8.5 cm a 20 cm/s: palma 8.48–8.52 cm,
+  19.9 cm/s. Con la cámara 2 viendo la mano de a ratos: 20.2 cm/s de
+  mediana, sin picos.
+
+## 2026-09-28 (versión 28-C: velocidad con filtro One Euro)
+
+### Cambiado
+- `kinematics.py`: la velocidad se calcula con un **filtro One Euro**
+  (Casiez, Roussel y Vogel, 2012) por mano y punto (`OneEuroFilter`),
+  en vez de la media exponencial fija `VELOCITY_SMOOTHING = 0.35`. El
+  filtro suaviza mucho con el punto quieto y poco con el punto rápido.
+  Solo se filtra para la velocidad: las posiciones dibujadas y guardadas
+  siguen siendo las de MediaPipe. `plot_csv.py --3d` usa el mismo filtro.
+- Parámetros `EURO_MIN_CUTOFF = 0.5`, `EURO_BETA = 10`,
+  `EURO_D_CUTOFF = 2`, elegidos entre 72 combinaciones con datos
+  simulados (30 FPS, temblor de ~0.8 px y ~1.5 px):
+  - mano quieta: rapidez de ruido 2.3 → 0.8 cm/s de media (p95 4.6 → 1.9);
+  - arranque a 40 cm/s: 90 % en ~95 ms en vez de ~190 ms;
+  - frenado: ~80 ms en vez de ~150 ms;
+  - golpeteo de un dedo a 4 Hz: igual que antes (~49 % del pico);
+  - a cambio, en movimiento constante la rapidez oscila un poco más
+    (2.0 cm/s en vez de 0.9).
+
+## 2026-09-28 (versión 28-B: CSV mientras se graba y `--palma-cm`)
+
+### Cambiado
+- **El CSV se escribe durante la sesión** (clase `CsvRecorder` en
+  `captura.py`, reemplaza a `export_to_csv` y a la lista `records`).
+  Antes todas las filas se guardaban en memoria hasta salir: una sesión
+  larga ocupaba cada vez más RAM y una caída perdía toda la grabación.
+  Ahora se vacía a disco cada segundo. Se comprobó que en el frame 50 el
+  archivo ya tenía 122 KB y que con `Ctrl+C` a mitad quedan todas las
+  filas.
+- El nombre del CSV usa la hora de **inicio** de la sesión (antes, la de
+  salida). Sigue sin crearse archivo si no se detecta ninguna mano.
+
+### Añadido
+- **`--palma-cm`** en `captura.py` y `plot_csv.py`: largo de la palma
+  de la persona (5–15 cm), la regla con la que se pasa a cm/s. Antes
+  era siempre 9.5 cm y con otra palma todas las velocidades salían
+  desviadas en la misma proporción (palma de 8.5 cm: +12 %). Prueba
+  simulada, mano de 8.5 cm a 20 cm/s: 22.2 cm/s sin el flag, 20.0 cm/s
+  con `--palma-cm 8.5`.
+- CSV: columna `palma_cm`. `plot_csv.py --3d` la usa para reproducir con
+  la misma escala (o `--palma-cm` si se indica; 9.5 en CSVs viejos).
+- `kinematics.py`: `cm_per_unit(points, palm_cm)`, `hand_scale(hand)`,
+  `palm_cm_arg` (validación compartida del flag) y `finger_speeds(...,
+  scale)`. Cada mano de la escena lleva su `palm_cm` y `cm_per_unit`.
+
+## 2026-09-28 (versión 28-A: `captura.py` y versiones fijas)
+
+### Cambiado
+- **`Prueba.py` → `captura.py`** (con `git mv`, conserva el historial:
+  `git log --follow captura.py`). "Prueba" era el nombre de cuando el
+  proyecto era un ejercicio; hoy es el programa principal. Mismos flags.
+  Se actualizaron todas las referencias en el código y el README (las
+  tablas históricas mantienen `Prueba.py` donde describen lo de antes).
+- **Versiones fijas en `requirements.txt`** para todas las dependencias:
+  `mediapipe==0.10.35`, `opencv-python==5.0.0.93`,
+  `opencv-contrib-python==5.0.0.93`, `numpy==2.5.3`,
+  `matplotlib==3.11.2`, `ultralytics==8.4.162`, `torch==2.14.0`,
+  `torchvision==0.29.0` (las del venv, Python 3.14.5). Antes solo
+  `mediapipe` estaba fijado.
+- **Las dos variantes de OpenCV**, `opencv-python` (la pide
+  `ultralytics`) y `opencv-contrib-python` (la pide `mediapipe`), se
+  instalan en la misma carpeta `cv2/`. Si quedan en versiones distintas
+  se pisan archivos. Ahora las dos están fijadas a la misma versión.
+- Ventana de la cámara: `MediaPipe Hands` → `HandMotion3D - Camara`.
+
 ## 2026-09-28 (revisión de la documentación)
 
 Sin cambios de comportamiento: solo documentación.
@@ -66,9 +210,8 @@ Sin cambios de comportamiento: solo documentación.
 
 ### Corregido
 - `./venv/bin/pip` no funcionaba: el script `pip` de un venv guarda la
-  ruta absoluta donde se creó (este venv venía de
-  `/Users/atreus/Programacion/MediaPipeHands/`), y deja de funcionar si
-  la carpeta se mueve. El README ahora usa `./venv/bin/python3 -m pip`,
+  ruta absoluta donde se creó (este venv venía de la carpeta vieja del
+  proyecto), y deja de funcionar si la carpeta se mueve. El README ahora usa `./venv/bin/python3 -m pip`,
   que funciona siempre.
 
 ## 2026-09-24 (cuarta parte: velocidad de cada dedo — versión 24-D)

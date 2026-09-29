@@ -1,6 +1,6 @@
 """
 Grafica los puntos (landmarks) de mano guardados en un CSV exportado por
-Prueba.py, reproduciendo el mismo esqueleto (puntos + conexiones) que se
+captura.py, reproduciendo el mismo esqueleto (puntos + conexiones) que se
 dibuja en vivo sobre el video.
 
 Uso:
@@ -9,13 +9,16 @@ Uso:
     ./venv/bin/python3 plot_csv.py --frame 38            # solo un frame, estático
     ./venv/bin/python3 plot_csv.py --swap-hands          # CSV viejo con Left/Right invertidos
     ./venv/bin/python3 plot_csv.py --3d                  # en 3D (x, y, z), dos POV
+    ./venv/bin/python3 plot_csv.py --3d --palma-cm 8.7   # otra escala para los cm/s
 
 Con --3d usa el mismo visor de dos puntos de vista que la captura en vivo
 (viewer3d.py, ventana de OpenCV), incluyendo la profundidad z, el
 antebrazo (codo, landmark 21) si el CSV lo tiene y las flechas de
 velocidad. La velocidad se recalcula al leer, desde x, y, z y el
 timestamp de cada fotograma (kinematics.py), así funciona también con
-CSVs viejos que no traen las columnas vx/vy/vz.
+CSVs viejos que no traen las columnas vx/vy/vz. Para pasar a cm/s usa
+el largo de palma guardado en el CSV (columna palma_cm, desde la 28-B),
+el de --palma-cm si se indica, o 9.5 cm en CSVs anteriores.
 
 Teclas en la reproducción 3D (además de las del visor, ver viewer3d.py):
     espacio = pausa / seguir     a / d = frame anterior / siguiente
@@ -23,7 +26,7 @@ Teclas en la reproducción 3D (además de las del visor, ver viewer3d.py):
     f = velocidad de cada dedo absoluta / relativa a la muñeca
 
 Historial de cambios relevantes: ver CHANGELOG.md.
-Última actualización: 2026-09-24.
+Última actualización: 2026-09-28.
 """
 
 import argparse
@@ -47,7 +50,7 @@ HAND_CONNECTIONS = vision.HandLandmarksConnections.HAND_CONNECTIONS
 
 # Lateralidad: antes se codificaba solo con color (azul=Left,
 # naranja=Right). Ahora el color identifica el DEDO (ver hand_style.py,
-# compartido con Prueba.py) y la lateralidad se indica con el estilo de
+# compartido con captura.py) y la lateralidad se indica con el estilo de
 # línea, para no perder esa distinción.
 HAND_LINESTYLE = {
     "Left": (0, (4, 2)),  # punteado
@@ -76,17 +79,21 @@ def load_frames(csv_path, swap_hands=False):
     También devuelve el aspecto (alto/ancho) del frame original, tomado de
     las columnas img_w/img_h (CSVs desde el 2026-09-24). En CSVs más
     viejos no existen y se asume 16:9 (1280x720, la resolución por defecto
-    de Prueba.py). El landmark 21, si está, es el codo (ver forearm.py).
+    de captura.py). El landmark 21, si está, es el codo (ver forearm.py).
     Y devuelve {(frame_idx, hand_id): "yolo"|"estimado"} con el origen de
-    cada codo (columna "fuente", desde el 2026-09-24; si falta, "yolo").
+    cada codo (columna "fuente", desde el 2026-09-24; si falta, "yolo"),
+    y {(frame_idx, hand_id): cm} con el largo de palma con el que se
+    grabó (columna "palma_cm", desde la 28-B; vacío en CSVs anteriores).
 
     swap_hands invierte Left/Right al leer: sirve para CSVs grabados antes
-    del 2026-09-23, cuando Prueba.py exportaba la lateralidad invertida.
+    del 2026-09-23, cuando la captura (entonces Prueba.py) exportaba la
+    lateralidad invertida.
     """
     frames = defaultdict(lambda: defaultdict(dict))
     timestamps = {}
     aspect = 720 / 1280
     elbow_sources = {}
+    palms = {}
     with open(csv_path, newline="") as f:
         for row in csv.DictReader(f):
             frame_idx = int(row["frame"])
@@ -103,23 +110,34 @@ def load_frames(csv_path, swap_hands=False):
             timestamps[frame_idx] = int(row["timestamp_ms"])
             if int(row["landmark_index"]) == hand_style.ELBOW_INDEX:
                 elbow_sources[(frame_idx, key[0])] = row.get("fuente") or "yolo"
+            if row.get("palma_cm"):
+                palms[(frame_idx, key[0])] = float(row["palma_cm"])
             if row.get("img_w") and row.get("img_h"):
                 aspect = int(row["img_h"]) / int(row["img_w"])
-    return frames, timestamps, aspect, elbow_sources
+    return frames, timestamps, aspect, elbow_sources, palms
 
 
-def frame_to_scene(hands_in_frame, aspect, frame_idx=None, elbow_sources=None):
+def frame_to_scene(hands_in_frame, aspect, frame_idx=None, elbow_sources=None,
+                   palm_cm=None, palms=None):
     """Manos de un frame del CSV -> formato de escena de viewer3d
-    (sin velocidades: las agrega show_3d con kinematics.py)."""
+    (sin velocidades: las agrega show_3d con kinematics.py).
+
+    Largo de palma para los cm/s: palm_cm (--palma-cm) si se indicó; si
+    no, el guardado en el CSV para esa mano (palms); si no hay, el
+    default de kinematics.PALM_LENGTH_CM."""
     elbow_sources = elbow_sources or {}
+    palms = palms or {}
     hands = []
     for (hand_id, label), landmarks in hands_in_frame.items():
         elbow = landmarks.get(hand_style.ELBOW_INDEX)
+        points = [(x, y * aspect, z) for x, y, z in (landmarks[i] for i in range(21))]
+        palm = palm_cm or palms.get((frame_idx, hand_id), kinematics.PALM_LENGTH_CM)
         hands.append({
             "id": hand_id,
             "label": label,
-            "points": [(x, y * aspect, z) for x, y, z in
-                       (landmarks[i] for i in range(21))],
+            "points": points,
+            "palm_cm": palm,
+            "cm_per_unit": kinematics.cm_per_unit(points, palm),
             "elbow": (elbow[0], elbow[1] * aspect, elbow[2]) if elbow else None,
             "elbow_source": elbow_sources.get((frame_idx, hand_id), "yolo")
                             if elbow else None,
@@ -231,17 +249,22 @@ def main():
     parser.add_argument("--3d", dest="three_d", action="store_true",
                          help="Grafica en 3D (x, y, z) con dos puntos de vista "
                               "(ver viewer3d.py)")
+    parser.add_argument("--palma-cm", type=kinematics.palm_cm_arg, default=None,
+                         help="Largo de palma (cm) para las velocidades en --3d. "
+                              "Por defecto, el guardado en el CSV (columna "
+                              f"palma_cm) o {kinematics.PALM_LENGTH_CM} si no está")
     args = parser.parse_args()
 
     csv_path = args.csv_path or latest_csv()
-    frames, timestamps, aspect, elbow_sources = load_frames(csv_path, args.swap_hands)
+    frames, timestamps, aspect, elbow_sources, palms = load_frames(csv_path,
+                                                                   args.swap_hands)
     frame_indices = sorted(frames)
 
     if args.frame is not None and args.frame not in frames:
         raise SystemExit(f"El frame {args.frame} no existe en {csv_path}")
 
     if args.three_d:
-        show_3d(csv_path, frames, timestamps, aspect, elbow_sources,
+        show_3d(csv_path, frames, timestamps, aspect, elbow_sources, palms,
                 frame_indices, args)
         return
 
@@ -266,7 +289,7 @@ def main():
     plt.show()
 
 
-def show_3d(csv_path, frames, timestamps, aspect, elbow_sources,
+def show_3d(csv_path, frames, timestamps, aspect, elbow_sources, palms,
             frame_indices, args):
     """
     Reproduce el CSV en el visor de dos POV de OpenCV (viewer3d.py), en
@@ -278,7 +301,8 @@ def show_3d(csv_path, frames, timestamps, aspect, elbow_sources,
     velocity = kinematics.VelocityEstimator()
     scenes = {}
     for frame_idx in frame_indices:
-        hands = frame_to_scene(frames[frame_idx], aspect, frame_idx, elbow_sources)
+        hands = frame_to_scene(frames[frame_idx], aspect, frame_idx, elbow_sources,
+                               args.palma_cm, palms)
         for hand in hands:
             hand["velocities"] = velocity.update(
                 hand["id"], timestamps[frame_idx] / 1000,

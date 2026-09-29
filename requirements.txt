@@ -1,3 +1,10 @@
+# Versiones fijadas (desde la 28-A, 2026-09-28): son las que están
+# instaladas y probadas en el venv del proyecto (Python 3.14.5, macOS con
+# Apple Silicon). Sin fijarlas, un "pip install" nuevo podía traer una
+# versión que rompe el proyecto, como pasó con mediapipe 1.0 (ver abajo).
+# Para actualizar: subir UNA dependencia, probar captura.py y plot_csv.py
+# (en vivo y --3d), y recién ahí cambiar la versión aquí y en el CHANGELOG.
+
 # mediapipe 1.0.0/1.0.1 crashean en macOS (Apple Silicon) con
 # "Check failed: service_ Service is unavailable" en cualquier tarea de
 # visión (HandLandmarker, PoseLandmarker, etc.) por un bug de inicialización
@@ -5,10 +12,22 @@
 # https://github.com/google-ai-edge/mediapipe/issues/6356
 # No subir de versión sin volver a probar en macOS.
 mediapipe==0.10.35
-opencv-contrib-python
-numpy
-# Antebrazo (codo -> muñeca) con YOLO pose, ver forearm.py. Instala torch.
-# El modelo yolo11s-pose.pt (o n/m, ver --yolo-modelo) se descarga solo a
-# models/ la primera vez.
-ultralytics
-matplotlib
+
+# OpenCV viene en DOS paquetes que se instalan en la misma carpeta cv2/:
+# mediapipe pide opencv-contrib-python y ultralytics pide opencv-python.
+# No se puede evitar tener los dos, pero si quedan en versiones distintas
+# el que se instala último pisa archivos del otro y cv2 puede romperse.
+# Por eso se fijan a la MISMA versión.
+opencv-contrib-python==5.0.0.93
+opencv-python==5.0.0.93
+
+numpy==2.5.3
+matplotlib==3.11.2
+
+# Antebrazo (codo -> muñeca) con YOLO pose, ver forearm.py. El modelo
+# yolo11s-pose.pt (o n/m, ver --yolo-modelo) se descarga solo a models/
+# la primera vez. torch/torchvision los instala ultralytics; se fijan
+# aparte porque son lo más pesado y lo que más cambia entre versiones.
+ultralytics==8.4.162
+torch==2.14.0
+torchvision==0.29.0

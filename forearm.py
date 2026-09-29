@@ -13,7 +13,7 @@ Por qué YOLO y no MediaPipe/OpenCV:
 Modelo: por defecto yolo11s-pose.pt (~9 ms por frame con MPS en Apple
 Silicon). Con yolo11n-pose.pt (el de la primera versión, ~6 ms) el codo
 se detectaba tarde y mal a distancia de webcam (bug del 2026-09-24, ver
-CHANGELOG.md). Se elige con --yolo-modelo en Prueba.py.
+CHANGELOG.md). Se elige con --yolo-modelo en captura.py.
 
 Cómo se decide el codo de cada mano, en orden:
   1. YOLO con muñeca visible: la mano de MediaPipe se empareja con el

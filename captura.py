@@ -1,5 +1,11 @@
 """
-Detección de manos en tiempo real con MediaPipe (Tasks API).
+Captura en vivo de HandMotion3D: detección de manos en tiempo real con
+MediaPipe (Tasks API), antebrazo, vista 3D, velocidad y export a CSV.
+
+Hasta la versión 28-A (2026-09-28) este archivo se llamaba Prueba.py:
+era el nombre de cuando el proyecto era un ejercicio de prueba, y ya es
+el programa principal. Se renombró con git mv (conserva su historial:
+git log --follow captura.py).
 
 El detector de manos vive en la Tasks API:
 mediapipe.tasks.python.vision.HandLandmarker, y requiere un modelo .task
@@ -22,19 +28,27 @@ forearm.py), y se calcula la velocidad de cada punto a partir de su
 posición x, y, z y del tiempo de cada fotograma (ver kinematics.py).
 
 Ejecutar con el intérprete del venv del proyecto:
-    ./venv/bin/python3 Prueba.py
-    ./venv/bin/python3 Prueba.py --sin-antebrazo   # sin YOLO (más liviano)
-    ./venv/bin/python3 Prueba.py --sin-3d          # sin el visor de dos POV
+    ./venv/bin/python3 captura.py
+    ./venv/bin/python3 captura.py --sin-antebrazo   # sin YOLO (más liviano)
+    ./venv/bin/python3 captura.py --sin-3d          # sin el visor de dos POV
+    ./venv/bin/python3 captura.py --palma-cm 8.7    # cm/s con TU palma
+    ./venv/bin/python3 captura.py --estereo         # dos cámaras (estereo.py)
 
 Velocidad: de cada punto (flechas), de la muñeca y de cada dedo (su
 punta), absoluta o relativa a la muñeca (tecla 'f'). Ver kinematics.py.
+La escala en cm sale del largo de la palma: 9.5 cm por defecto, el de
+--palma-cm, o el medido con dos cámaras (--estereo).
 
-Para salir: 'q' o Esc en cualquiera de las dos ventanas, o cerrar la
-ventana de la cámara. En los tres casos se guarda el CSV (también con
-Ctrl+C en la terminal).
+CSV: se escribe en capturas/hand_data_<inicio>.csv MIENTRAS se graba
+(CsvRecorder, desde la 28-B), así una caída del programa pierde como
+mucho el último segundo.
+
+Para salir: 'q' o Esc en cualquier ventana, cerrar la ventana de la
+cámara o Ctrl+C en la terminal. En todos los casos el CSV queda cerrado
+y completo.
 
 Historial de cambios relevantes: ver CHANGELOG.md.
-Última actualización: 2026-09-24.
+Última actualización: 2026-09-28.
 """
 
 import argparse
@@ -88,7 +102,10 @@ TRACK_MATCH_MAX_DIST = 0.25   # distancia máxima (coords normalizadas) para emp
 TRACK_MAX_AGE = 10            # frames que un track sobrevive sin ser emparejado antes de descartarse
 HANDEDNESS_WINDOW = 15        # frames de historial usados para estabilizar Left/Right (~0.5s a 30fps)
 
-CAMERA_WINDOW = "MediaPipe Hands"
+# Título de la ventana de la cámara. Hasta la 28-A era "MediaPipe Hands",
+# el nombre viejo del proyecto.
+CAMERA_WINDOW = "HandMotion3D - Camara"
+CAMERA2_WINDOW = "HandMotion3D - Camara 2"  # solo con --estereo
 
 # Teclas de salida: 'q' y Esc (27).
 QUIT_KEYS = (ord("q"), 27)
@@ -354,7 +371,7 @@ def draw_velocity(frame, hands_scene):
     h, w, _ = frame.shape
     for hand in hands_scene:
         vels = hand["velocities"]
-        scale = kinematics.cm_per_unit(hand["points"])
+        scale = kinematics.hand_scale(hand)
         points = viewer3d.scene_points(hand)
         for idx in viewer3d.ARROW_POINTS:
             v = vels.get(idx)
@@ -372,7 +389,7 @@ def draw_velocity(frame, hands_scene):
 
 def draw_hud(frame, fps, n_hands, n_frames_recorded, show_names,
              n_elbows=None, show_velocity=True, hand_speeds=(), timings=None,
-             finger_rows=(), relative_fingers=False):
+             finger_rows=(), relative_fingers=False, stereo_lines=None):
     """
     Panel de estado en la esquina superior izquierda: FPS reales del
     bucle, manos detectadas en este frame, frames con manos acumulados
@@ -386,8 +403,12 @@ def draw_hud(frame, fps, n_hands, n_frames_recorded, show_names,
     finger_rows: [(etiqueta, {dedo: cm/s})] por mano: velocidad de cada
     dedo (absoluta o relativa a la muñeca según relative_fingers, tecla
     'f'; ver kinematics.finger_speeds).
-    timings: ms promedio de cada etapa {"mano", "yolo", "3D"}, para ver
-    qué es lo que frena el bucle si los FPS bajan.
+    timings: ms promedio de cada etapa {"mano", "yolo", "3D"} (y
+    "estereo" con dos cámaras), para ver qué es lo que frena el bucle si
+    los FPS bajan.
+    stereo_lines: con --estereo, cuántas manos se triangularon y, por
+    mano, su distancia a la cámara 1, la palma medida y el error de
+    reproyección; None sin --estereo.
     """
     if n_elbows is None:
         forearm_text = "off"
@@ -408,6 +429,8 @@ def draw_hud(frame, fps, n_hands, n_frames_recorded, show_names,
             lines.append(f"  {label}: " + "  ".join(
                 f"{abbr} {speeds[finger]:3.0f}"
                 for finger, abbr in hand_style.FINGER_ABBR.items()))
+    if stereo_lines:
+        lines.extend(stereo_lines)
     if timings:
         lines.append("ms: " + "  ".join(f"{k} {v:.0f}" for k, v in timings.items()))
     lines.append(f"[n] nombres: {'si' if show_names else 'no'}  "
@@ -436,6 +459,10 @@ CSV_HEADER = [
     "frame", "timestamp_ms", "hand_id", "handedness", "score",
     "landmark_index", "x", "y", "z", "img_w", "img_h",
     "vx", "vy", "vz", "rapidez_cm_s", "rapidez_rel_cm_s", "dedo", "fuente",
+    # Desde la 28-B: largo de palma usado para los cm/s (--palma-cm o
+    # medido con dos cámaras). Desde la 28-D: posición absoluta en cm
+    # respecto a la cámara 1, solo con --estereo (vacías si no).
+    "palma_cm", "x_cm", "y_cm", "z_cm",
 ]
 
 
@@ -447,61 +474,118 @@ def landmarks_to_rows(frame_idx, timestamp_ms, hands_scene, scores,
     (hand_style.ELBOW_INDEX), con z estimada (ver forearm.py).
 
     - x, y, z: como los da MediaPipe (x, y normalizados 0-1; z relativa a
-      la muñeca). Para el codo, en la misma convención.
+      la muñeca). Para el codo, en la misma convención. Con --estereo, z
+      es la medida con las dos cámaras (ver estereo.py), en la misma
+      convención.
     - img_w/img_h: tamaño del frame, para reconstruir la escena 3D con la
       proporción correcta en plot_csv.py --3d.
     - vx, vy, vz: velocidad en anchos de frame por segundo (ver
-      kinematics.py); rapidez_cm_s: su módulo en cm/s aproximados.
+      kinematics.py); rapidez_cm_s: su módulo en cm/s.
     - rapidez_rel_cm_s: rapidez respecto a la muñeca (lo que se mueve el
       punto dentro de la mano). En las puntas (4, 8, 12, 16, 20) es la
       velocidad relativa de ese dedo; en la muñeca siempre es 0.
     - dedo: a qué parte pertenece el punto (Pulgar, Índice, Medio,
       Anular, Meñique, Muñeca o Codo), para filtrar por dedo sin
       memorizar índices.
-    - fuente: "mediapipe" (0-20), "yolo" o "estimado" (codo).
+    - fuente: "mediapipe" (0-20, una cámara), "estereo" (0-20, z medida
+      con dos cámaras), "yolo" o "estimado" (codo).
+    - palma_cm: largo de palma con el que se pasó a cm/s (--palma-cm o
+      medido con dos cámaras). plot_csv.py --3d lo reutiliza.
+    - x_cm, y_cm, z_cm: solo con --estereo, posición absoluta del punto
+      en cm respecto a la cámara 1: x hacia la derecha de la imagen en
+      espejo (como se ve en la ventana), y hacia abajo, z = distancia a
+      lo largo del eje de la cámara. Vacías sin --estereo y en el codo.
 
     hands_scene: lista de viewer3d.hands_to_scene (tiene posiciones,
-    codo y velocidades de cada mano); scores: {track_id: score}.
+    codo, velocidades y escala de cada mano); scores: {track_id: score}.
     """
     aspect = img_h / img_w
     rows = []
     for hand in hands_scene:
-        scale = kinematics.cm_per_unit(hand["points"])
+        scale = kinematics.hand_scale(hand)
         points = viewer3d.scene_points(hand)
+        points_cm = hand.get("points_cm")
         wrist_v = hand["velocities"].get(0, (0.0, 0.0, 0.0))
         for idx in sorted(points):
             X, Y, Z = points[idx]
             v = hand["velocities"].get(idx, (0.0, 0.0, 0.0))
-            source = "mediapipe" if idx < 21 else hand["elbow_source"]
+            if idx < 21:
+                source = "estereo" if points_cm is not None else "mediapipe"
+            else:
+                source = hand["elbow_source"]
+            abs_cm = (points_cm[idx] if points_cm is not None and idx < 21
+                      else ("", "", ""))
             rows.append([
                 frame_idx, timestamp_ms, hand["id"], hand["label"],
                 scores[hand["id"]], idx, X, Y / aspect, Z, img_w, img_h,
                 *v, kinematics.speed_cm_s(v, scale),
                 kinematics.relative_speed_cm_s(v, wrist_v, scale),
                 hand_style.point_name(idx), source,
+                round(hand.get("palm_cm", kinematics.PALM_LENGTH_CM), 2),
+                *abs_cm,
             ])
     return rows
 
 
-def export_to_csv(records):
+class CsvRecorder:
     """
-    Escribe las filas acumuladas en capturas/hand_data_<fecha>.csv con
-    CSV_HEADER. Si no hay filas (ninguna mano en toda la sesión), solo
-    avisa y no crea el archivo.
+    Escribe el CSV de la sesión en disco MIENTRAS se graba (desde la
+    28-B). Antes todas las filas se acumulaban en memoria y se escribían
+    recién al salir: una sesión larga ocupaba cada vez más RAM (22 filas
+    por mano y por frame) y, si el programa se caía sin llegar al final
+    (un crash de MediaPipe, matar el proceso, cortarse la luz), se perdía
+    toda la grabación.
+
+    - El nombre sale de la hora de INICIO de la sesión
+      (hand_data_<inicio>.csv). Antes era la hora de salida. Si ya existe
+      un archivo con ese nombre, se agrega _2, _3... (antes lo pisaba).
+    - El archivo se crea recién con la primera mano detectada: si no se
+      detecta ninguna en toda la sesión, no queda un CSV vacío (igual que
+      antes).
+    - Se vacía el búfer a disco (flush) cada FLUSH_EVERY_S segundos: si el
+      programa se cae, se pierde como mucho ese último tramo.
     """
-    if not records:
-        print("No se detectaron manos, no hay datos que exportar.")
-        return
 
-    OUTPUT_DIR.mkdir(exist_ok=True)
-    out_path = OUTPUT_DIR / f"hand_data_{datetime.now():%Y%m%d_%H%M%S}.csv"
+    FLUSH_EVERY_S = 1.0
 
-    with open(out_path, "w", newline="") as f:
-        writer = csv.writer(f)
-        writer.writerow(CSV_HEADER)
-        writer.writerows(records)
+    def __init__(self, out_dir=OUTPUT_DIR):
+        stamp = f"hand_data_{datetime.now():%Y%m%d_%H%M%S}"
+        self.path = out_dir / f"{stamp}.csv"
+        # Dos sesiones en el mismo segundo tendrían el mismo nombre y la
+        # segunda pisaría a la primera: se agrega _2, _3...
+        n = 2
+        while self.path.exists():
+            self.path = out_dir / f"{stamp}_{n}.csv"
+            n += 1
+        self._file = None
+        self._writer = None
+        self._last_flush = time.monotonic()
+        self.rows_written = 0
 
-    print(f"Datos exportados a {out_path}")
+    def write(self, rows):
+        """Agrega filas (ver landmarks_to_rows); crea el archivo la primera vez."""
+        if not rows:
+            return
+        if self._file is None:
+            self.path.parent.mkdir(exist_ok=True)
+            self._file = open(self.path, "w", newline="")
+            self._writer = csv.writer(self._file)
+            self._writer.writerow(CSV_HEADER)
+        self._writer.writerows(rows)
+        self.rows_written += len(rows)
+        now = time.monotonic()
+        if now - self._last_flush >= self.FLUSH_EVERY_S:
+            self._file.flush()
+            self._last_flush = now
+
+    def close(self):
+        """Cierra el archivo y avisa dónde quedó (o que no hubo manos)."""
+        if self._file is None:
+            print("No se detectaron manos, no hay datos que exportar.")
+            return
+        self._file.close()
+        self._file = None
+        print(f"Datos exportados a {self.path}")
 
 
 def parse_args():
@@ -576,14 +660,80 @@ def parse_args():
             "dibuja cuando YOLO lo detecta de verdad."
         ),
     )
+    parser.add_argument(
+        "--palma-cm", type=kinematics.palm_cm_arg, default=kinematics.PALM_LENGTH_CM,
+        help=(
+            "Largo de TU palma en cm, del pliegue de la muñeca al nudillo "
+            f"del dedo medio (default: {kinematics.PALM_LENGTH_CM}). Es la "
+            "regla con la que se pasan las velocidades a cm/s. Con "
+            "--estereo se mide solo y esto se usa solo para manos que no "
+            "ven las dos cámaras."
+        ),
+    )
+    parser.add_argument(
+        "--estereo", action="store_true",
+        help=(
+            "Usa dos cámaras para medir la profundidad real (ver "
+            "estereo.py). Necesita calibrar antes con "
+            "'estereo.py calibrar'."
+        ),
+    )
+    parser.add_argument(
+        "--cam", type=int, default=0,
+        help="Índice de la cámara (la cámara 1 con --estereo) (default: 0).",
+    )
+    parser.add_argument(
+        "--cam2", type=int, default=1,
+        help="Índice de la segunda cámara, solo con --estereo (default: 1).",
+    )
+    parser.add_argument(
+        "--calibracion", type=Path, default=None,
+        help="Archivo de calibración estéreo (default: calibracion/estereo.npz).",
+    )
     return parser.parse_args()
+
+
+def open_camera(index, width, height):
+    """
+    Abre una cámara y le pide esa resolución. Pedimos más resolución que
+    el default de la webcam (suele ser 640x480) para darle a MediaPipe más
+    píxeles por mano y mejorar el reconocimiento a media/larga distancia.
+    Si la cámara no soporta la resolución pedida, cv2 la ignora sin lanzar
+    error: el tamaño real se lee después con cap.get.
+    """
+    cap = cv2.VideoCapture(index)
+    if not cap.isOpened():
+        raise RuntimeError(
+            f"No se pudo abrir la cámara {index}. En macOS revisa Ajustes del "
+            "Sistema > Privacidad y Seguridad > Cámara y dale permiso a tu "
+            "terminal. Si tienes varias cámaras, prueba otro --cam."
+        )
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+    return cap
+
+
+def draw_camera2(frame2, hands2):
+    """
+    Vista de la cámara 2 (--estereo): sus manos como puntos blancos, para
+    ver si las dos cámaras encuadran la mano. Se muestra en espejo (como
+    la cámara 1) solo para verla; MediaPipe la procesa sin voltear.
+    """
+    h, w, _ = frame2.shape
+    for lms in hands2:
+        for lm in lms:
+            cv2.circle(frame2, (int(lm.x * w), int(lm.y * h)), 4, (255, 255, 255),
+                       -1, cv2.LINE_AA)
+    small = cv2.resize(frame2, (w // 2, h // 2))
+    return cv2.flip(small, 1)
 
 
 def main():
     """
-    Bucle de captura: cámara -> MediaPipe -> tracker -> YOLO (codo) ->
-    velocidad -> dibujo (cámara + vista 3D) -> teclas. Al salir (q, Esc,
-    cerrar la ventana, Ctrl+C o error) libera todo y exporta el CSV.
+    Bucle de captura: cámara(s) -> MediaPipe -> tracker -> estéreo (si
+    --estereo) -> YOLO (codo) -> velocidad -> dibujo (cámara + vista 3D)
+    -> CSV -> teclas. Al salir (q, Esc, cerrar la ventana, Ctrl+C o
+    error) libera todo y cierra el CSV.
     """
     args = parse_args()
 
@@ -604,23 +754,28 @@ def main():
         min_tracking_confidence=args.min_tracking_confidence,
     )
 
-    cap = cv2.VideoCapture(0)
-    if not cap.isOpened():
-        raise RuntimeError(
-            "No se pudo abrir la cámara. En macOS revisa Ajustes del Sistema > "
-            "Privacidad y Seguridad > Cámara y dale permiso a tu terminal."
-        )
-    # Pedimos más resolución que el default de la webcam (suele ser
-    # 640x480) para darle a MediaPipe más píxeles por mano y mejorar el
-    # reconocimiento a media/larga distancia. Si la cámara no soporta la
-    # resolución pedida, cv2 la ignora sin lanzar error.
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, args.cam_width)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, args.cam_height)
-
-    # Tamaño real del frame (la cámara puede ignorar el pedido de arriba).
+    cap = open_camera(args.cam, args.cam_width, args.cam_height)
+    # Tamaño real del frame (la cámara puede ignorar el pedido).
     img_w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     img_h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     aspect = img_h / img_w
+
+    # Dos cámaras (--estereo, 28-D): se valida todo ANTES de cargar YOLO,
+    # para que un error de calibración salga al instante.
+    cap2 = stereo = None
+    if args.estereo:
+        import estereo
+        rig = estereo.StereoRig.load(args.calibracion or estereo.DEFAULT_CALIB)
+        cap2 = open_camera(args.cam2, img_w, img_h)
+        size2 = (int(cap2.get(cv2.CAP_PROP_FRAME_WIDTH)),
+                 int(cap2.get(cv2.CAP_PROP_FRAME_HEIGHT)))
+        if size2 != (img_w, img_h):
+            raise RuntimeError(f"La cámara 2 abrió a {size2[0]}x{size2[1]} y la 1 a "
+                               f"{img_w}x{img_h}: tienen que ser iguales.")
+        stereo = estereo.StereoHands(rig, img_w, img_h)
+        print(f"Estéreo: cámaras {args.cam} y {args.cam2}, separadas "
+              f"{rig.baseline_cm:.1f} cm (error de calibración "
+              f"{rig.info.get('rms_estereo', float('nan')):.2f} px).")
 
     forearms = None
     if not args.sin_antebrazo:
@@ -633,9 +788,13 @@ def main():
 
     viewer = None if args.sin_3d else viewer3d.DualPOVViewer(aspect=aspect)
 
-    start_time = time.time()
+    # Reloj monotónico (desde la 28-E): time.time() es la hora del sistema
+    # y puede saltar hacia atrás (ajuste de hora por red); MediaPipe exige
+    # timestamps estrictamente crecientes y fallaría.
+    start_time = time.monotonic()
+    last_timestamp_ms = -1
     frame_idx = 0
-    records = []
+    recorder = CsvRecorder()
     tracker = HandTracker()
     velocity = kinematics.VelocityEstimator()
     show_names = True
@@ -643,52 +802,101 @@ def main():
     relative_fingers = False  # tecla 'f': velocidad de dedos absoluta/relativa
     frames_recorded = 0
     fps = 0.0
-    last_tick = time.time()
+    last_tick = time.monotonic()
     # ms promedio por etapa (media exponencial), para el panel de estado.
     timings = {"mano": 0.0, "yolo": 0.0, "3D": 0.0}
+    if stereo is not None:
+        timings["estereo"] = 0.0
 
     def timed(stage, t0):
-        timings[stage] = 0.9 * timings[stage] + 0.1 * (time.time() - t0) * 1000
+        """Suma a timings[stage] lo que tardó la etapa que empezó en t0."""
+        timings[stage] = 0.9 * timings[stage] + 0.1 * (time.monotonic() - t0) * 1000
 
     # try/finally: pase lo que pase (q, Esc, cerrar la ventana, Ctrl+C o
-    # un error) se libera la cámara, se cierran las ventanas y se guarda
-    # el CSV con lo grabado hasta ese momento.
+    # un error) se libera la cámara, se cierran las ventanas y se cierra
+    # el CSV (que ya se fue escribiendo durante la sesión).
+    landmarker2 = None
     try:
         with vision.HandLandmarker.create_from_options(options) as landmarker:
+            if stereo is not None:
+                # Un detector propio para la cámara 2: en modo VIDEO cada
+                # detector sigue a SU secuencia de frames.
+                landmarker2 = vision.HandLandmarker.create_from_options(options)
             while True:
-                ok, frame = cap.read()
+                if cap2 is None:
+                    ok, frame = cap.read()
+                else:
+                    # grab() en las dos y después retrieve(): los dos frames
+                    # quedan lo más cerca posible en el tiempo.
+                    ok = cap.grab() and cap2.grab()
+                    if ok:
+                        ok1, frame = cap.retrieve()
+                        ok2, frame2 = cap2.retrieve()
+                        ok = ok1 and ok2
                 if not ok:
+                    print("La cámara dejó de entregar imágenes (¿se desconectó?).")
                     break
 
                 frame = cv2.flip(frame, 1)
                 rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
 
-                timestamp_ms = int((time.time() - start_time) * 1000)
-                t0 = time.time()
+                timestamp_ms = int((time.monotonic() - start_time) * 1000)
+                timestamp_ms = max(timestamp_ms, last_timestamp_ms + 1)
+                last_timestamp_ms = timestamp_ms
+                t0 = time.monotonic()
                 result = landmarker.detect_for_video(mp_image, timestamp_ms)
                 timed("mano", t0)
 
+                hands2 = []
+                if landmarker2 is not None:
+                    t0 = time.monotonic()
+                    rgb2 = cv2.cvtColor(frame2, cv2.COLOR_BGR2RGB)
+                    result2 = landmarker2.detect_for_video(
+                        mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb2),
+                        timestamp_ms)
+                    hands2 = result2.hand_landmarks or []
+                    timed("estereo", t0)
+
                 tracked_hands, elbows, hands_scene, finger_speeds = [], {}, [], {}
+                stereo_info = {}
                 if result.hand_landmarks:
                     tracked_hands = tracker.update(result.hand_landmarks, result.handedness)
+                    # Con dos cámaras, la z de cada mano que ven las dos se
+                    # reemplaza por la medida ANTES del antebrazo y la
+                    # velocidad, que así la usan sin saber de dónde viene.
+                    if stereo is not None:
+                        tracked_hands, stereo_info = stereo.update(tracked_hands, hands2)
                     # YOLO solo corre si hay manos: sin mano no hay antebrazo
                     # que unir y así no se gasta cómputo de más.
                     if forearms is not None:
-                        t0 = time.time()
+                        t0 = time.monotonic()
                         arms = forearms.detect_arms(frame)
                         elbows = forearms.update(arms, tracked_hands, aspect)
                         timed("yolo", t0)
-                    hands_scene = viewer3d.hands_to_scene(tracked_hands, elbows, aspect)
-                    # Velocidad de cada punto: posición x, y, z + tiempo real
-                    # del fotograma (ver kinematics.py).
+                    hands_scene = viewer3d.hands_to_scene(tracked_hands, elbows, aspect,
+                                                          palm_cm=args.palma_cm)
                     for hand in hands_scene:
+                        info = stereo_info.get(hand["id"])
+                        if info is not None:
+                            hand["points_cm"] = info.points_cm
+                        # Palma medida: la de este frame o, si la cámara 2
+                        # perdió la mano, la última que se midió.
+                        palm = stereo.known_palm(hand["id"]) if stereo else None
+                        if palm is not None:
+                            hand["palm_cm"] = palm
+                            hand["cm_per_unit"] = kinematics.cm_per_unit(
+                                hand["points"], palm)
+                        # Velocidad de cada punto: posición x, y, z + tiempo
+                        # real del fotograma (ver kinematics.py).
                         hand["velocities"] = velocity.update(
                             hand["id"], timestamp_ms / 1000,
                             viewer3d.scene_points(hand))
                     finger_speeds = {
                         h["id"]: {f: v[1 if relative_fingers else 0] for f, v in
-                                  kinematics.finger_speeds(h["points"], h["velocities"]).items()}
+                                  kinematics.finger_speeds(
+                                      h["points"], h["velocities"],
+                                      kinematics.hand_scale(h)).items()}
                         for h in hands_scene
                     }
                     draw_forearms(frame, tracked_hands, elbows, show_names)
@@ -697,7 +905,7 @@ def main():
                     if show_velocity:
                         draw_velocity(frame, hands_scene)
                     scores = {t[0]: t[2] for t in tracked_hands}
-                    records.extend(landmarks_to_rows(frame_idx, timestamp_ms,
+                    recorder.write(landmarks_to_rows(frame_idx, timestamp_ms,
                                                      hands_scene, scores,
                                                      img_w, img_h))
                     frames_recorded += 1
@@ -705,7 +913,7 @@ def main():
 
                 if viewer is not None:
                     if viewer.is_open():
-                        t0 = time.time()
+                        t0 = time.monotonic()
                         viewer.render(hands_scene, f"manos: {n_hands}", show_velocity,
                                       relative_fingers)
                         timed("3D", t0)
@@ -714,14 +922,14 @@ def main():
 
                 # FPS suavizado (media exponencial) para que el número no
                 # salte cuadro a cuadro.
-                now = time.time()
+                now = time.monotonic()
                 dt = now - last_tick
                 last_tick = now
                 if dt > 0:
                     fps = 1 / dt if fps == 0 else 0.9 * fps + 0.1 / dt
 
-                # Una sola cv2.waitKey recibe las teclas de las dos ventanas
-                # (cámara y vista 3D), porque ambas son de OpenCV.
+                # Una sola cv2.waitKey recibe las teclas de todas las
+                # ventanas (cámara, cámara 2 y vista 3D): son de OpenCV.
                 # La foto se guarda antes de dibujar el HUD para que no salga
                 # el panel de estado en la imagen.
                 key = cv2.waitKey(1) & 0xFF
@@ -745,15 +953,27 @@ def main():
                 hand_speeds = [
                     (f"{h['label']} #{h['id']}",
                      kinematics.speed_cm_s(h["velocities"].get(0, (0, 0, 0)),
-                                           kinematics.cm_per_unit(h["points"])))
+                                           kinematics.hand_scale(h)))
                     for h in hands_scene
                 ]
                 finger_rows = [(f"{h['label']} #{h['id']}", finger_speeds[h["id"]])
                                for h in hands_scene] if show_velocity else []
+                stereo_lines = None
+                if stereo is not None:
+                    stereo_lines = [f"Estereo: {len(stereo_info)}/{n_hands} manos "
+                                    f"(cam2 ve {len(hands2)})"]
+                    for h in hands_scene:
+                        info = stereo_info.get(h["id"])
+                        if info is not None:
+                            stereo_lines.append(
+                                f"  {h['label']} #{h['id']}: a {info.distance_cm:.0f} cm, "
+                                f"palma {info.palm_cm:.1f} cm, error {info.error_px:.1f} px")
                 draw_hud(frame, fps, n_hands, frames_recorded, show_names,
                          n_elbows, show_velocity, hand_speeds, timings,
-                         finger_rows, relative_fingers)
+                         finger_rows, relative_fingers, stereo_lines)
                 cv2.imshow(CAMERA_WINDOW, frame)
+                if cap2 is not None:
+                    cv2.imshow(CAMERA2_WINDOW, draw_camera2(frame2, hands2))
                 frame_idx += 1
 
                 # Cerrar la ventana de la cámara con el botón rojo también
@@ -763,7 +983,11 @@ def main():
     except KeyboardInterrupt:
         print("\nInterrumpido con Ctrl+C.")
     finally:
+        if landmarker2 is not None:
+            landmarker2.close()
         cap.release()
+        if cap2 is not None:
+            cap2.release()
         if viewer is not None:
             viewer.close()
         cv2.destroyAllWindows()
@@ -772,7 +996,7 @@ def main():
         # congeladas en pantalla después de salir (parte del bug de 'q').
         for _ in range(10):
             cv2.waitKey(1)
-        export_to_csv(records)
+        recorder.close()
 
 
 if __name__ == "__main__":

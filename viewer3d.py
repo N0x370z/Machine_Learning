@@ -25,7 +25,7 @@ encuadre, como dos cámaras virtuales que se mueven por separado. Antes
 movía; ahora eso es opcional (tecla l o botón "Vincular 180").
 
 Lo usan:
-  - Prueba.py (en vivo, junto a la ventana de la cámara).
+  - captura.py (en vivo, junto a la ventana de la cámara).
   - plot_csv.py --3d (reproducción de un CSV ya grabado).
 
 Controles (con cualquiera de las ventanas activa). Todo se aplica SOLO
@@ -57,12 +57,13 @@ frame de la cámara, igual que la z de MediaPipe):
     X = x              (0 = borde izquierdo, 1 = borde derecho)
     Y = y * alto/ancho (0 = borde superior, crece hacia abajo)
     Z = z              (profundidad relativa a la muñeca; + = más lejos
-                        de la cámara)
+                        de la cámara. Con captura.py --estereo es la
+                        medida con dos cámaras, ver estereo.py)
 Para las vistas se reordena a (X, Z, -Y): X a la derecha, profundidad
 hacia el fondo y altura hacia arriba. La cámara se dibuja como una
 pirámide gris delante de la escena.
 
-Última actualización: 2026-09-24. Historial: ver CHANGELOG.md.
+Última actualización: 2026-09-28. Historial: ver CHANGELOG.md.
 """
 
 import math
@@ -185,26 +186,34 @@ def _dashed(img, p0, p1, color, thick, dash=9, gap=6):
         pos += dash + gap
 
 
-def hands_to_scene(tracked_hands, elbows, aspect, velocities=None):
+def hands_to_scene(tracked_hands, elbows, aspect, velocities=None,
+                   palm_cm=kinematics.PALM_LENGTH_CM):
     """
-    Convierte las manos de Prueba.py (tuplas del HandTracker, landmarks de
+    Convierte las manos de captura.py (tuplas del HandTracker, landmarks de
     MediaPipe), los codos de forearm.py y las velocidades de
     kinematics.py a la escena del visor.
 
+    palm_cm: largo de la palma para pasar a cm/s (--palma-cm, 28-B). Con
+    dos cámaras captura.py lo reemplaza después por el medido.
+
     Devuelve una lista de dicts {id, label, points: [21 x (X,Y,Z)],
-    elbow: (X,Y,Z) o None, elbow_source, velocities: {idx: (vx,vy,vz)}}.
+    elbow: (X,Y,Z) o None, elbow_source, velocities: {idx: (vx,vy,vz)},
+    palm_cm, cm_per_unit}.
     """
     velocities = velocities or {}
     hands = []
     for track_id, label, _score, lms in tracked_hands:
         elbow = elbows.get(track_id)
+        points = [(lm.x, lm.y * aspect, lm.z) for lm in lms]
         hands.append({
             "id": track_id,
             "label": label,
-            "points": [(lm.x, lm.y * aspect, lm.z) for lm in lms],
+            "points": points,
             "elbow": (elbow.x, elbow.y * aspect, elbow.z) if elbow else None,
             "elbow_source": elbow.source if elbow else None,
             "velocities": velocities.get(track_id, {}),
+            "palm_cm": palm_cm,
+            "cm_per_unit": kinematics.cm_per_unit(points, palm_cm),
         })
     return hands
 
@@ -522,7 +531,7 @@ class DualPOVViewer:
         se mueve el punto de verdad.
         """
         vels = hand.get("velocities") or {}
-        scale = kinematics.cm_per_unit(hand["points"])
+        scale = kinematics.hand_scale(hand)
         for i in ARROW_POINTS:
             v = vels.get(i)
             if v is None or i not in pts:
@@ -539,7 +548,7 @@ class DualPOVViewer:
             wx, wy = proj.px(_to_plot(pts[0]))
             _text(img, f"{kinematics.speed_cm_s(wrist_v, scale):.0f} cm/s",
                   (wx + 10, wy + 42), ARROW_COLOR, 0.42)
-        speeds = kinematics.finger_speeds(hand["points"], vels)
+        speeds = kinematics.finger_speeds(hand["points"], vels, scale)
         for tip, finger in hand_style.FINGERTIPS.items():
             value = speeds[finger][1 if relative_fingers else 0]
             color = hand_style.rgb_to_bgr(hand_style.FINGER_COLORS_RGB[finger])
@@ -557,7 +566,8 @@ class DualPOVViewer:
               TEXT_DIM, 0.4)
         y = 94
         for hand in hands:
-            speeds = kinematics.finger_speeds(hand["points"], hand.get("velocities") or {})
+            speeds = kinematics.finger_speeds(hand["points"], hand.get("velocities") or {},
+                                              kinematics.hand_scale(hand))
             _text(img, f"{hand['label']} #{hand['id']}", (12, y), TEXT, 0.4)
             x = 100
             for finger, abbr in hand_style.FINGER_ABBR.items():
