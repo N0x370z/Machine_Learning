@@ -6,7 +6,7 @@ Todos los comandos del proyecto en un solo lugar, en tres partes:
 2. **[Comandos que cambiaron o se quitaron](#2-comandos-que-cambiaron-o-se-quitaron)**: el de antes, el de ahora y por qué.
 3. **[Bitácora de mantenimiento](#3-bitácora-de-mantenimiento)**: los comandos de git, pip y verificación que se ejecutaron sobre el repositorio, con fecha, para saber qué se hizo y cómo deshacerlo.
 
-Todos se corren desde la **raíz del repositorio** (donde está este archivo) y con el Python del venv (`./venv/bin/python3`). Las versiones se nombran día-letra (24-A…24-E del 2026-09-24, 28-A…28-F del 2026-09-28); el detalle de cada una está en [`CHANGELOG.md`](CHANGELOG.md) y la explicación de cada función en el [`README.md`](README.md).
+Todos se corren desde la **raíz del repositorio** (donde está este archivo) y con el Python del venv (`./venv/bin/python3`). Las versiones se nombran día-letra (24-A…24-E del 2026-09-24, 28-A…28-F del 2026-09-28, 19-A del 2026-10-19); el detalle de cada una está en [`CHANGELOG.md`](CHANGELOG.md) y la explicación de cada función en el [`README.md`](README.md).
 
 ---
 
@@ -37,6 +37,7 @@ El modelo de YOLO (`models/yolo11s-pose.pt`) se descarga solo la primera vez que
 ./venv/bin/python3 captura.py                    # una cámara, todo activado
 ./venv/bin/python3 captura.py --palma-cm 8.5     # con el largo de TU palma (recomendado)
 ./venv/bin/python3 captura.py --estereo          # dos cámaras (calibrar antes)
+./venv/bin/python3 captura.py --unreal           # además, manda la pose a Unreal Engine
 ```
 
 | Flag | Default | Qué hace | Desde |
@@ -55,6 +56,7 @@ El modelo de YOLO (`models/yolo11s-pose.pt`) se descarga solo la primera vez que
 | `--estereo` | apagado | Dos cámaras: profundidad y palma medidas | 28-D |
 | `--cam2 N` | `1` | Índice de la segunda cámara (solo con `--estereo`) | 28-D |
 | `--calibracion ARCHIVO` | `calibracion/estereo.npz` | Calibración estéreo a usar (solo con `--estereo`) | 28-D |
+| `--unreal [HOST:PUERTO]` | apagado (sin valor: `127.0.0.1:8000`) | Manda la pose de las manos a Unreal Engine por OSC/UDP ([`UNREAL.md`](UNREAL.md)) | 19-A |
 
 Ejemplos útiles:
 
@@ -102,24 +104,56 @@ Ejemplos útiles:
 | `calibrar --cam-width W` / `--cam-height H` | `1280` / `720` | Resolución (la misma que se usará en `captura.py`) |
 | `calibrar --salida ARCHIVO` | `calibracion/estereo.npz` | Dónde guardar la calibración |
 
+### `exportar_excel.py` — Excel para artículos (19-A)
+
+```bash
+./venv/bin/python3 exportar_excel.py --formato ingenieria                  # el último CSV de capturas/
+./venv/bin/python3 exportar_excel.py capturas/hand_data_X.csv --formato medicina
+./venv/bin/python3 exportar_excel.py --formato medicina --todos-los-puntos --salida resultados.xlsx
+```
+
+| Flag | Default | Qué hace |
+|------|---------|----------|
+| `--formato {ingenieria,medicina}` | (obligatorio) | Ingeniería: SI, ecuaciones numeradas, RMS. Medicina: media (DE), mediana [Q1-Q3], Métodos, Tabla 1 y 2 |
+| `csv_path` | el último de `capturas/` | CSV a exportar |
+| `--salida ARCHIVO.xlsx` | junto al CSV: `<csv>_<formato>.xlsx` | Dónde guardarlo |
+| `--todos-los-puntos` | apagado | Una serie por cada uno de los 22 puntos (por defecto: muñeca, puntas de los dedos y codo) |
+
+Durante la captura: `e` = ingeniería, `m` = medicina (Excel de lo grabado hasta ese momento, sin parar). Qué contiene cada formato: [README](README.md#exportar-a-excel-exportar_excelpy).
+
+### `unreal_bridge.py` — herramientas de prueba de la conexión con Unreal (19-A)
+
+El envío real es `captura.py --unreal`. Estas dos sirven para probar sin Unreal o sin cámara:
+
+```bash
+./venv/bin/python3 unreal_bridge.py --escuchar 8000            # muestra lo que llega al puerto 8000
+./venv/bin/python3 unreal_bridge.py --demo 127.0.0.1:8000      # manda una mano sintética (abre y cierra los dedos)
+./venv/bin/python3 unreal_bridge.py --demo 127.0.0.1:8000 --segundos 10
+```
+
+Guía completa: [`UNREAL.md`](UNREAL.md).
+
 ### Teclas
 
 | Dónde | Teclas |
 |-------|--------|
-| Captura (cualquier ventana) | `q`/`Esc` salir · `n` nombres de los dedos · `v` velocidad · `f` dedos absoluta/relativa · `s` foto en `capturas/` |
+| Captura (cualquier ventana) | `q`/`Esc` salir · `n` nombres de los dedos · `v` velocidad · `f` dedos absoluta/relativa · `s` foto en `capturas/` · `espacio`/`p` **pausa** · `e`/`m` **Excel** ingeniería/medicina · `u` pausar/reanudar el envío a Unreal |
 | Vista 3D (POV bajo el mouse) | arrastrar = girar · `Shift`+arrastrar o botón central = mover · rueda / clic derecho / `+` `=` `-` = zoom · `1` frente · `3` lado · `7` arriba · `9` vista opuesta · `.` encuadrar · `r` reiniciar |
 | Vista 3D (los dos POV) | `l` vincular 180° · `v` velocidad · `f` dedos absoluta/relativa |
-| Reproducción `plot_csv.py --3d` | `espacio` pausa · `a`/`d` frame anterior/siguiente · `q`/`Esc` salir · más las de la vista 3D |
+| Reproducción `plot_csv.py` 2D | `espacio` pausa / sigue |
+| Reproducción `plot_csv.py --3d` | `espacio` o `p` pausa · `a`/`d` frame anterior/siguiente · `q`/`Esc` salir · más las de la vista 3D |
 | Calibración `estereo.py calibrar` | `espacio` guardar par · `c` calibrar · `q`/`Esc` cancelar |
 
 ### Pruebas (sin cámara, desde la 28-F)
 
 ```bash
-./venv/bin/python3 pruebas/correr_todo.py          # las tres, con resumen (~30 s)
+./venv/bin/python3 pruebas/correr_todo.py          # las cinco, con resumen (~1 min)
 ./venv/bin/python3 pruebas/filtro_velocidad.py     # One Euro vs media exponencial
 ./venv/bin/python3 pruebas/filtro_velocidad.py --buscar   # las 72 combinaciones de parámetros
 ./venv/bin/python3 pruebas/estereo_simulado.py     # calibración y triangulación simuladas
-./venv/bin/python3 pruebas/captura_simulada.py     # captura.py y plot_csv.py de punta a punta
+./venv/bin/python3 pruebas/captura_simulada.py     # captura.py y plot_csv.py de punta a punta (con pausa, Excel y Unreal)
+./venv/bin/python3 pruebas/excel_simulado.py       # exportar_excel.py: estructura y fórmulas (LibreOffice opcional)
+./venv/bin/python3 pruebas/unreal_simulado.py      # unreal_bridge.py: OSC, ejes, flexión y UDP
 ```
 
 Qué comprueba cada una: [`pruebas/README.md`](pruebas/README.md).
@@ -148,6 +182,7 @@ git status                       # capturas/, models/ y calibracion/ no aparecen
 | Vincular 180° activado por defecto | Apagado por defecto (tecla `l`) | 24-C | POV independientes |
 | Palma fija de 9.5 cm | `--palma-cm` (o medida con `--estereo`) | 28-B | Con otra palma todas las velocidades se desviaban |
 | Siempre la cámara `0` | `--cam N` | 28-D | Elegir cámara (necesario con dos) |
+| Sin forma de pausar la captura | `espacio` o `p` | 19-A | Se pedía poder congelar la imagen sin cerrar el programa; nada se quitó |
 
 ---
 
@@ -237,6 +272,20 @@ git push --force origin respaldo-historial-con-coautor:main
 ```
 
 **Borrar el respaldo** cuando ya no haga falta: `git branch -D respaldo-historial-con-coautor`.
+
+### 2026-10-19 — versión 19-A: dependencia nueva y cómo aplicar el cambio
+
+La 19-A agrega `openpyxl==3.1.5` a `requirements.txt` (solo se usa al exportar a Excel). Para instalarla en el venv del proyecto:
+
+```bash
+./venv/bin/python3 -m pip install -r requirements.txt   # instala openpyxl
+./venv/bin/python3 -c "import openpyxl; print(openpyxl.__version__)"   # verificar: 3.1.5
+./venv/bin/python3 pruebas/correr_todo.py                # verificar todo (~1 min)
+```
+
+Deshacer: `./venv/bin/python3 -m pip uninstall openpyxl` (el resto del programa sigue funcionando; solo falla la exportación a Excel, con un mensaje claro).
+
+Nota: este registro lo escribió quien implementó la 19-A **sin acceso a tu venv**: esos comandos están por correr, no corridos.
 
 ### Pendiente: nombre del repositorio en GitHub
 

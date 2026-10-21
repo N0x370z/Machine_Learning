@@ -31,3 +31,7 @@ matplotlib==3.11.2
 ultralytics==8.4.162
 torch==2.14.0
 torchvision==0.29.0
+
+# Exportar a Excel (exportar_excel.py, desde la 19-A). Solo se importa al
+# exportar: sin esto el resto del programa funciona igual.
+openpyxl==3.1.5

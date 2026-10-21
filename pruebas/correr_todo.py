@@ -6,7 +6,7 @@ Uso (desde la raíz del repositorio):
 
 Cada prueba corre en su propio proceso (captura_simulada.py reemplaza
 funciones de OpenCV y MediaPipe, y así no afecta a las otras). No hace
-falta cámara ni pantalla. Tarda ~30 s (la mayor parte, cargar YOLO).
+falta cámara ni pantalla. Tarda ~1 min (la mayor parte, cargar YOLO).
 Sale con código 1 si alguna falla.
 """
 
@@ -19,7 +19,9 @@ HERE = Path(__file__).resolve().parent
 TESTS = [
     ("filtro_velocidad.py", "Filtro One Euro vs media exponencial (28-C)"),
     ("estereo_simulado.py", "Calibración y triangulación con dos cámaras (28-D)"),
-    ("captura_simulada.py", "captura.py y plot_csv.py de punta a punta (28-B, 28-D, 28-E)"),
+    ("captura_simulada.py", "captura.py y plot_csv.py de punta a punta (28-B, 28-D, 28-E, 19-A)"),
+    ("excel_simulado.py", "Exportar a Excel: ingeniería y medicina (19-A)"),
+    ("unreal_simulado.py", "Puente OSC hacia Unreal Engine (19-A)"),
 ]
 
 

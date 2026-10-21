@@ -7,6 +7,7 @@ Registro de las revisiones hechas al proyecto: qué se revisó, qué se encontr�
 | 1 | 2026-09-28 | Documentación contra el código | 10 errores de documentación corregidos, 35 funciones sin docstring |
 | 2 | 2026-09-28 (28-E) | Todo el código y la forma de trabajar | 4 errores corregidos, 3 temas de proceso anotados |
 | 3 | 2026-09-28 (28-F) | Pasar las comprobaciones al repositorio | 1 error de `estereo.py` y 1 prueba irreal encontrados y corregidos |
+| 4 | 2026-10-19 (19-A) | Pausa, Excel y Unreal Engine (código nuevo) | 4 problemas de diseño corregidos antes de publicar; 5 pendientes anotados |
 
 Estado actual de todo lo pendiente: [al final](#estado-de-los-pendientes).
 
@@ -89,6 +90,25 @@ Al convertir los scripts sueltos en [`pruebas/`](pruebas/README.md), con posicio
 | Mano con puntos lejos de la imagen | (no se probaba) | triangulando todo: 2.58–6.45 cm de error; ahora esos puntos no se triangulan |
 | Captura `--estereo`, mano de 8.5 cm a 20 cm/s | palma 8.48–8.52, 19.9 cm/s | palma 8.49–8.53, 20.1 cm/s, 45.0 cm |
 
+## Revisión 4 — pausa, Excel y Unreal Engine (versión 19-A)
+
+Se revisó el código nuevo mientras se escribía y se probó con simulaciones (`pruebas/`). **No se probó con hardware, con Unreal Engine ni con Excel de escritorio.**
+
+### Problemas encontrados y corregidos (antes de publicar la 19-A)
+
+| Problema | Consecuencia | Corrección |
+|----------|--------------|------------|
+| Tras una pausa, la cámara entrega las imágenes que acumuló | La imagen iría atrasada unos instantes al reanudar | Se descartan 6 fotogramas al reanudar y tras exportar (`drain`) |
+| `p` como tecla de pausa en `plot_csv.py` 2D | En matplotlib `p` ya es el paneo: chocaban | En 2D solo `espacio`; `p` solo en las ventanas de OpenCV |
+| Mensajes OSC con ints, strings y floats mezclados | En Blueprint el índice de un valor depende de cómo cuente Unreal los argumentos; leer mal los 85 valores | Solo floats (87), con el orden fijo documentado |
+| `TEXT(x, "0.0")` para armar «media (DE)» en el Excel | Con Excel en un idioma de coma decimal, el formato `0.0` se interpreta distinto y salen cifras mal formadas | `FIXED(x, 1, TRUE)`, que respeta el idioma |
+| Intervalos de confianza y valores p entre fotogramas (idea inicial para medicina) | Fotogramas consecutivos no son independientes: cifras demasiado optimistas | No se calculan; la hoja *Notas estadísticas* explica por qué y qué hacer en su lugar |
+
+### Hallazgo de proceso
+
+- Las pruebas de `captura_simulada.py` exigen `models/hand_landmarker.task` aunque MediaPipe esté simulado, y en un clon limpio fallan con `FileNotFoundError`. Anotado en `pruebas/README.md`.
+- La verificación se hizo con Python 3.12 / mediapipe 0.10.33 / OpenCV 4.13 y sin YOLO, no con las versiones fijadas del proyecto: hay que repetirla en el venv real.
+
 ---
 
 ## Estado de los pendientes
@@ -103,3 +123,9 @@ Al convertir los scripts sueltos en [`pruebas/`](pruebas/README.md), con posicio
 | Borrar la rama local `respaldo-historial-con-coautor` | 28-F | ⏳ Cuando se confirme que el historial nuevo está bien |
 | Triangular también el codo (YOLO en las dos cámaras) | 28-D | 💡 Mejora futura |
 | Acentos en las ventanas de OpenCV (`Índice`, `Meñique`) | 2026-09-23 | 💡 Mejora futura (dibujar el texto con Pillow) |
+| Correr `pruebas/correr_todo.py` en el venv del proyecto tras la 19-A (versiones fijadas, con YOLO) | Rev. 4 | ⏳ Pendiente |
+| Probar la pausa, `e` / `m` y `--unreal` en vivo con la webcam | Rev. 4 | ⏳ Pendiente |
+| Abrir los `.xlsx` en Excel de escritorio (las fórmulas solo se comprobaron con LibreOffice) y revisar el formato contra las normas de la revista elegida | Rev. 4 | ⏳ Pendiente |
+| Armar el Blueprint en Unreal Engine con `unreal_bridge.py --demo` y confirmar nodos de OSC y eje de giro de los dedos (`UNREAL.md`) | Rev. 4 | ⏳ Pendiente |
+| Validar la rapidez contra una referencia antes de publicar cifras (captura de movimiento, goniómetro, sensores) | Rev. 4 | ⏳ Pendiente |
+| Mandar a Unreal la orientación de la muñeca (cuaternión) | Rev. 4 | 💡 Mejora futura |

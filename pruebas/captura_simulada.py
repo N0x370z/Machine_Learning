@@ -323,6 +323,100 @@ def main():
         plot_csv.main()
         check("2D con --frame", True, "sin errores")
 
+        print("5. Pausa, Excel y Unreal (19-A)")
+        import socket
+        import unreal_bridge
+        from openpyxl import load_workbook
+        State.cam2_sees = lambda ts: True
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.bind(("127.0.0.1", 0))
+        sock.setblocking(False)
+        dest = f"127.0.0.1:{sock.getsockname()[1]}"
+
+        def packets():
+            """Mensajes OSC recibidos desde la última vez (decodificados)."""
+            out = []
+            while True:
+                try:
+                    out.append(unreal_bridge.osc_decode(sock.recv(4096)))
+                except BlockingIOError:
+                    return out
+
+        def xlsx_data_rows(path):
+            """Fotogramas (filas de Datos) de un Excel exportado."""
+            return load_workbook(path)["Datos"].max_row - 1
+
+        SPACE = ord(" ")
+        packets()
+        rows = run_capture(["--sin-antebrazo", "--sin-3d", "--unreal", dest], out_dir, frames=70,
+                           keys={20: SPACE, 40: SPACE})
+        frames = sorted({int(r["frame"]) for r in rows})
+        check("pausa: no se graba mientras está en pausa",
+              frames == list(range(50)), f"{len(frames)} frames seguidos (0-{frames[-1]}); "
+              "20 vueltas del bucle en pausa")
+        msgs = packets()
+        frame_msgs = [a for ad, a in msgs if ad == unreal_bridge.ADDR_FRAME]
+        check("pausa: tampoco se manda nada a Unreal", [int(a[0]) for a in frame_msgs] == list(range(50)),
+              f"{len(frame_msgs)} mensajes de fotograma, números 0-{frame_msgs[-1][0]:.0f} sin saltos")
+        hand_msgs = [(ad, a) for ad, a in msgs if ad.startswith("/handmotion/") and ad != unreal_bridge.ADDR_FRAME]
+        ad, a = hand_msgs[0]
+        floats = a
+        check("Unreal: un mensaje por mano con 87 floats", ad == "/handmotion/Right"
+              and len(floats) == unreal_bridge.N_FLOATS and len(hand_msgs) == 50,
+              f"{ad}, {len(floats)} floats, {len(hand_msgs)} mensajes de mano")
+        lo = unreal_bridge.FLOAT_LAYOUT["puntos_cm"][0]
+        wrist_rel = floats[lo:lo + 3]
+        check("Unreal: la muñeca es el origen de los puntos relativos",
+              all(abs(v) < 1e-6 for v in wrist_rel), f"muñeca relativa = {wrist_rel}")
+
+        rows = run_capture(["--sin-antebrazo", "--sin-3d", "--unreal", dest], out_dir, frames=50,
+                           keys={10: ord("u"), 30: ord("u")})
+        n = len([1 for ad, _a in packets() if ad == unreal_bridge.ADDR_FRAME])
+        check("tecla 'u': pausa y reanuda el envío (graba igual)", n == 30 and len(rows) == 50 * 21,
+              f"{n} fotogramas enviados de 50; CSV con {len(rows) // 21} frames")
+
+        before = set(out_dir.glob("*.xlsx"))
+        run_capture(["--sin-antebrazo", "--sin-3d"], out_dir, frames=60,
+                    keys={30: ord("e"), 45: ord("m")})
+        new = sorted(set(out_dir.glob("*.xlsx")) - before)
+        names = sorted(p.name.rsplit("_", 1)[1] for p in new)
+        check("teclas 'e' y 'm': un Excel de cada formato", names == ["ingenieria.xlsx", "medicina.xlsx"],
+              ", ".join(p.name for p in new))
+        counts = {p.name.rsplit("_", 1)[1][:-5]: xlsx_data_rows(p) for p in new}
+        check("el Excel trae lo grabado hasta ese momento (sin parar la captura)",
+              counts == {"ingenieria": 30, "medicina": 45}, f"frames en el Excel: {counts}")
+
+        before = set(out_dir.glob("*.xlsx"))
+        run_capture(["--sin-antebrazo", "--sin-3d"], out_dir, frames=40,
+                    keys={10: SPACE, 12: ord("e"), 15: SPACE})
+        new = sorted(set(out_dir.glob("*.xlsx")) - before)
+        check("Excel pedido en pausa", len(new) == 1 and xlsx_data_rows(new[0]) == 10,
+              f"{len(new)} archivo, {xlsx_data_rows(new[0]) if new else 0} frames")
+
+        before = set(out_dir.glob("*.xlsx"))
+        State.no_hands = True
+        run_capture(["--sin-antebrazo", "--sin-3d"], out_dir, frames=8, keys={3: ord("e")})
+        State.no_hands = False
+        check("Excel sin datos: avisa y no se cae", set(out_dir.glob("*.xlsx")) == before,
+              "no se crea ningún .xlsx")
+
+        # plot_csv.py --3d: espacio pausa (se repite el mismo frame con "[pausa]")
+        titles = []
+        original = viewer3d.DualPOVViewer.render
+
+        def record_title(self, hands, title, *a, **k):
+            titles.append(title)
+            return original(self, hands, title, *a, **k)
+        viewer3d.DualPOVViewer.render = record_title
+        State.calls, State.frames, State.keys = 0, 30, {5: SPACE, 10: ord("p")}
+        sys.argv = ["plot_csv.py", str(stereo_csv), "--3d"]
+        plot_csv.main()
+        viewer3d.DualPOVViewer.render = original
+        paused_renders = sum("[pausa]" in t for t in titles)
+        check("plot_csv --3d: espacio pausa y 'p' sigue", paused_renders == 5,
+              f"{paused_renders} dibujos en pausa")
+        sock.close()
+
     ok = all(results)
     print("\nRESULTADO:", "OK" if ok else "FALLA")
     sys.exit(0 if ok else 1)
