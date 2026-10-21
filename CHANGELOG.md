@@ -3,6 +3,37 @@
 Historial de cambios del proyecto. Formato libre pero cronológico
 (más reciente arriba), en español porque así está el resto del repo.
 
+## 2026-10-19 (versión 19-A: pausa, Excel para artículos y conexión con Unreal Engine)
+
+Tres pedidos: pausar el video cuando se solicite, generar un Excel con el formato de artículos de ingeniería y de medicina, y conectar el movimiento de las manos con un modelo 3D en Unreal Engine.
+
+### Añadido
+- **Pausa** (`captura.py`): `espacio` o `p` congela la imagen (con el aviso PAUSA), **no lee la cámara, no graba y no manda nada a Unreal**; el visor 3D sigue vivo para girarlo, y siguen disponibles `s` (foto sin panel), `e`/`m`, `u` y `q`. Al reanudar se descartan 6 fotogramas acumulados por la cámara (`DRAIN_FRAMES`), para que la imagen no vaya atrasada. El tiempo del CSV es el real: la pausa deja un hueco en `timestamp_ms` y la velocidad se reinicia en 0 (hueco > `MAX_GAP_S`) en lugar de calcular un salto. `plot_csv.py`: `espacio` pausa la animación 2D, y en `--3d` `p` es alias de `espacio`.
+- **`exportar_excel.py`** y teclas `e` / `m` en `captura.py`: Excel de una captura, en dos formatos.
+  - **Ingeniería** (estilo IEEE): hojas *Parámetros* (N, T, f_s, resolución, palma), *Ecuaciones* (12, numeradas, en texto y LaTeX), *Resultados* (N, media, RMS, σ, pico **en m/s**), *Limitaciones* y *Datos*.
+  - **Medicina**: hojas *Métodos* (borrador con campos por completar: ética, participante, instrumento), *Tabla 1* (características), *Tabla 2* (**media (DE)**, **mediana [Q1-Q3]**, mín-máx **en cm/s**), *Notas estadísticas* y *Datos*.
+  - La hoja *Datos* es ancha (un fotograma por fila, una serie por columna) y **los resultados son fórmulas de Excel** sobre ella: rastreables y recalculables si se borran filas. Solo funciones clásicas (`STDEV`, `QUARTILE`, `FIXED`...) para que abra igual en Excel, LibreOffice y Google Sheets.
+  - Desde la captura, `e` / `m` exportan **lo grabado hasta ese momento sin parar** (`CsvRecorder.flush()`); un error al exportar nunca interrumpe la captura.
+- **`unreal_bridge.py`**, `--unreal [host:puerto]` y tecla `u`: manda la pose de cada mano a Unreal Engine por **OSC sobre UDP** (codificador propio, sin dependencias nuevas): 21 puntos en cm relativos a la muñeca (ejes de Unreal), posición de la muñeca, codo y **flexión en grados de 15 articulaciones**; 87 floats por mano y por fotograma, más un mensaje de fotograma. Incluye `--escuchar` (ver lo que llega) y `--demo` (mano sintética, sin cámara). Guía: **`UNREAL.md`**.
+- **Pruebas** (en `pruebas/`, `correr_todo.py` ahora corre cinco): `excel_simulado.py` (fórmulas recalculadas con LibreOffice contra numpy), `unreal_simulado.py` (OSC, ejes, flexión, UDP) y la sección 5 de `captura_simulada.py` (pausa, Excel y Unreal de punta a punta).
+- `requirements.txt`: `openpyxl==3.1.5` (solo se carga al exportar).
+- Documentación: README (secciones *Pausa*, *Exportar a Excel*, *Unreal Engine*, comandos, estructura, versiones), `UNREAL.md`, `COMANDOS.md`, `REVISION.md` (revisión 4) y `pruebas/README.md`.
+
+### Decisiones de diseño (y por qué)
+- **«real engine» se interpretó como Unreal Engine.** El formato de red (OSC estándar) sirve para otro motor, pero la guía es de Unreal.
+- **Excel: sin intervalos de confianza ni valores p entre fotogramas.** Fotogramas consecutivos están autocorrelacionados; esas cifras saldrían demasiado optimistas. La hoja de medicina lo explica y propone resumir un valor por participante.
+- **Excel: `FIXED` en vez de `TEXT`** para armar «media (DE)»: `TEXT(x, "0.0")` depende del idioma de Excel (con coma decimal, el formato `0.0` se interpreta distinto); `FIXED` no.
+- **OSC: todo floats.** Un primer borrador mezclaba ints, strings y floats; en Blueprint el índice de un valor depende de si Unreal cuenta todos los argumentos o solo los de su tipo. Con solo floats no hay ambigüedad.
+- **Pausa en `plot_csv.py` 2D solo con `espacio`:** en matplotlib `p` ya es el paneo.
+- **Flexión en vez de rotaciones por hueso:** un giro por articulación es lo más fácil de aplicar a cualquier esqueleto sin depender de su orientación.
+
+### Encontrado (pendiente)
+- **Nada de esto se probó con hardware, con Unreal Engine ni con Excel de escritorio.** La verificación fue con simulaciones, y las fórmulas con LibreOffice. Falta: la pausa con la webcam real, abrir los `.xlsx` en Excel, y armar el Blueprint en Unreal con `--demo` (los nombres de los nodos de OSC y el eje de giro de los dedos del modelo son lo primero que confirmar).
+- La verificación de esta versión se corrió en un entorno **distinto al fijado en `requirements.txt`** (Python 3.12, mediapipe 0.10.33, OpenCV 4.13, sin YOLO/torch: `--sin-antebrazo`). Hay que correr `pruebas/correr_todo.py` en el venv del proyecto.
+- Las pruebas de `captura_simulada.py` exigen que **exista `models/hand_landmarker.task`** aunque MediaPipe esté simulado (`captura.main()` lo comprueba antes). En un clon limpio hay que descargar el modelo (README, paso 1) o crear un archivo vacío con ese nombre para correrlas.
+- La rapidez **no está validada contra una referencia**: antes de usar las cifras en un artículo hay que validarlas (el Excel lo avisa en *Limitaciones*).
+- No se manda la **orientación de la muñeca** a Unreal (se calcula allí con los puntos 0, 5 y 17).
+
 ## 2026-09-28 (versión 28-F: pruebas, registro de comandos y de revisiones)
 
 ### Corregido

@@ -20,13 +20,15 @@ CSVs viejos que no traen las columnas vx/vy/vz. Para pasar a cm/s usa
 el largo de palma guardado en el CSV (columna palma_cm, desde la 28-B),
 el de --palma-cm si se indica, o 9.5 cm en CSVs anteriores.
 
+Teclas en la reproducción 2D (desde la 19-A): espacio = pausa / seguir.
+
 Teclas en la reproducción 3D (además de las del visor, ver viewer3d.py):
-    espacio = pausa / seguir     a / d = frame anterior / siguiente
+    espacio (o p) = pausa / seguir     a / d = frame anterior / siguiente
     v = flechas de velocidad     q o Esc = salir
     f = velocidad de cada dedo absoluta / relativa a la muñeca
 
 Historial de cambios relevantes: ver CHANGELOG.md.
-Última actualización: 2026-09-28.
+Última actualización: 2026-10-19.
 """
 
 import argparse
@@ -287,6 +289,23 @@ def main():
     anim = animation.FuncAnimation(
         fig, update, frames=frame_indices, interval=args.interval, repeat=True,
     )
+
+    paused = False
+
+    def on_key(event):
+        """Espacio pausa / sigue la animación 2D (19-A). 'p' no: es el paneo de matplotlib."""
+        nonlocal paused
+        if event.key != " ":
+            return
+        paused = not paused
+        if paused:
+            anim.pause()
+            ax.set_title(ax.get_title() + "  [pausa]", color=INK)
+            fig.canvas.draw_idle()
+        else:
+            anim.resume()
+
+    fig.canvas.mpl_connect("key_press_event", on_key)
     plt.show()
 
 
@@ -326,7 +345,7 @@ def show_3d(csv_path, frames, timestamps, aspect, elbow_sources, palms,
             key = cv2.waitKey(args.interval) & 0xFF
             if key in (ord("q"), 27):
                 break
-            if key == ord(" "):
+            if key in (ord(" "), ord("p")):
                 paused = not paused
             elif key == ord("a"):
                 paused, pos = True, (pos - 1) % len(frame_indices)

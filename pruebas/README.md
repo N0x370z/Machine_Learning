@@ -3,7 +3,7 @@
 Pruebas que se corren **sin cámara ni pantalla**: reemplazan las webcams, las ventanas y (en una de ellas) el detector de MediaPipe por simulaciones de resultado conocido, y comparan lo que mide el programa con ese resultado. De aquí salen todos los números de precisión que aparecen en el [README](../README.md) y el [CHANGELOG](../CHANGELOG.md).
 
 ```bash
-./venv/bin/python3 pruebas/correr_todo.py      # las tres, con resumen (~30 s)
+./venv/bin/python3 pruebas/correr_todo.py      # las cinco, con resumen (~1 min)
 ```
 
 Cada script imprime `OK` o `FALLA` en cada comprobación y termina con `RESULTADO: OK` (código de salida 0) o `RESULTADO: FALLA` (código 1).
@@ -39,7 +39,7 @@ Inventa un par de cámaras (lentes con distorsión, separadas 18 cm, la segunda 
 | Mano con puntos **lejos** de la imagen de la cámara 2 | No produce puntos con error > 1.5 cm |
 | La cámara 2 ve una sola mano / ninguna; resolución distinta a la calibración | Se triangula solo la que se ve / ninguna / error claro |
 
-### `captura_simulada.py` — de punta a punta (28-B, 28-D, 28-E)
+### `captura_simulada.py` — de punta a punta (28-B, 28-D, 28-E, 19-A)
 
 Corre el `main()` real de `captura.py` con cámaras que devuelven imágenes negras, ventanas que no se abren (y un `waitKey` que "presiona" teclas en frames fijos) y un `HandLandmarker` que devuelve una mano sintética: palma de 8.5 cm, a 45 cm, yendo y viniendo a 20 cm/s. Todo lo demás es el código real: tracker, `estereo.py`, YOLO (si `models/yolo11s-pose.pt` ya está descargado), velocidad, visor 3D y `CsvRecorder`. Los CSV van a una carpeta temporal, no a `capturas/`.
 
@@ -56,6 +56,35 @@ Corre el `main()` real de `captura.py` con cámaras que devuelven imágenes negr
 | Dos sesiones seguidas | Dos archivos distintos (no se pisan) |
 | `plot_csv.py --3d` con ese CSV | Usa la palma guardada (8.5); `--palma-cm 10` la reemplaza |
 | `plot_csv.py --frame 3` (2D) | Sin errores |
+| **Pausa** (19-A): espacio en el frame 20, de nuevo en el 40 | El CSV queda con 50 frames seguidos (sin huecos de `frame`) y a Unreal no llega nada mientras dura |
+| **Unreal** (19-A): `--unreal` a un receptor de prueba | Un mensaje de fotograma por frame y uno por mano, con 87 floats; la muñeca relativa es el origen |
+| Tecla `u` (19-A) | Pausa y reanuda el envío (30 de 50 fotogramas) sin dejar de grabar |
+| Teclas `e` y `m` (19-A) | Un Excel de cada formato, con lo grabado hasta ese momento (30 y 45 frames) y sin parar la captura |
+| `e` en pausa / sin datos (19-A) | Excel con los 10 frames grabados / no se crea nada y no se cae |
+| `plot_csv.py --3d`: espacio y `p` (19-A) | Se repite el frame con `[pausa]` mientras dura |
+
+### `excel_simulado.py` — exportar a Excel (19-A)
+
+Arma un CSV de una mano con rapideces de valor conocido, exporta los dos formatos y comprueba la estructura de cada libro y, si **LibreOffice** está instalado (si no, se omite y lo dice), **recalcula las fórmulas** y las compara con numpy.
+
+| Comprobación | Tolerancia |
+|--------------|------------|
+| Hojas de cada formato; 12 series por defecto y 27 con `--todos-los-puntos`; *Datos* igual al CSV | Exacto; 0.001 cm/s |
+| Medicina: campos por completar; ingeniería: ecuaciones numeradas con LaTeX | ≥ 8 campos; ≥ 10 ecuaciones |
+| Ingeniería: N, media, RMS, σ y pico (m/s) contra numpy; f_s = (N−1)/T | < 0.0005 m/s; ± 0.2 Hz |
+| Medicina: «media (DE)» y «mediana [Q1-Q3]» contra numpy | Texto idéntico |
+| CSV de antes de la 24-A, fila final cortada, formato desconocido, CSV sin filas | Error claro / se salta la fila / error claro / error claro |
+
+### `unreal_simulado.py` — puente a Unreal Engine (19-A)
+
+| Comprobación | Condición |
+|--------------|-----------|
+| OSC | Bytes de un mensaje conocido; ida y vuelta con int, float, string con acento y vacío; tipo no soportado → `TypeError` |
+| Flexión | Dedo estirado 0°, a 90°, doblado sobre sí mismo 180°; puntos repetidos no fallan |
+| Ejes | Escena (x der, y abajo, z lejos) → Unreal (X adelante, Y der, Z arriba) en cm; muñeca absoluta con estéreo; codo relativo |
+| Formato | 87 floats en el orden de `FLOAT_LAYOUT`; solo floats; < 1400 bytes por mensaje |
+| UDP | Un mensaje de fotograma + uno por mano; sin manos solo el de fotograma; sin receptor no se cae |
+| Destino y demo | `host:puerto` en 4 formas y 3 inválidas; la mano de `--demo` pasa de 0° a ~57° en el índice |
 
 ## Qué se encontró al pasarlas aquí (28-F)
 
@@ -64,6 +93,9 @@ Corre el `main()` real de `captura.py` con cámaras que devuelven imágenes negr
 
 ## Lo que estas pruebas NO cubren
 
+- **Unreal Engine**: se comprueba lo que Python manda, no que Unreal lo reciba ni cómo se ve el modelo (ver [`UNREAL.md`](../UNREAL.md)).
+- **Excel de escritorio**: las fórmulas se recalculan con LibreOffice, no con Microsoft Excel.
+- **Requisito:** `captura_simulada.py` necesita que exista `models/hand_landmarker.task` (aunque MediaPipe esté simulado). En un clon limpio, descárgalo (README, paso 1) o crea un archivo vacío con ese nombre.
 - **Cámaras reales**: el temblor real de MediaPipe, la luz, la sincronización entre dos webcams y la calibración con un tablero impreso. Hay que probarlo a mano (ver [`COMANDOS.md`](../COMANDOS.md)).
 - **Las ventanas**: el dibujo se hace, pero nadie lo mira; los errores visuales (texto encimado, colores) no se detectan.
 - **YOLO sobre personas reales**: con imágenes negras YOLO no encuentra a nadie, así que solo se prueba el codo **estimado**.
