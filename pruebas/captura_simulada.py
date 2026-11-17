@@ -19,6 +19,8 @@ Uso:
 
 De aquí salen los números del README sobre --palma-cm (28-B), la
 captura con dos cámaras (28-D) y el CSV escrito durante la sesión.
+Desde la 17-C/17-D también: --video (la "cámara" simulada se comporta
+como un archivo de video a 120 FPS) y el .json de cada sesión.
 Sale con código 1 si algo queda fuera de tolerancia.
 """
 
@@ -75,6 +77,8 @@ class State:
     calls = 0
     on_key = None       # función extra llamada en cada waitKey
     landmarkers = 0
+    video_frames = 90   # --video (17-C): largo y FPS del video simulado
+    video_fps = 120.0
 
 
 class FakeLandmarker:
@@ -124,10 +128,16 @@ class FakeLandmarker:
 
 
 class FakeCapture:
-    """Cámara simulada: imágenes negras de W x H."""
+    """
+    Cámara simulada: imágenes negras de W x H. Si se abre con una ruta
+    (captura.py --video, 17-C) se comporta como un archivo de video:
+    State.video_frames fotogramas a State.video_fps, con CAP_PROP_POS_MSEC
+    y CAP_PROP_FRAME_COUNT, y read() devuelve False al terminar.
+    """
 
-    def __init__(self, _index):
-        pass
+    def __init__(self, source):
+        self.video = isinstance(source, str)
+        self.read_n = 0
 
     def isOpened(self):
         return True
@@ -136,10 +146,19 @@ class FakeCapture:
         return True
 
     def get(self, prop):
-        return {cv2.CAP_PROP_FRAME_WIDTH: W, cv2.CAP_PROP_FRAME_HEIGHT: H}.get(prop, 0)
+        values = {cv2.CAP_PROP_FRAME_WIDTH: W, cv2.CAP_PROP_FRAME_HEIGHT: H}
+        if self.video:
+            values.update({cv2.CAP_PROP_FPS: State.video_fps,
+                           cv2.CAP_PROP_FRAME_COUNT: State.video_frames,
+                           cv2.CAP_PROP_POS_MSEC: (self.read_n - 1) * 1000 / State.video_fps})
+        return values.get(prop, 0)
 
     def read(self):
         time.sleep(0.02)
+        if self.video:
+            if self.read_n >= State.video_frames:
+                return False, None
+            self.read_n += 1
         return True, np.zeros((H, W, 3), np.uint8)
 
     def grab(self):
@@ -435,6 +454,103 @@ def main():
         check("plot_csv --3d: espacio pausa y 'p' sigue", paused_renders == 5,
               f"{paused_renders} dibujos en pausa")
         sock.close()
+
+        print("6. Video grabado (17-C) y datos de la sesión (17-D)")
+        import json
+        import exportar_csv
+
+        def last_json():
+            """El .json de sesión más reciente."""
+            return json.loads(sorted(out_dir.glob("*.json"), key=lambda p: p.stat().st_mtime)[-1]
+                              .read_text(encoding="utf-8"))
+
+        video = out_dir / "sesion.mp4"
+        video.write_bytes(b"video simulado")
+        # 120 FPS: el análisis (~25 ms por fotograma) va ~3 veces más lento que
+        # el video. Con el reloj, la velocidad saldría ~3 veces más baja.
+        State.video_frames, State.video_fps = 90, 120.0
+        rows = run_capture(["--video", str(video), "--sin-antebrazo", "--sin-3d",
+                            "--palma-cm", str(PALM_CM)], out_dir, frames=9999)
+        frames = sorted({int(r["frame"]) for r in rows})
+        ts = sorted({int(r["timestamp_ms"]) for r in rows})
+        check("se analizan todos los fotogramas y termina solo al acabar el video",
+              frames == list(range(90)), f"{len(frames)} de 90 fotogramas")
+        check("el tiempo es el del video, no el del reloj",
+              abs(ts[-1] - 89 * 1000 / 120) <= 1, f"último fotograma a {ts[-1]} ms (video: 741.7 ms)")
+        v = wrist_speed(rows)
+        check("velocidad real aunque el análisis vaya 3 veces más lento", abs(v - SPEED_CM_S) < 1,
+              f"{v:.1f} cm/s (real {SPEED_CM_S})")
+        meta = last_json()
+        check("json: fuente video con su huella SHA-256 y FPS",
+              meta["fuente"]["tipo"] == "video" and meta["fuente"]["fps"] == 120.0
+              and meta["fuente"]["sha256"] == __import__("hashlib").sha256(b"video simulado").hexdigest(),
+              f"{meta['fuente']['nombre']}, sha256 {meta['fuente']['sha256'][:12]}...")
+        check("json: terminó por fin del video, con su duración",
+              (meta["estado"], meta["resultado"]["motivo_fin"]) == ("completa", "fin del video")
+              and abs(meta["resultado"]["duracion_s"] - 0.742) < 0.002,
+              f"{meta['resultado']}")
+
+        rows = run_capture(["--video", str(video), "--sin-antebrazo", "--sin-3d"], out_dir,
+                           frames=9999, keys={20: SPACE, 40: SPACE})
+        ts = sorted({int(r["timestamp_ms"]) for r in rows})
+        gaps = max(b - a for a, b in zip(ts, ts[1:]))
+        check("pausa con video: no se salta ningún fotograma ni deja hueco",
+              len(ts) == 90 and gaps <= 9, f"{len(ts)} fotogramas, mayor salto {gaps} ms (1/120 s = 8.3)")
+
+        try:
+            run_capture(["--video", str(out_dir / "no_existe.mp4")], out_dir)
+            check("video que no existe: error claro", False, "no falló")
+        except FileNotFoundError as err:
+            check("video que no existe: error claro", True, str(err)[:60])
+        try:
+            run_capture(["--video", str(video), "--estereo"], out_dir)
+            check("--video con --estereo: error claro", False, "no falló")
+        except SystemExit:
+            check("--video con --estereo: error claro", True, "argparse lo rechaza")
+
+        rows = run_capture(["--sin-antebrazo", "--sin-3d", "--participante", "P07",
+                            "--notas", "golpeteo 10 s"], out_dir, frames=40, keys={30: ord("e")})
+        meta = last_json()
+        check("json en vivo: participante, notas, cámara y parámetros",
+              (meta["participante"], meta["notas"], meta["fuente"]["tipo"],
+               meta["parametros"]["palma_cm"]) == ("P07", "golpeteo 10 s", "camara", 9.5),
+              f"{meta['participante']}, {meta['fuente']['resolucion']}, palma {meta['parametros']['palma_cm']}")
+        sw = meta["software"]
+        check("json: versión del programa, commit y librerías",
+              bool(sw["version"]) and sw["paquetes"]["mediapipe"] is not None and sw["python"],
+              f"versión {sw['version']}, commit {str(sw['commit'])[:8]}, "
+              f"mediapipe {sw['paquetes']['mediapipe']}")
+        check("json: salida con q", meta["resultado"]["motivo_fin"] == "tecla q / Esc"
+              and meta["resultado"]["fotogramas_procesados"] == meta["resultado"]["fotogramas_con_mano"] == 40,
+              f"{meta['resultado']}")
+        med = list(csv.DictReader(open(sorted((out_dir / "articulos").glob("*_medicina.csv"),
+                                              key=lambda p: p.stat().st_mtime)[-1], encoding="utf-8")))
+        check("tecla 'e' lleva el participante al CSV de medicina",
+              {r["participante"] for r in med} == {"P07"}, "P07")
+        newest = sorted(out_dir.glob("hand_data_*.csv"), key=lambda p: p.stat().st_mtime)[-1]
+        out = exportar_csv.export(newest, ("medicina",), out_dir / "desde_json")["medicina"]
+        check("exportar_csv.py toma el participante del .json si no se le da",
+              {r["participante"] for r in csv.DictReader(open(out, encoding="utf-8"))} == {"P07"}, "P07")
+
+        def boom(call):
+            if call == 10:
+                raise RuntimeError("falla simulada")
+        State.on_key = boom
+        try:
+            run_capture(["--sin-antebrazo", "--sin-3d"], out_dir, frames=999)
+        except RuntimeError:
+            pass
+        State.on_key = None
+        meta = last_json()
+        check("json: si el programa falla queda 'error' (y el CSV guardado)",
+              meta["estado"] == "error" and meta["resultado"]["fotogramas_con_mano"] == 10,
+              f"estado {meta['estado']}")
+        State.no_hands = True
+        n_json = len(list(out_dir.glob("*.json")))
+        run_capture(["--sin-antebrazo", "--sin-3d"], out_dir, frames=8)
+        State.no_hands = False
+        check("sin manos no se crea .json (como el CSV)", len(list(out_dir.glob("*.json"))) == n_json,
+              "ningún archivo nuevo")
 
     ok = all(results)
     print("\nRESULTADO:", "OK" if ok else "FALLA")

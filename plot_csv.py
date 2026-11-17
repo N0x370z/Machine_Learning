@@ -109,7 +109,7 @@ def load_frames(csv_path, swap_hands=False):
             frames[frame_idx][key][int(row["landmark_index"])] = (
                 float(row["x"]), float(row["y"]), float(row["z"]),
             )
-            timestamps[frame_idx] = int(row["timestamp_ms"])
+            timestamps[frame_idx] = int(float(row["timestamp_ms"]))  # float: por si acaso (17-C)
             if int(row["landmark_index"]) == hand_style.ELBOW_INDEX:
                 elbow_sources[(frame_idx, key[0])] = row.get("fuente") or "yolo"
             if row.get("palma_cm"):

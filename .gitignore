@@ -21,6 +21,8 @@ capturas/*.png
 # Exportaciones para artículos (17-B: capturas/articulos/) y los Excel
 # de la 19-A: pueden traer datos de participantes, no se suben.
 capturas/*.xlsx
+# Datos de cada sesión (17-D): participante, rutas de video...
+capturas/*.json
 capturas/articulos/
 
 # Calibración estéreo (estereo.py): es de TUS cámaras y de dónde están
