@@ -19,8 +19,8 @@ HERE = Path(__file__).resolve().parent
 TESTS = [
     ("filtro_velocidad.py", "Filtro One Euro vs media exponencial (28-C)"),
     ("estereo_simulado.py", "Calibración y triangulación con dos cámaras (28-D)"),
-    ("captura_simulada.py", "captura.py y plot_csv.py de punta a punta (28-B, 28-D, 28-E, 19-A)"),
-    ("excel_simulado.py", "Exportar a Excel: ingeniería y medicina (19-A)"),
+    ("captura_simulada.py", "captura.py y plot_csv.py de punta a punta (28-B, 28-D, 28-E, 19-A, 17-B)"),
+    ("exportar_csv_simulado.py", "CSV para artículos: ingeniería y medicina (17-B)"),
     ("unreal_simulado.py", "Puente OSC hacia Unreal Engine (19-A)"),
 ]
 

@@ -59,21 +59,24 @@ Corre el `main()` real de `captura.py` con cámaras que devuelven imágenes negr
 | **Pausa** (19-A): espacio en el frame 20, de nuevo en el 40 | El CSV queda con 50 frames seguidos (sin huecos de `frame`) y a Unreal no llega nada mientras dura |
 | **Unreal** (19-A): `--unreal` a un receptor de prueba | Un mensaje de fotograma por frame y uno por mano, con 87 floats; la muñeca relativa es el origen |
 | Tecla `u` (19-A) | Pausa y reanuda el envío (30 de 50 fotogramas) sin dejar de grabar |
-| Teclas `e` y `m` (19-A) | Un Excel de cada formato, con lo grabado hasta ese momento (30 y 45 frames) y sin parar la captura |
-| `e` en pausa / sin datos (19-A) | Excel con los 10 frames grabados / no se crea nada y no se cae |
+| Tecla `e` (17-B) | Los dos CSV para artículos en `articulos/`, con lo grabado hasta ese momento (30 frames) y sin parar; `plot_csv.py` no los toma por una captura |
+| `e` dos veces, en pausa, sin datos (17-B) | Reemplaza con lo de la segunda (45) / los 10 frames grabados / no se crea nada y no se cae |
+| Tecla `m` (17-B) | Ya no exporta nada (era el Excel de medicina) |
 | `plot_csv.py --3d`: espacio y `p` (19-A) | Se repite el frame con `[pausa]` mientras dura |
 
-### `excel_simulado.py` — exportar a Excel (19-A)
+### `exportar_csv_simulado.py` — CSV para artículos (17-B)
 
-Arma un CSV de una mano con rapideces de valor conocido, exporta los dos formatos y comprueba la estructura de cada libro y, si **LibreOffice** está instalado (si no, se omite y lo dice), **recalcula las fórmulas** y las compara con numpy.
+Arma CSV de captura con rapideces de valor conocido, exporta los dos formatos y compara **cada número** con numpy. Reemplaza a `excel_simulado.py` (19-A), que necesitaba LibreOffice para recalcular las fórmulas.
 
 | Comprobación | Tolerancia |
 |--------------|------------|
-| Hojas de cada formato; 12 series por defecto y 27 con `--todos-los-puntos`; *Datos* igual al CSV | Exacto; 0.001 cm/s |
-| Medicina: campos por completar; ingeniería: ecuaciones numeradas con LaTeX | ≥ 8 campos; ≥ 10 ecuaciones |
-| Ingeniería: N, media, RMS, σ y pico (m/s) contra numpy; f_s = (N−1)/T | < 0.0005 m/s; ± 0.2 Hz |
-| Medicina: «media (DE)» y «mediana [Q1-Q3]» contra numpy | Texto idéntico |
-| CSV de antes de la 24-A, fila final cortada, formato desconocido, CSV sin filas | Error claro / se salta la fila / error claro / error claro |
+| Dos archivos en `articulos/`; columnas de cada formato (en ASCII); 12 series por defecto, 27 con `--todos-los-puntos`; orden | Exacto |
+| Ingeniería: media, RMS, σ (n−1) y pico (m/s); N, T, f_s; palma, profundidad, resolución | < 0.00006 m/s (redondeo a 4 decimales); f_s ± 0.05 Hz |
+| Medicina: media, DE, mediana, Q1, Q3, mín, máx (cm/s) y los textos «media (DE)» y «mediana [Q1-Q3]» | < 0.006 cm/s (redondeo a 2 decimales); texto idéntico |
+| Cuartiles con el método inclusivo (`QUARTILE` de Excel) | 1..10 → Q1 = 3.25, Q3 = 7.75 |
+| `--participante`, `--formato medicina` | Columna llena; un solo archivo |
+| Dos manos en estéreo con la palma medida cada fotograma (revisión 5) | Cada mano con la mediana de su palma (± 0.02 cm) |
+| Punto visto una vez; CSV de antes de la 24-A; formato desconocido; sin filas; no existe; fila final cortada; exportar dos veces | DE/σ/f_s vacías sin error; error claro (×4); se salta la fila; reemplaza sin `.tmp` sueltos |
 
 ### `unreal_simulado.py` — puente a Unreal Engine (19-A)
 
@@ -94,7 +97,7 @@ Arma un CSV de una mano con rapideces de valor conocido, exporta los dos formato
 ## Lo que estas pruebas NO cubren
 
 - **Unreal Engine**: se comprueba lo que Python manda, no que Unreal lo reciba ni cómo se ve el modelo (ver [`UNREAL.md`](../UNREAL.md)).
-- **Excel de escritorio**: las fórmulas se recalculan con LibreOffice, no con Microsoft Excel.
+- **Programas de estadística**: los CSV para artículos se leen con el módulo `csv` de Python (y con pandas si está instalado), no con R, SPSS ni Excel.
 - **Requisito:** `captura_simulada.py` necesita que exista `models/hand_landmarker.task` (aunque MediaPipe esté simulado). En un clon limpio, descárgalo (README, paso 1) o crea un archivo vacío con ese nombre.
 - **Cámaras reales**: el temblor real de MediaPipe, la luz, la sincronización entre dos webcams y la calibración con un tablero impreso. Hay que probarlo a mano (ver [`COMANDOS.md`](../COMANDOS.md)).
 - **Las ventanas**: el dibujo se hace, pero nadie lo mira; los errores visuales (texto encimado, colores) no se detectan.

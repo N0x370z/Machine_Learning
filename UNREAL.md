@@ -124,7 +124,7 @@ Consejos:
 - **Sin probar en Unreal Engine real** (ver arriba). Lo primero que hay que confirmar allí: los nombres de los nodos de OSC y el eje de giro de los dedos del modelo.
 - **Una cámara = profundidad aproximada.** Los dedos se doblan bien de frente; la profundidad fina mejora con `--estereo`.
 - **No se manda la orientación de la muñeca** (se calcula en Unreal con los puntos 0, 5 y 17). Mejora pendiente: mandarla como cuaternión.
-- **No se manda audio, imagen ni el CSV**: solo la pose. Para el CSV y el Excel, ver el [README](README.md#exportar-a-excel-exportar_excelpy).
+- **No se manda audio, imagen ni el CSV**: solo la pose. Para el CSV y los CSV para artículos, ver el [README](README.md#exportar-para-artículos-exportar_csvpy).
 - El `id` de la mano cambia si la pierde de vista; el nombre del mensaje (`Left`/`Right`) es más estable para elegir qué mano mover.
 
 Historial de cambios: [`CHANGELOG.md`](CHANGELOG.md) (versión 19-A) · Comandos: [`COMANDOS.md`](COMANDOS.md).

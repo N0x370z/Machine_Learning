@@ -323,10 +323,9 @@ def main():
         plot_csv.main()
         check("2D con --frame", True, "sin errores")
 
-        print("5. Pausa, Excel y Unreal (19-A)")
+        print("5. Pausa y Unreal (19-A), CSV para artículos (17-B)")
         import socket
         import unreal_bridge
-        from openpyxl import load_workbook
         State.cam2_sees = lambda ts: True
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.bind(("127.0.0.1", 0))
@@ -342,9 +341,21 @@ def main():
                 except BlockingIOError:
                     return out
 
-        def xlsx_data_rows(path):
-            """Fotogramas (filas de Datos) de un Excel exportado."""
-            return load_workbook(path)["Datos"].max_row - 1
+        arts = out_dir / "articulos"
+
+        def exported():
+            """{formato: N de la muñeca} de los CSV para artículos que haya en articulos/."""
+            out = {}
+            for p in arts.glob("*.csv"):
+                rows = list(csv.DictReader(open(p, encoding="utf-8")))
+                n_col = "N" if p.stem.endswith("ingenieria") else "n"
+                out[p.stem.rsplit("_", 1)[1]] = int(rows[0][n_col])
+            return out
+
+        def clear_exports():
+            """Borra los CSV para artículos de la prueba anterior."""
+            for p in arts.glob("*.csv"):
+                p.unlink()
 
         SPACE = ord(" ")
         packets()
@@ -375,30 +386,38 @@ def main():
         check("tecla 'u': pausa y reanuda el envío (graba igual)", n == 30 and len(rows) == 50 * 21,
               f"{n} fotogramas enviados de 50; CSV con {len(rows) // 21} frames")
 
-        before = set(out_dir.glob("*.xlsx"))
-        run_capture(["--sin-antebrazo", "--sin-3d"], out_dir, frames=60,
-                    keys={30: ord("e"), 45: ord("m")})
-        new = sorted(set(out_dir.glob("*.xlsx")) - before)
-        names = sorted(p.name.rsplit("_", 1)[1] for p in new)
-        check("teclas 'e' y 'm': un Excel de cada formato", names == ["ingenieria.xlsx", "medicina.xlsx"],
-              ", ".join(p.name for p in new))
-        counts = {p.name.rsplit("_", 1)[1][:-5]: xlsx_data_rows(p) for p in new}
-        check("el Excel trae lo grabado hasta ese momento (sin parar la captura)",
-              counts == {"ingenieria": 30, "medicina": 45}, f"frames en el Excel: {counts}")
+        clear_exports()
+        run_capture(["--sin-antebrazo", "--sin-3d"], out_dir, frames=60, keys={30: ord("e")})
+        got = exported()
+        check("tecla 'e': los dos CSV para artículos, en articulos/", sorted(got) == ["ingenieria", "medicina"],
+              ", ".join(p.name for p in sorted(arts.glob("*.csv"))))
+        check("traen lo grabado hasta ese momento (sin parar la captura)",
+              got == {"ingenieria": 30, "medicina": 30}, f"fotogramas de la muñeca: {got}")
+        plot_latest = sorted(out_dir.glob("hand_data_*.csv"))[-1]
+        check("plot_csv.py no los confunde con capturas (están en una subcarpeta)",
+              not plot_latest.stem.endswith(("_ingenieria", "_medicina")), plot_latest.name)
 
-        before = set(out_dir.glob("*.xlsx"))
+        clear_exports()
+        run_capture(["--sin-antebrazo", "--sin-3d"], out_dir, frames=60, keys={20: ord("e"), 45: ord("e")})
+        got = exported()
+        check("'e' dos veces: reemplaza con lo grabado hasta la segunda", got == {"ingenieria": 45, "medicina": 45}
+              and len(list(arts.glob("*.csv"))) == 2, f"{got}")
+
+        clear_exports()
         run_capture(["--sin-antebrazo", "--sin-3d"], out_dir, frames=40,
                     keys={10: SPACE, 12: ord("e"), 15: SPACE})
-        new = sorted(set(out_dir.glob("*.xlsx")) - before)
-        check("Excel pedido en pausa", len(new) == 1 and xlsx_data_rows(new[0]) == 10,
-              f"{len(new)} archivo, {xlsx_data_rows(new[0]) if new else 0} frames")
+        got = exported()
+        check("'e' en pausa", got == {"ingenieria": 10, "medicina": 10}, f"{got}")
 
-        before = set(out_dir.glob("*.xlsx"))
+        clear_exports()
         State.no_hands = True
         run_capture(["--sin-antebrazo", "--sin-3d"], out_dir, frames=8, keys={3: ord("e")})
         State.no_hands = False
-        check("Excel sin datos: avisa y no se cae", set(out_dir.glob("*.xlsx")) == before,
-              "no se crea ningún .xlsx")
+        check("'e' sin datos: avisa y no se cae", not list(arts.glob("*.csv")), "no se crea ningún CSV")
+
+        run_capture(["--sin-antebrazo", "--sin-3d"], out_dir, frames=20, keys={10: ord("m")})
+        check("'m' ya no exporta (17-B: era el Excel de medicina)", not list(arts.glob("*.csv")),
+              "sin archivos en articulos/")
 
         # plot_csv.py --3d: espacio pausa (se repite el mismo frame con "[pausa]")
         titles = []

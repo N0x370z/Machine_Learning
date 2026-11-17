@@ -46,9 +46,9 @@ mucho el último segundo.
 
 Pausa (19-A): espacio o 'p' congela la imagen y deja de grabar y de
 enviar datos; las vistas 3D se pueden seguir girando. Otra vez espacio o
-'p' sigue. Excel (19-A): 'e' (ingeniería) o 'm' (medicina) genera el
-.xlsx de lo grabado hasta ese momento, sin parar la captura (ver
-exportar_excel.py). Unreal Engine (19-A): --unreal [host:puerto] manda la
+'p' sigue. Artículos (17-B, antes Excel con 'e'/'m'): 'e' genera los dos
+CSV de resultados (ingeniería y medicina) de lo grabado hasta ese
+momento, sin parar la captura (ver exportar_csv.py). Unreal Engine (19-A): --unreal [host:puerto] manda la
 pose de las manos por OSC (ver unreal_bridge.py y UNREAL.md); 'u' pausa
 y reanuda el envío.
 
@@ -57,7 +57,7 @@ cámara o Ctrl+C en la terminal. En todos los casos el CSV queda cerrado
 y completo.
 
 Historial de cambios relevantes: ver CHANGELOG.md.
-Última actualización: 2026-10-19.
+Última actualización: 2026-11-17.
 """
 
 import argparse
@@ -72,7 +72,7 @@ import mediapipe as mp
 from mediapipe.tasks.python import BaseOptions
 from mediapipe.tasks.python import vision
 
-import exportar_excel
+import exportar_csv
 import hand_style
 import kinematics
 import unreal_bridge
@@ -121,10 +121,11 @@ CAMERA2_WINDOW = "HandMotion3D - Camara 2"  # solo con --estereo
 # Teclas de salida: 'q' y Esc (27).
 QUIT_KEYS = (ord("q"), 27)
 
-# Teclas de la 19-A: pausa (espacio o 'p'), exportar a Excel ('e' =
-# ingeniería, 'm' = medicina) y pausar/reanudar el envío a Unreal ('u').
+# Teclas de la 19-A: pausa (espacio o 'p') y pausar/reanudar el envío a
+# Unreal ('u'). 'e' (17-B): los dos CSV para artículos (exportar_csv.py);
+# en la 19-A 'e' y 'm' generaban un Excel de cada formato.
 PAUSE_KEYS = (ord(" "), ord("p"))
-EXCEL_KEYS = {ord("e"): "ingenieria", ord("m"): "medicina"}
+EXPORT_KEY = ord("e")
 UNREAL_KEY = ord("u")
 
 # Segundos que se muestra en pantalla el aviso de la última exportación.
@@ -438,7 +439,7 @@ def draw_hud(frame, fps, n_hands, n_frames_recorded, show_names,
     reproyección; None sin --estereo.
     paused: muestra el aviso de pausa (19-A).
     info_lines: líneas extra (estado de Unreal, aviso de la última
-    exportación a Excel).
+    exportación para artículos).
     """
     if n_elbows is None:
         forearm_text = "off"
@@ -469,7 +470,7 @@ def draw_hud(frame, fps, n_hands, n_frames_recorded, show_names,
     lines.append(f"[n] nombres: {'si' if show_names else 'no'}  "
                  f"[v] velocidad: {'si' if show_velocity else 'no'}  "
                  f"[f] dedos: {'relativa' if relative_fingers else 'absoluta'}  "
-                 "[s] foto  [espacio] pausa  [e/m] excel  [q] salir")
+                 "[s] foto  [espacio] pausa  [e] csv articulos  [q] salir")
     font, scale, thick = cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1
     line_h = 20
     width = max(cv2.getTextSize(t, font, scale, thick)[0][0] for t in lines)
@@ -785,32 +786,36 @@ def drain(cap, n=DRAIN_FRAMES):
         cap.grab()
 
 
-def export_excel_now(recorder, fmt):
+def export_now(recorder):
     """
-    Genera el Excel (exportar_excel.py) de lo grabado hasta ahora, sin
-    cerrar el CSV. Devuelve el aviso corto para el panel (sin acentos: el
-    texto de OpenCV no los dibuja). Un error nunca interrumpe la captura.
+    Genera los dos CSV para artículos (exportar_csv.py: ingeniería y
+    medicina) de lo grabado hasta ahora, sin cerrar el CSV de la captura.
+    Si se pide otra vez en la misma captura, reemplaza los anteriores (que
+    tenían menos datos). Devuelve el aviso corto para el panel (sin
+    acentos: el texto de OpenCV no los dibuja). Un error nunca interrumpe
+    la captura. Desde la 17-B (antes, export_excel_now con un Excel).
     """
     recorder.flush()
     if recorder.rows_written == 0:
-        return "Excel: todavia no hay datos grabados"
+        return "CSV articulos: todavia no hay datos grabados"
     try:
-        out = exportar_excel.export(recorder.path, fmt)
-    except exportar_excel.ExportError as err:
-        print(f"Excel: {err}")
-        return "Excel: error (ver terminal)"
-    except Exception as err:  # noqa: BLE001 - la captura no debe caerse por el Excel
-        print(f"Excel: error inesperado: {err!r}")
-        return "Excel: error (ver terminal)"
-    print(f"Excel ({fmt}) guardado en {out}")
-    return f"Excel {fmt}: {out.name}"
+        written = exportar_csv.export(recorder.path)
+    except exportar_csv.ExportError as err:
+        print(f"CSV para artículos: {err}")
+        return "CSV articulos: error (ver terminal)"
+    except Exception as err:  # noqa: BLE001 - la captura no debe caerse por exportar
+        print(f"CSV para artículos: error inesperado: {err!r}")
+        return "CSV articulos: error (ver terminal)"
+    for fmt, path in written.items():
+        print(f"CSV para artículos ({fmt}) guardado en {path} (reemplaza al anterior, si había)")
+    return f"CSV articulos: {written['ingenieria'].parent.name}/ (ingenieria y medicina)"
 
 
 def main():
     """
     Bucle de captura: cámara(s) -> MediaPipe -> tracker -> estéreo (si
     --estereo) -> YOLO (codo) -> velocidad -> dibujo (cámara + vista 3D)
-    -> CSV -> Unreal (si --unreal) -> teclas (pausa, Excel...). Al salir (q, Esc, cerrar la ventana, Ctrl+C o
+    -> CSV -> Unreal (si --unreal) -> teclas (pausa, CSV para artículos...). Al salir (q, Esc, cerrar la ventana, Ctrl+C o
     error) libera todo y cierra el CSV.
     """
     args = parse_args()
@@ -940,8 +945,8 @@ def main():
                         last_tick = time.monotonic()
                     elif key == ord("s"):
                         save_screenshot(clean_frame)
-                    elif key in EXCEL_KEYS:
-                        status_msg = export_excel_now(recorder, EXCEL_KEYS[key])
+                    elif key == EXPORT_KEY:
+                        status_msg = export_now(recorder)
                         status_until = time.monotonic() + STATUS_SECONDS
                     elif key == UNREAL_KEY and unreal is not None:
                         unreal_on = not unreal_on
@@ -1069,8 +1074,8 @@ def main():
                     # La copia limpia (sin panel) es la que guarda 's' en pausa.
                     paused = True
                     clean_frame = frame.copy()
-                elif key in EXCEL_KEYS:
-                    status_msg = export_excel_now(recorder, EXCEL_KEYS[key])
+                elif key == EXPORT_KEY:
+                    status_msg = export_now(recorder)
                     status_until = time.monotonic() + STATUS_SECONDS
                     drain(cap)
                     if cap2 is not None:

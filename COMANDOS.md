@@ -104,22 +104,23 @@ Ejemplos útiles:
 | `calibrar --cam-width W` / `--cam-height H` | `1280` / `720` | Resolución (la misma que se usará en `captura.py`) |
 | `calibrar --salida ARCHIVO` | `calibracion/estereo.npz` | Dónde guardar la calibración |
 
-### `exportar_excel.py` — Excel para artículos (19-A)
+### `exportar_csv.py` — dos CSV para artículos (17-B; reemplaza a `exportar_excel.py`)
 
 ```bash
-./venv/bin/python3 exportar_excel.py --formato ingenieria                  # el último CSV de capturas/
-./venv/bin/python3 exportar_excel.py capturas/hand_data_X.csv --formato medicina
-./venv/bin/python3 exportar_excel.py --formato medicina --todos-los-puntos --salida resultados.xlsx
+./venv/bin/python3 exportar_csv.py                                        # los dos, del último CSV de capturas/
+./venv/bin/python3 exportar_csv.py capturas/hand_data_X.csv --participante P01
+./venv/bin/python3 exportar_csv.py --formato medicina --todos-los-puntos --salida resultados/
 ```
 
 | Flag | Default | Qué hace |
 |------|---------|----------|
-| `--formato {ingenieria,medicina}` | (obligatorio) | Ingeniería: SI, ecuaciones numeradas, RMS. Medicina: media (DE), mediana [Q1-Q3], Métodos, Tabla 1 y 2 |
-| `csv_path` | el último de `capturas/` | CSV a exportar |
-| `--salida ARCHIVO.xlsx` | junto al CSV: `<csv>_<formato>.xlsx` | Dónde guardarlo |
+| `csv_path` | el último de `capturas/` | CSV de la captura |
+| `--formato {ingenieria,medicina,ambos}` | `ambos` | Ingeniería: SI (m/s), N, T, f_s, media, RMS, σ, pico. Medicina: cm/s, media (DE), mediana [Q1-Q3], mín-máx |
+| `--participante CODIGO` | vacío | Columna `participante` del de medicina |
+| `--salida CARPETA` | `articulos/` junto a la captura | Dónde guardarlos (`<captura>_ingenieria.csv`, `<captura>_medicina.csv`) |
 | `--todos-los-puntos` | apagado | Una serie por cada uno de los 22 puntos (por defecto: muñeca, puntas de los dedos y codo) |
 
-Durante la captura: `e` = ingeniería, `m` = medicina (Excel de lo grabado hasta ese momento, sin parar). Qué contiene cada formato: [README](README.md#exportar-a-excel-exportar_excelpy).
+Durante la captura: `e` genera los dos con lo grabado hasta ese momento, sin parar (si se repite, reemplaza los anteriores). Columnas y cómo usarlos: [README](README.md#exportar-para-artículos-exportar_csvpy).
 
 ### `unreal_bridge.py` — herramientas de prueba de la conexión con Unreal (19-A)
 
@@ -144,7 +145,7 @@ Guía completa: [`UNREAL.md`](UNREAL.md).
 
 | Dónde | Teclas |
 |-------|--------|
-| Captura (cualquier ventana) | `q`/`Esc` salir · `n` nombres de los dedos · `v` velocidad · `f` dedos absoluta/relativa · `s` foto en `capturas/` · `espacio`/`p` **pausa** · `e`/`m` **Excel** ingeniería/medicina · `u` pausar/reanudar el envío a Unreal |
+| Captura (cualquier ventana) | `q`/`Esc` salir · `n` nombres de los dedos · `v` velocidad · `f` dedos absoluta/relativa · `s` foto en `capturas/` · `espacio`/`p` **pausa** · `e` **CSV para artículos** (ingeniería y medicina) · `u` pausar/reanudar el envío a Unreal |
 | Vista 3D (POV bajo el mouse) | arrastrar = girar · `Shift`+arrastrar o botón central = mover · rueda / clic derecho / `+` `=` `-` = zoom · `1` frente · `3` lado · `7` arriba · `9` vista opuesta · `.` encuadrar · `r` reiniciar |
 | Vista 3D (los dos POV) | `l` vincular 180° · `v` velocidad · `f` dedos absoluta/relativa |
 | Reproducción `plot_csv.py` 2D | `espacio` pausa / sigue |
@@ -158,8 +159,8 @@ Guía completa: [`UNREAL.md`](UNREAL.md).
 ./venv/bin/python3 pruebas/filtro_velocidad.py     # One Euro vs media exponencial
 ./venv/bin/python3 pruebas/filtro_velocidad.py --buscar   # las 72 combinaciones de parámetros
 ./venv/bin/python3 pruebas/estereo_simulado.py     # calibración y triangulación simuladas
-./venv/bin/python3 pruebas/captura_simulada.py     # captura.py y plot_csv.py de punta a punta (con pausa, Excel y Unreal)
-./venv/bin/python3 pruebas/excel_simulado.py       # exportar_excel.py: estructura y fórmulas (LibreOffice opcional)
+./venv/bin/python3 pruebas/captura_simulada.py     # captura.py y plot_csv.py de punta a punta (con pausa, CSV para artículos y Unreal)
+./venv/bin/python3 pruebas/exportar_csv_simulado.py   # exportar_csv.py: columnas y cada número contra numpy
 ./venv/bin/python3 pruebas/unreal_simulado.py      # unreal_bridge.py: OSC, ejes, flexión y UDP
 ```
 
@@ -190,6 +191,8 @@ git status                       # capturas/, models/ y calibracion/ no aparecen
 | Palma fija de 9.5 cm | `--palma-cm` (o medida con `--estereo`) | 28-B | Con otra palma todas las velocidades se desviaban |
 | Siempre la cámara `0` | `--cam N` | 28-D | Elegir cámara (necesario con dos) |
 | Sin forma de pausar la captura | `espacio` o `p` | 19-A | Se pedía poder congelar la imagen sin cerrar el programa; nada se quitó |
+| `exportar_excel.py --formato X [--salida ARCHIVO.xlsx]` | `exportar_csv.py [--formato X\|ambos] [--salida CARPETA] [--participante CODIGO]` | 17-B | Se pidió que solo se generen CSV: uno con formato de ingeniería y otro de medicina, para publicaciones científicas |
+| Teclas `e` (Excel de ingeniería) y `m` (Excel de medicina) | `e` = los dos CSV; `m` ya no hace nada | 17-B | Ídem |
 
 ---
 
@@ -305,6 +308,17 @@ git check-ignore -v capturas/x.xlsx           # antes: sin salida (NO ignorado);
 ```
 
 Verificar: `git check-ignore -v capturas/a.xlsx capturas/articulos/b.csv` debe nombrar una regla de `.gitignore` para cada uno.
+
+### 2026-11-17 — versión 17-B: se quita el Excel
+
+```bash
+git rm exportar_excel.py pruebas/excel_simulado.py     # reemplazados por exportar_csv.py y su prueba
+./venv/bin/python3 -m pip uninstall -y openpyxl et_xmlfile   # ya no está en requirements.txt
+./venv/bin/python3 -m pip install --dry-run -r requirements.txt   # verificar: no instala nada
+./venv/bin/python3 pruebas/correr_todo.py              # 5 de 5 OK
+```
+
+Deshacer: `git checkout e8bf00b -- exportar_excel.py pruebas/excel_simulado.py` (el commit de la 17-A) y `./venv/bin/python3 -m pip install openpyxl==3.1.5`.
 
 ### Pendiente: nombre del repositorio en GitHub
 

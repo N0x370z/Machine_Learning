@@ -157,8 +157,8 @@ Pausa (último cuadro, descarte de fotogramas, teclas, cerrar en pausa), pausa 2
 | Triangular también el codo (YOLO en las dos cámaras) | 28-D | 💡 Mejora futura |
 | Acentos en las ventanas de OpenCV (`Índice`, `Meñique`) | 2026-09-23 | 💡 Mejora futura (dibujar el texto con Pillow) |
 | Correr `pruebas/correr_todo.py` en el venv del proyecto tras la 19-A (versiones fijadas, con YOLO) | Rev. 4 | ✅ Hecho (rev. 5): 5 de 5 OK |
-| Probar la pausa, `e` / `m` y `--unreal` en vivo con la webcam | Rev. 4 | ⏳ Pendiente |
-| Abrir los `.xlsx` en Excel de escritorio (las fórmulas solo se comprobaron con LibreOffice) y revisar el formato contra las normas de la revista elegida | Rev. 4 | ⏳ Pendiente |
+| Probar la pausa, `e` (CSV para artículos, 17-B) y `--unreal` en vivo con la webcam | Rev. 4 | ⏳ Pendiente |
+| Abrir los `.xlsx` en Excel de escritorio (las fórmulas solo se comprobaron con LibreOffice) y revisar el formato contra las normas de la revista elegida | Rev. 4 | ➖ Ya no aplica: el Excel se quitó en la 17-B. Queda revisar los dos CSV contra las normas de la revista elegida |
 | Armar el Blueprint en Unreal Engine con `unreal_bridge.py --demo` y confirmar nodos de OSC y eje de giro de los dedos (`UNREAL.md`) | Rev. 4 | ⏳ Pendiente |
 | Validar la rapidez contra una referencia antes de publicar cifras (captura de movimiento, goniómetro, sensores) | Rev. 4 | ⏳ Pendiente |
 | Mandar a Unreal la orientación de la muñeca (cuaternión) | Rev. 4 | 💡 Mejora futura |

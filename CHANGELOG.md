@@ -3,6 +3,32 @@
 Historial de cambios del proyecto. Formato libre pero cronológico
 (más reciente arriba), en español porque así está el resto del repo.
 
+## 2026-11-17 (versión 17-B: dos CSV para artículos en lugar del Excel)
+
+Pedido: quitar el Excel y que solo se generen CSV: dos, uno con el formato de ingeniería y otro con el de medicina, para usarlos después en publicaciones científicas.
+
+### Añadido
+- **`exportar_csv.py`**: de una captura genera `capturas/articulos/<captura>_ingenieria.csv` y `<captura>_medicina.csv`.
+  - **Ingeniería** (SI): por serie, `N`, `T_s`, `fs_hz`, `media_m_s`, `rms_m_s`, `sigma_m_s`, `pico_m_s`, más `palma_cm`, `profundidad` y `resolucion_px`.
+  - **Medicina** (cm/s): por serie, `n`, `duracion_s`, `media_cm_s`, `de_cm_s`, `mediana_cm_s`, `q1_cm_s`, `q3_cm_s`, `min_cm_s`, `max_cm_s`, los textos `media_de` («12.3 (4.5)») y `mediana_q1_q3` («11.0 [8.2-14.1]»), `palma_cm`, `profundidad` y una columna **`participante`** (`--participante`) para juntar sesiones.
+  - Formato *tidy*: una fila por serie (mano × punto × tipo de rapidez), coma, punto decimal, UTF-8, nombres de columna en ASCII con la unidad al final; números ya calculados; celda vacía = no se puede calcular.
+  - Flags: `--formato {ingenieria,medicina,ambos}`, `--participante`, `--salida CARPETA`, `--todos-los-puntos`.
+  - Se escribe en un `.tmp` y se renombra: nunca queda un CSV a medio escribir.
+- **Tecla `e`** en `captura.py`: los dos CSV con lo grabado hasta ese momento; si se repite, reemplaza los anteriores (y lo dice en la terminal).
+- **`pruebas/exportar_csv_simulado.py`**: columnas, cada número de los dos formatos contra numpy (error máx. 0.00005 m/s y 0.005 cm/s, por el redondeo), cuartiles inclusivos (1..10 → 3.25 / 7.75, como `QUARTILE` de Excel), palma por mano con dos manos en estéreo, casos borde. `captura_simulada.py`: `e` de punta a punta, dos veces, en pausa, sin datos, y que `m` ya no exporta.
+- README: sección **Exportar para artículos** con el diccionario de columnas, las 12 ecuaciones (antes en la hoja *Ecuaciones*) y lo que hay que saber antes de publicar (antes en *Limitaciones* y *Notas estadísticas*).
+
+### Quitado
+- `exportar_excel.py`, `pruebas/excel_simulado.py`, la tecla `m`, `export_excel_now` / `EXCEL_KEYS` y `openpyxl` (de `requirements.txt` y del venv).
+
+### Corregido (hallazgos de la revisión 5 que vivían en el Excel)
+- **Palma**: era el valor más repetido de todo el CSV; con `--estereo` (palma medida en cada fotograma) salía casi al azar y con dos manos se reportaba una sola. Ahora es la **mediana de cada mano**.
+- `523.00` fotogramas (formato numérico aplicado a toda la columna) y fórmulas que las vistas previas mostraban vacías: no aplican a un CSV.
+- Las exportaciones van a `capturas/articulos/` para que `plot_csv.py` (que abre el último `hand_data_*.csv`) no las tome por una captura.
+
+### Medido
+- Exportar una captura simulada de 10 min con una mano: **1.1 s** (el Excel tardaba 2.6 s).
+
 ## 2026-11-17 (versión 17-A: correcciones de la revisión 5 e imagen simulada de Unreal)
 
 Revisión de la 19-A (revisión 5, ver [`REVISION.md`](REVISION.md)) y pedido de una imagen de cómo se vería la conexión con Unreal Engine.
