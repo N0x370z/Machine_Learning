@@ -124,7 +124,7 @@ Ejemplos útiles:
 | `--salida CARPETA` | `articulos/` junto a la captura | Dónde guardarlos (`<captura>_ingenieria.csv`, `<captura>_medicina.csv`) |
 | `--todos-los-puntos` | apagado | Una serie por cada uno de los 22 puntos (por defecto: muñeca, puntas de los dedos y codo) |
 
-Durante la captura: `e` genera los dos con lo grabado hasta ese momento, sin parar (si se repite, reemplaza los anteriores). Columnas y cómo usarlos: [README](README.md#exportar-para-artículos-exportar_csvpy).
+Durante la captura: `e` genera los dos con lo grabado hasta ese momento, sin parar (si se repite, reemplaza los anteriores). Columnas y cómo usarlos: [docs/ARTICULOS.md](docs/ARTICULOS.md#exportar-para-artículos-exportar_csvpy).
 
 ### `unreal_bridge.py` — herramientas de prueba de la conexión con Unreal (19-A)
 
@@ -334,6 +334,10 @@ git check-ignore -v capturas/x.json            # .gitignore:25 capturas/*.json
 ```
 
 Probar a mano: `./venv/bin/python3 captura.py --video mi_video.mp4 --participante P01` y revisar el `.json` que queda junto al CSV.
+
+### 2026-11-17 — versión 17-E: README reestructurado
+
+Sin comandos de mantenimiento: solo documentación. Las secciones del README anterior se movieron con un script a `docs/TECNICO.md`, `docs/ARTICULOS.md` y `docs/CAMBIOS.md`, reescribiendo los enlaces, y después se comprobaron todos los enlaces de los 9 documentos `.md` (0 rotos). El README anterior completo está en el commit `3d1b7cd` (`git show 3d1b7cd:README.md`).
 
 ### Pendiente: nombre del repositorio en GitHub
 

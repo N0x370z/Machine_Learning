@@ -3,6 +3,26 @@
 Historial de cambios del proyecto. Formato libre pero cronológico
 (más reciente arriba), en español porque así está el resto del repo.
 
+## 2026-11-17 (versión 17-E: README reestructurado como guía de uso)
+
+Pedido: mejorar las instrucciones del README.
+
+### Problemas del README anterior
+- Antes de la primera instrucción había **6 bloques de novedades** e historia.
+- **1,105 líneas** que mezclaban tres documentos: la guía de uso, cómo funciona cada parte y el historial (la sección *Cambios* sola, 184 líneas, que repetía buena parte del CHANGELOG y de COMANDOS).
+- Faltaban los **requisitos**, cómo **clonar** el repositorio, los comandos para **Windows** (todos eran `./venv/bin/python3`) y cómo **comprobar** que la instalación quedó bien.
+- No había una receta para una **sesión de artículo**: había que armarla con partes de cinco secciones.
+
+### Cambiado
+- **`README.md`** (247 líneas): qué hace, requisitos, instalación en 4 pasos para macOS/Linux y Windows con una comprobación al final (`pruebas/correr_todo.py`), primera captura en 5 pasos, recetas (sesión para un artículo, analizar un video, dos cámaras, Unreal, más opciones), teclas, archivos que se generan, problemas comunes (con los de `--video`) y un mapa de la documentación.
+- **`docs/TECNICO.md`**: todas las secciones técnicas del README anterior, sin recortar (captura, vista 3D, antebrazo, velocidad, dos cámaras, `plot_csv.py`, pausa, Unreal, pruebas, estructura, versiones fijadas), con los flags de la 17-C/17-D.
+- **`docs/ARTICULOS.md`**: la sección *Exportar para artículos* más una **sesión paso a paso**, qué archivos quedan, los campos del `.json` de la sesión y cómo reanalizar un video (reproducibilidad, huella SHA-256).
+- **`docs/CAMBIOS.md`**: la sección *Cambios: comandos, partes quitadas y por qué*, entera, con las filas de la 17-C a la 17-E. Se sigue actualizando con cada cambio.
+- Los enlaces internos se reescribieron al mover las secciones y se comprobaron todos (ninguno roto en los 9 documentos).
+
+### Corregido
+- **Requisito de Python:** con las versiones fijadas hace falta **Python 3.12 o más nuevo** (lo exige numpy 2.5; torchvision excluye la 3.14.1). No estaba escrito en ningún lado.
+
 ## 2026-11-17 (versión 17-D: datos de cada sesión)
 
 Idea 3 de la lista de mejoras: guardar con qué se midió cada sesión, para la reproducibilidad que piden las revistas.
