@@ -130,6 +130,18 @@ def main():
     check("demo: dedos abiertos en t=0 y doblados en t=1 s",
           f0[4] < 5 and f0[5] < 5 and f1[4] > 40 and f1[5] > 40,
           f"índice PIP/DIP: {f0[4]:.0f}°/{f0[5]:.0f}° -> {f1[4]:.0f}°/{f1[5]:.0f}°")
+    # 17-A: antes el nudillo del medio se sobrescribía y ese dedo salía doblado
+    # 109° hacia atrás con la mano abierta.
+    check("demo: mano abierta sin ninguna articulación doblada (< 15°)", max(f0) < 15,
+          f"máximo {max(f0):.0f}° ({ub.JOINTS[f0.index(max(f0))][:2]})")
+    expected = [m for *_x, flex in ub._DEMO_FINGERS for m in flex]
+    check("demo: mano cerrada = flexión máxima de cada articulación (±2°)",
+          all(abs(a - e) < 2 for a, e in zip(f1, expected)),
+          "medio MCP/PIP/DIP " + "/".join(f"{a:.0f}°" for a in f1[6:9]))
+    palm = ub.kinematics._norm([a - b for a, b in zip(open_["points"][9], open_["points"][0])]) \
+        * open_["cm_per_unit"]
+    check("demo: la palma mide lo que dice palm_cm", abs(palm - open_["palm_cm"]) < 0.01,
+          f"{palm:.2f} cm")
 
     ok = all(results)
     print("\nRESULTADO:", "OK" if ok else "FALLA")

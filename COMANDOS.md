@@ -131,6 +131,13 @@ El envío real es `captura.py --unreal`. Estas dos sirven para probar sin Unreal
 ./venv/bin/python3 unreal_bridge.py --demo 127.0.0.1:8000 --segundos 10
 ```
 
+Imagen simulada de la conexión (17-A), se guarda en `docs/unreal_simulado.png`:
+
+```bash
+./venv/bin/python3 docs/imagen_unreal.py            # pose a medio cerrar (t = 0.62 s)
+./venv/bin/python3 docs/imagen_unreal.py --t 0      # mano abierta (--t 1: cerrada)
+```
+
 Guía completa: [`UNREAL.md`](UNREAL.md).
 
 ### Teclas
@@ -286,6 +293,18 @@ La 19-A agrega `openpyxl==3.1.5` a `requirements.txt` (solo se usa al exportar a
 Deshacer: `./venv/bin/python3 -m pip uninstall openpyxl` (el resto del programa sigue funcionando; solo falla la exportación a Excel, con un mensaje claro).
 
 Nota: este registro lo escribió quien implementó la 19-A **sin acceso a tu venv**: esos comandos están por correr, no corridos.
+
+### 2026-11-17 — versión 17-A: revisión 5
+
+Comandos corridos en el venv del proyecto (Python 3.14.8, versiones fijadas):
+
+```bash
+./venv/bin/python3 pruebas/correr_todo.py     # 5 de 5 OK (excel_simulado sin LibreOffice: fórmulas omitidas)
+git check-ignore -v capturas/x.xlsx           # antes: sin salida (NO ignorado); después: .gitignore:23
+./venv/bin/python3 docs/imagen_unreal.py      # genera docs/unreal_simulado.png
+```
+
+Verificar: `git check-ignore -v capturas/a.xlsx capturas/articulos/b.csv` debe nombrar una regla de `.gitignore` para cada uno.
 
 ### Pendiente: nombre del repositorio en GitHub
 

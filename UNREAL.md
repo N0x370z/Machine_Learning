@@ -2,7 +2,13 @@
 
 Cómo hacer que un modelo 3D de **Unreal Engine 5** siga el movimiento de tus manos, usando lo que ya detecta `captura.py`. Funciona desde la versión **19-A** (2026-10-19).
 
-> **Estado de la prueba (honesto):** el lado de Python (`unreal_bridge.py`) está probado sin Unreal ([`pruebas/unreal_simulado.py`](pruebas/README.md)): el formato de los mensajes, los ejes, los ángulos y el envío por UDP. **Lo que pasa dentro de Unreal Engine no se probó**: esta guía se escribió sin tener Unreal a mano, así que los nombres exactos de los nodos de Blueprint pueden variar un poco entre versiones de UE 5. Para eso está `--demo`: una mano sintética que no necesita cámara, para armar y depurar el lado de Unreal por separado.
+> **Estado de la prueba (honesto):** el lado de Python (`unreal_bridge.py`) está probado sin Unreal ([`pruebas/unreal_simulado.py`](pruebas/README.md)): el formato de los mensajes, los ejes, los ángulos y el envío por UDP. **Lo que pasa dentro de Unreal Engine no se probó**: esta guía se escribió sin tener Unreal a mano, así que los nombres exactos de los nodos de Blueprint pueden variar un poco entre versiones de UE 5. Para eso está `--demo`: una mano sintética que no necesita cámara, para armar y depurar el lado de Unreal por separado. (Desde la **17-A** la mano de `--demo` tiene proporciones reales: antes el dedo medio salía doblado 109° hacia atrás con la mano abierta.)
+
+## Así se vería (imagen simulada)
+
+![Simulación de HandMotion3D conectado con Unreal Engine 5](docs/unreal_simulado.png)
+
+**Es una simulación, no una captura de Unreal** (no se tiene Unreal a mano). Pero los datos sí son los del programa: la mano de `unreal_bridge.py --demo` se codifica como el mensaje OSC que recibe Unreal, se decodifica, y el modelo del *viewport* se arma **solo con esos 87 floats**. Si el Blueprint lee bien el mensaje, esa es la pose que tiene que verse en el modelo. Se muestra: la ventana de `captura.py --unreal`, el registro de mensajes (como `--escuchar`), los 15 ángulos de flexión que llegan, la mano en los ejes de Unreal y los nodos del Blueprint de esta guía. Se regenera con `./venv/bin/python3 docs/imagen_unreal.py` (`--t 0` mano abierta, `--t 1` cerrada).
 
 > **"Real engine":** se interpretó como **Unreal Engine** (el motor de Epic Games). Si era otro motor (Unity, Godot…), el formato de red sigue sirviendo (es OSC estándar sobre UDP), pero esta guía no.
 
@@ -30,7 +36,7 @@ En la terminal 1 deben verse líneas como:
 
 ```
 /handmotion/frame  fotograma 0, manos 1, t = 0.000 s
-/handmotion/Right  id 0, codo 0, 87 floats; flexión índice (MCP/PIP/DIP):  19.5 /   0.0 /   0.0
+/handmotion/Right  id 0, codo 0, 87 floats; flexión índice (MCP/PIP/DIP):   8.6 /   0.0 /   0.0
 ```
 
 Con la cámara de verdad: `./venv/bin/python3 captura.py --unreal` (o `--unreal 192.168.1.20:8000` si Unreal corre en **otra computadora** de la misma red; abre el puerto UDP en su firewall). En el panel de la cámara aparece `Unreal 127.0.0.1:8000: enviando ([u])`; la tecla `u` pausa y reanuda el envío sin parar la captura, y la **pausa** (`espacio`) también detiene el envío.

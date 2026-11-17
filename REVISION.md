@@ -8,6 +8,7 @@ Registro de las revisiones hechas al proyecto: qué se revisó, qué se encontr�
 | 2 | 2026-09-28 (28-E) | Todo el código y la forma de trabajar | 4 errores corregidos, 3 temas de proceso anotados |
 | 3 | 2026-09-28 (28-F) | Pasar las comprobaciones al repositorio | 1 error de `estereo.py` y 1 prueba irreal encontrados y corregidos |
 | 4 | 2026-10-19 (19-A) | Pausa, Excel y Unreal Engine (código nuevo) | 4 problemas de diseño corregidos antes de publicar; 5 pendientes anotados |
+| 5 | 2026-11-17 (17-A) | Todo lo de la 19-A, con las pruebas en el venv real | 1 error de privacidad y 1 de la mano de `--demo` corregidos; 3 problemas del Excel resueltos al reemplazarlo por CSV (17-B); 2 temas de proceso para decidir |
 
 Estado actual de todo lo pendiente: [al final](#estado-de-los-pendientes).
 
@@ -109,6 +110,38 @@ Se revisó el código nuevo mientras se escribía y se probó con simulaciones (
 - Las pruebas de `captura_simulada.py` exigen `models/hand_landmarker.task` aunque MediaPipe esté simulado, y en un clon limpio fallan con `FileNotFoundError`. Anotado en `pruebas/README.md`.
 - La verificación se hizo con Python 3.12 / mediapipe 0.10.33 / OpenCV 4.13 y sin YOLO, no con las versiones fijadas del proyecto: hay que repetirla en el venv real.
 
+## Revisión 5 — la 19-A completa (versión 17-A)
+
+Se leyó todo el código nuevo de la 19-A (`exportar_excel.py`, `unreal_bridge.py`, los cambios de `captura.py` y `plot_csv.py`, las pruebas y `UNREAL.md`) y se corrieron las pruebas en el venv del proyecto.
+
+### Errores encontrados
+
+| # | Gravedad | Error | Consecuencia | Corrección |
+|---|----------|-------|--------------|------------|
+| 1 | Media | `.gitignore` no ignoraba los `.xlsx` exportados | Un `git add .` subía a GitHub hojas con datos del participante (edad, sexo, condición clínica) | `capturas/*.xlsx` y `capturas/articulos/` (17-A) |
+| 2 | Media | `demo_hand()` sobrescribía el nudillo del medio | Con la mano abierta, dedo medio doblado 109° hacia atrás y pulgar a 58°: en Unreal se vería un dedo roto | Mano con proporciones reales y 3 pruebas nuevas (17-A). **Se encontró al dibujar la imagen simulada**, no con la lectura del código |
+| 3 | Baja | Largo de palma del Excel = el valor que más se repite | Con `--estereo` la palma se mide en cada fotograma y salía un valor casi al azar; con dos manos se reportaba una sola | Resuelto en la 17-B: mediana de la palma **por mano** |
+| 4 | Baja | Formato `0.00` sobre la cantidad de fotogramas | «523.00 fotogramas» | Desaparece con la 17-B (CSV sin formato) |
+| 5 | Baja | Comentario de `JOINTS`: floats `[70:85]` | Confunde a quien arme el Blueprint leyendo el código | `[72:87]` (17-A) |
+| 6 | Nota | openpyxl no guarda el valor de las fórmulas | Vistas previas (macOS, Drive, pandas) mostraban las celdas vacías | Desaparece con la 17-B (los CSV traen los números ya calculados) |
+| 7 | Nota | Exportar congela la captura (2.6 s con 10 min de una mano, medido) y reescribe el archivo anterior sin avisar | La velocidad se reinicia tras el congelamiento; se pierde la exportación anterior | Documentado en la 17-B; el aviso dice que reemplaza la anterior |
+
+### Revisado sin errores
+
+Pausa (último cuadro, descarte de fotogramas, teclas, cerrar en pausa), pausa 2D de `plot_csv.py`, codificador OSC, ejes hacia Unreal (con estéreo `points_cm` ya viene en espejo, igual que con una cámara), flexión, `parse_destino` y las fórmulas del Excel (referencias, `FIXED`, `QUARTILE`, ecuaciones 7-10).
+
+### Pruebas en el venv real
+
+`pruebas/correr_todo.py` con Python 3.14.8, las versiones fijadas y YOLO: **5 de 5 OK**. Cierra el pendiente de la revisión 4. La parte de fórmulas de `excel_simulado.py` se omitió por no tener LibreOffice (y la 17-B elimina el Excel).
+
+### Proceso (para decidir)
+
+| Tema | Qué pasa |
+|------|----------|
+| Autor del commit de la 19-A | `552d55f` tiene como autor a otra persona, no a Ivan Luna como el resto del historial |
+| `Co-Authored-By` | `552d55f` volvió a traer la línea que en la 28-F se quitó de todo el historial; ya está subido a `origin/handmotion3d-19-a` |
+| Rama | La 19-A (y la 17-A/17-B) están en la rama `handmotion3d-19-a`; `main` sigue en la 28-F |
+
 ---
 
 ## Estado de los pendientes
@@ -123,9 +156,10 @@ Se revisó el código nuevo mientras se escribía y se probó con simulaciones (
 | Borrar la rama local `respaldo-historial-con-coautor` | 28-F | ⏳ Cuando se confirme que el historial nuevo está bien |
 | Triangular también el codo (YOLO en las dos cámaras) | 28-D | 💡 Mejora futura |
 | Acentos en las ventanas de OpenCV (`Índice`, `Meñique`) | 2026-09-23 | 💡 Mejora futura (dibujar el texto con Pillow) |
-| Correr `pruebas/correr_todo.py` en el venv del proyecto tras la 19-A (versiones fijadas, con YOLO) | Rev. 4 | ⏳ Pendiente |
+| Correr `pruebas/correr_todo.py` en el venv del proyecto tras la 19-A (versiones fijadas, con YOLO) | Rev. 4 | ✅ Hecho (rev. 5): 5 de 5 OK |
 | Probar la pausa, `e` / `m` y `--unreal` en vivo con la webcam | Rev. 4 | ⏳ Pendiente |
 | Abrir los `.xlsx` en Excel de escritorio (las fórmulas solo se comprobaron con LibreOffice) y revisar el formato contra las normas de la revista elegida | Rev. 4 | ⏳ Pendiente |
 | Armar el Blueprint en Unreal Engine con `unreal_bridge.py --demo` y confirmar nodos de OSC y eje de giro de los dedos (`UNREAL.md`) | Rev. 4 | ⏳ Pendiente |
 | Validar la rapidez contra una referencia antes de publicar cifras (captura de movimiento, goniómetro, sensores) | Rev. 4 | ⏳ Pendiente |
 | Mandar a Unreal la orientación de la muñeca (cuaternión) | Rev. 4 | 💡 Mejora futura |
+| Decidir el autor y la línea `Co-Authored-By` del commit `552d55f` (19-A) y cuándo fusionar `handmotion3d-19-a` a `main` | Rev. 5 | ⏳ Pendiente (decisión del dueño del repositorio) |
