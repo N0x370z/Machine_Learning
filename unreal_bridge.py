@@ -45,7 +45,7 @@ Uso real: ./venv/bin/python3 captura.py --unreal 127.0.0.1:8000
 Guía de Unreal paso a paso: UNREAL.md.
 
 Historial de cambios relevantes: ver CHANGELOG.md.
-Última actualización: 2026-10-19.
+Última actualización: 2026-11-17.
 """
 
 import argparse
@@ -65,7 +65,7 @@ ADDR_HAND = "/handmotion/{label}"   # label: Left o Right
 
 # Articulaciones de las que se manda la flexión: (dedo, nombre, a, b, c),
 # con el ángulo medido en el punto b entre los puntos a y c (índices de
-# MediaPipe). El orden es el de los floats [70:85].
+# MediaPipe). El orden es el de los floats [72:87] (FLOAT_LAYOUT).
 JOINTS = [
     ("Pulgar", "CMC", 0, 1, 2), ("Pulgar", "MCP", 1, 2, 3), ("Pulgar", "IP", 2, 3, 4),
     ("Indice", "MCP", 0, 5, 6), ("Indice", "PIP", 5, 6, 7), ("Indice", "DIP", 6, 7, 8),
@@ -298,34 +298,49 @@ def listen(port, seconds=None):
         sock.close()
 
 
+# Mano de demostración (17-A): por dedo, el nudillo (o la base del pulgar)
+# en cm respecto a la muñeca con la palma de 9 cm (x derecha, y arriba),
+# la apertura en grados, el largo de las tres falanges en cm y la flexión
+# máxima de sus tres articulaciones. Proporciones de una mano adulta.
+_DEMO_FINGERS = [
+    ((-2.6, 2.4), -38, (3.6, 3.0, 2.6), (20, 35, 60)),    # pulgar (CMC, MCP, IP)
+    ((-2.4, 8.6), -7, (4.2, 2.5, 2.1), (75, 95, 65)),     # índice
+    ((0.0, 9.0), 0, (4.6, 2.9, 2.3), (75, 95, 65)),       # medio (el 9: define la palma)
+    ((2.1, 8.5), 6, (4.3, 2.8, 2.2), (75, 95, 65)),       # anular
+    ((3.9, 7.6), 13, (3.4, 2.1, 1.9), (75, 95, 65)),      # meñique
+]
+
+
 def demo_hand(t, palm_cm=9.0):
     """
-    Mano sintética (21 puntos de la escena) que abre y cierra los dedos
-    con el tiempo t (s). Sirve para probar Unreal sin cámara.
+    Mano derecha sintética (21 puntos de la escena), con la palma hacia la
+    cámara, que abre y cierra los dedos con el tiempo t (s): abierta en
+    t = 0, cerrada en t = 1, un ciclo cada 2 s. Sirve para armar el
+    Blueprint de Unreal sin cámara. Los dedos se doblan hacia la cámara
+    (z negativa, como en MediaPipe). Desde la 17-A: antes el nudillo del
+    medio se sobrescribía y ese dedo salía doblado hacia atrás (109°)
+    aunque la mano estuviera abierta.
     """
-    cm = 0.012                           # unidades de escena por cm (1 u ~ 83 cm)
-    palm = palm_cm * cm
-    points = [(0.5, 0.6, 0.0)] + [(0.0, 0.0, 0.0)] * 20
-    curl = 0.5 * (1 - math.cos(2 * math.pi * 0.5 * t))   # 0..1, un ciclo cada 2 s
-    spread = [-0.5, -0.2, 0.0, 0.15, 0.3]
-    for finger in range(5):
-        base_x = 0.5 + (finger - 2) * palm * 0.22
-        mcp = (base_x, 0.6 - palm * (0.55 if finger else 0.2), 0.0)
-        pts = [mcp]
-        x, y, z, ang = mcp[0], mcp[1], mcp[2], spread[finger]
-        for k in range(3):
-            ang += curl * math.radians(55 if k else 35) * (1 if finger else 0.6)
-            step = palm * (0.45 - 0.05 * k)
-            x += step * math.sin(spread[finger]) * 0.3
-            y -= step * math.cos(ang)
-            z -= step * math.sin(ang) * 0.6
+    unit = 0.012 * palm_cm / 9.0         # unidades de escena por cm de esta mano
+    wrist = (0.5, 0.62, 0.0)
+    curl = 0.5 * (1 - math.cos(math.pi * t))
+    points = [wrist] + [None] * 20
+    for finger, ((bx, by), spread, bones, max_flex) in enumerate(_DEMO_FINGERS):
+        sx, sy = math.sin(math.radians(spread)), math.cos(math.radians(spread))
+        x, y, z = bx, by, 0.0                 # cm, x derecha, y arriba, z hacia la cámara
+        pts = [(x, y, z)]
+        phi = 0.0
+        for length, flex in zip(bones, max_flex):
+            phi += math.radians(flex) * curl
+            x += length * sx * math.cos(phi)
+            y += length * sy * math.cos(phi)
+            z -= length * math.sin(phi)
             pts.append((x, y, z))
-        for k, p in enumerate(pts):
-            idx = 1 + finger * 4 + k
-            points[idx] = p
-    points[9] = (0.5, 0.6 - palm, 0.0)
+        for k, (px, py, pz) in enumerate(pts):
+            # cm -> escena: y de la imagen crece hacia abajo.
+            points[1 + finger * 4 + k] = (wrist[0] + px * unit, wrist[1] - py * unit, pz * unit)
     return {"id": 0, "label": "Right", "points": points, "elbow": None,
-            "elbow_source": None, "palm_cm": palm_cm, "cm_per_unit": 1 / cm}
+            "elbow_source": None, "palm_cm": palm_cm, "cm_per_unit": 1 / unit}
 
 
 def run_demo(destino, seconds, fps=30):

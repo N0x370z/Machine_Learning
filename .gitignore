@@ -18,6 +18,10 @@ models/*.pt
 # Capturas de sesiones locales (CSVs y fotos), no forman parte del código.
 capturas/*.csv
 capturas/*.png
+# Exportaciones para artículos (17-B: capturas/articulos/) y los Excel
+# de la 19-A: pueden traer datos de participantes, no se suben.
+capturas/*.xlsx
+capturas/articulos/
 
 # Calibración estéreo (estereo.py): es de TUS cámaras y de dónde están
 # puestas; en otra máquina no sirve. El tablero PNG se genera con

@@ -2,13 +2,15 @@
 
 Seguimiento de la **mano y el antebrazo en 3D** con una webcam (o dos, para medir la profundidad real): esqueleto de la mano con MediaPipe, codo con YOLO pose, vista 3D con dos puntos de vista independientes (como Blender) y velocidad de cada punto y de cada dedo.
 
+> **Novedades del 2026-11-17 (versión 17-A):** correcciones de la **revisión 5** ([`REVISION.md`](REVISION.md)): las exportaciones ya no se pueden subir a git por accidente, y la mano de `unreal_bridge.py --demo` tiene proporciones reales (antes el dedo medio salía doblado hacia atrás). Además, una **imagen simulada de cómo se ve la conexión con Unreal Engine** ([abajo](#unreal-engine-unreal_bridgepy) y en [`UNREAL.md`](UNREAL.md)).
+
 > **Novedades del 2026-10-19 (versión 19-A):** **pausa** de la captura (`espacio` o `p`), **Excel para artículos** de ingeniería y de medicina (`e` / `m` durante la captura, o `exportar_excel.py`) y **conexión con Unreal Engine** para mover un modelo 3D con la mano (`--unreal`, guía en [`UNREAL.md`](UNREAL.md)). Detalle en [Pausa](#pausa), [Exportar a Excel](#exportar-a-excel-exportar_excelpy) y [Unreal Engine](#unreal-engine-unreal_bridgepy).
 
 > **Novedades del 2026-09-28 (versiones 28-A a 28-F):** `Prueba.py` pasa a llamarse **`captura.py`**; dependencias con **versiones fijas**; el CSV se **escribe mientras se graba**; **`--palma-cm`** para que los cm/s usen el tamaño de tu mano; velocidad con **filtro One Euro** (menos temblor y menos retraso); y **dos cámaras** (`--estereo`, [`estereo.py`](#dos-cámaras-estereopy)) para medir la profundidad y la palma de verdad. Además, desde la 28-F hay **pruebas sin cámara** ([`pruebas/`](pruebas/README.md)), un **registro de comandos** ([`COMANDOS.md`](COMANDOS.md)) y un **registro de revisiones** ([`REVISION.md`](REVISION.md)). Detalle en [Cambios](#cambios-comandos-partes-quitadas-y-por-qué) y en [`CHANGELOG.md`](CHANGELOG.md).
 
 > **Nombre y estructura (2026-09-24, versión 24-E):** el proyecto se llamaba **MediaPipeHands** y vivía en la carpeta `MediaPipeHands/` de un repositorio general de Machine Learning (`Machine_Learning`). Como ya no es solo un ejercicio de ML sino un proyecto propio (detección, 3D, antebrazo, velocidad), pasó a llamarse **HandMotion3D** y sus archivos se movieron a la **raíz del repositorio**. Detalle en [Cambios: comandos, partes quitadas y por qué](#cambios-comandos-partes-quitadas-y-por-qué).
 
-> Última actualización: **2026-10-19**. Historial completo de errores, cambios y mejoras en [`CHANGELOG.md`](CHANGELOG.md). Resumen de **comandos nuevos y antiguos, partes quitadas y por qué** en [Cambios: comandos, partes quitadas y por qué](#cambios-comandos-partes-quitadas-y-por-qué).
+> Última actualización: **2026-11-17**. Historial completo de errores, cambios y mejoras en [`CHANGELOG.md`](CHANGELOG.md). Resumen de **comandos nuevos y antiguos, partes quitadas y por qué** en [Cambios: comandos, partes quitadas y por qué](#cambios-comandos-partes-quitadas-y-por-qué).
 
 ### Documentos del proyecto
 
@@ -170,6 +172,9 @@ HandMotion3D/           # raíz del repositorio
 ├── exportar_excel.py   # Excel para artículos: formato ingeniería o medicina (19-A)
 ├── unreal_bridge.py    # Puente OSC/UDP hacia Unreal Engine (19-A)
 ├── UNREAL.md           # Guía de la conexión con Unreal Engine
+├── docs/
+│   ├── imagen_unreal.py      # Genera la imagen simulada de la conexión con Unreal (17-A)
+│   └── unreal_simulado.png   # Esa imagen (va en git)
 ├── pruebas/            # Pruebas sin cámara (ver pruebas/README.md)
 │   ├── correr_todo.py        # Corre las cinco y resume
 │   ├── filtro_velocidad.py   # One Euro vs media exponencial
@@ -772,6 +777,10 @@ Conecta el movimiento de tus manos con un **modelo 3D en Unreal Engine 5**. `cap
 ./venv/bin/python3 unreal_bridge.py --escuchar 8000          # ver lo que llega, sin Unreal
 ```
 
+![Imagen simulada de HandMotion3D conectado con Unreal Engine 5](docs/unreal_simulado.png)
+
+*Imagen **simulada** (17-A), no una captura de Unreal: la pose y los números son los mensajes OSC reales de `unreal_bridge.py --demo`, decodificados y dibujados en los ejes de Unreal. Se regenera con `./venv/bin/python3 docs/imagen_unreal.py`. Detalle en [`UNREAL.md`](UNREAL.md#así-se-vería-imagen-simulada).*
+
 **Todo el detalle (formato de los 87 valores, ejes, plugin, Blueprint, mapeo a los huesos del Mannequin y límites) está en [`UNREAL.md`](UNREAL.md).** Dos avisos honestos: *(1)* el lado de Python está probado sin Unreal (`pruebas/unreal_simulado.py`), pero **lo que ocurre dentro de Unreal no se probó**; *(2)* con una cámara la profundidad es aproximada (con `--estereo`, la de la muñeca es real) y **la orientación de la muñeca no se manda** (se calcula en Unreal con los puntos 0, 5 y 17).
 
 ## Pruebas
@@ -796,7 +805,7 @@ Lo que **no** cubren: las cámaras reales (temblor, luz, sincronización), lo qu
 
 Resumen de todo lo que cambió en el proyecto: los comandos de ahora, los de antes, lo que se quitó o reemplazó en el código y por qué. El detalle fechado de cada error y corrección está en [`CHANGELOG.md`](CHANGELOG.md).
 
-Las versiones se nombran por día y letra. El 2026-09-24 hubo cinco (24-A a 24-E), el 2026-09-28 seis (28-A a 28-F) y el 2026-10-19 una (19-A). Todos los comandos en un solo lugar: [`COMANDOS.md`](COMANDOS.md).
+Las versiones se nombran por día y letra. El 2026-09-24 hubo cinco (24-A a 24-E), el 2026-09-28 seis (28-A a 28-F), el 2026-10-19 una (19-A) y el 2026-11-17 una (17-A). Todos los comandos en un solo lugar: [`COMANDOS.md`](COMANDOS.md).
 
 | Versión | Qué trajo |
 |---------|-----------|
@@ -812,6 +821,7 @@ Las versiones se nombran por día y letra. El 2026-09-24 hubo cinco (24-A a 24-E
 | **28-E** | **Correcciones de la revisión completa**: reloj monotónico, CSV que se pisaba, cámara que se desconecta, título de la ventana |
 | **28-F** | **Pruebas en el repositorio** (`pruebas/`), **registro de comandos** (`COMANDOS.md`) y **de revisiones** (`REVISION.md`); `estereo.py` ya no triangula puntos fuera de la imagen; historial de git sin la línea `Co-Authored-By` |
 | **19-A** | **Pausa** (`espacio`/`p`), **Excel para artículos** de ingeniería y de medicina (`exportar_excel.py`, teclas `e`/`m`), **conexión con Unreal Engine** (`unreal_bridge.py`, `--unreal`, [`UNREAL.md`](UNREAL.md)); `openpyxl` en `requirements.txt` |
+| **17-A** | **Correcciones de la revisión 5**: `.gitignore` deja fuera las exportaciones, mano de `--demo` con proporciones reales, comentario de `JOINTS`; **imagen simulada de Unreal** (`docs/imagen_unreal.py`) |
 
 ### Comandos actuales (referencia completa)
 
@@ -954,6 +964,7 @@ Teclas:
 | `load_frames()` devolvía 4 valores | `plot_csv.py` | Devuelve 5 (agrega `palma_cm` de cada mano y frame) | Reproducir con la misma escala con la que se grabó (28-B) |
 | `time.time()` para timestamps y FPS | `captura.py` | `time.monotonic()` y timestamps que siempre crecen | La hora del sistema puede saltar hacia atrás y MediaPipe exige timestamps crecientes (28-E) |
 | `StereoHands.update` triangulaba los 21 puntos siempre | `estereo.py` | Solo los puntos dentro de las dos imágenes (`_inside`, `MIN_VISIBLE_POINTS`, `INSIDE_MARGIN_FRAC`); `StereoHand.points_cm` tiene `None` en los de afuera y `palm_cm` puede ser `None` hasta poder medirla | Fuera de la imagen el modelo del lente no vale y el punto se corría varios cm (28-F) |
+| Mano de `demo_hand()` armada con offsets fijos (y `points[9]` sobrescrito al final) | `unreal_bridge.py` (19-A) | `demo_hand()` con `_DEMO_FINGERS`: nudillos, falanges y flexión máxima de una mano adulta | El dedo medio salía doblado 109° hacia atrás con la mano abierta; en Unreal se habría visto un dedo roto (17-A) |
 | Scripts de comprobación sueltos, fuera del repositorio | — | `pruebas/` (`correr_todo.py`, `filtro_velocidad.py`, `estereo_simulado.py`, `captura_simulada.py`) | Poder repetir cada número documentado (28-F) |
 
 ### Versiones del formato del CSV
@@ -998,6 +1009,6 @@ Con dos cámaras (calibradas una vez con `estereo.py calibrar`):
 
 Todo error corregido, cambio y mejora se documenta con fecha en [`CHANGELOG.md`](CHANGELOG.md); las revisiones, en [`REVISION.md`](REVISION.md); los comandos ejecutados sobre el repositorio, en la [bitácora de `COMANDOS.md`](COMANDOS.md#3-bitácora-de-mantenimiento).
 
-Última entrada: **2026-10-19**, versión **19-A** (pausa, Excel para artículos y conexión con Unreal Engine); antes, **2026-09-28**, versiones **28-A** (`captura.py`, versiones fijas), **28-B** (CSV mientras se graba, `--palma-cm`), **28-C** (filtro One Euro), **28-D** (dos cámaras), **28-E** (correcciones de la revisión completa) y **28-F** (pruebas, registro de comandos y de revisiones, puntos fuera de cuadro en estéreo, historial sin `Co-Authored-By`), más la revisión de la documentación de ese mismo día. Antes, el **2026-09-24**: eje z en 3D, visor de dos POV, antebrazo con YOLO pose y velocidad (24-A/24-B), POV independientes (24-C), velocidad de cada dedo (24-D) y el cambio de nombre a HandMotion3D (24-E).
+Última entrada: **2026-11-17**, versión **17-A** (correcciones de la revisión 5 e imagen simulada de Unreal). Antes, **2026-10-19**, versión **19-A** (pausa, Excel para artículos y conexión con Unreal Engine); antes, **2026-09-28**, versiones **28-A** (`captura.py`, versiones fijas), **28-B** (CSV mientras se graba, `--palma-cm`), **28-C** (filtro One Euro), **28-D** (dos cámaras), **28-E** (correcciones de la revisión completa) y **28-F** (pruebas, registro de comandos y de revisiones, puntos fuera de cuadro en estéreo, historial sin `Co-Authored-By`), más la revisión de la documentación de ese mismo día. Antes, el **2026-09-24**: eje z en 3D, visor de dos POV, antebrazo con YOLO pose y velocidad (24-A/24-B), POV independientes (24-C), velocidad de cada dedo (24-D) y el cambio de nombre a HandMotion3D (24-E).
 
 > **Hashes de commits:** el 2026-09-28 se reescribió el historial para quitar una línea `Co-Authored-By` de los mensajes, así que los commits anteriores tienen hashes nuevos (el contenido es el mismo). La tabla de correspondencia está en [`COMANDOS.md`](COMANDOS.md#2026-09-28--versión-28-f-quitar-la-línea-co-authored-by-del-historial).

@@ -84,7 +84,7 @@ Arma un CSV de una mano con rapideces de valor conocido, exporta los dos formato
 | Ejes | Escena (x der, y abajo, z lejos) → Unreal (X adelante, Y der, Z arriba) en cm; muñeca absoluta con estéreo; codo relativo |
 | Formato | 87 floats en el orden de `FLOAT_LAYOUT`; solo floats; < 1400 bytes por mensaje |
 | UDP | Un mensaje de fotograma + uno por mano; sin manos solo el de fotograma; sin receptor no se cae |
-| Destino y demo | `host:puerto` en 4 formas y 3 inválidas; la mano de `--demo` pasa de 0° a ~57° en el índice |
+| Destino y demo | `host:puerto` en 4 formas y 3 inválidas; la mano de `--demo` (17-A): abierta, ninguna articulación pasa de 15°; cerrada, cada articulación llega a su flexión máxima (±2°); la palma mide lo que dice `palm_cm` |
 
 ## Qué se encontró al pasarlas aquí (28-F)
 

@@ -3,6 +3,22 @@
 Historial de cambios del proyecto. Formato libre pero cronológico
 (más reciente arriba), en español porque así está el resto del repo.
 
+## 2026-11-17 (versión 17-A: correcciones de la revisión 5 e imagen simulada de Unreal)
+
+Revisión de la 19-A (revisión 5, ver [`REVISION.md`](REVISION.md)) y pedido de una imagen de cómo se vería la conexión con Unreal Engine.
+
+### Corregido
+- **`.gitignore` no dejaba fuera las exportaciones.** Solo ignoraba `capturas/*.csv` y `capturas/*.png`: los `.xlsx` de la 19-A (con edad, sexo y condición clínica del participante en el formato de medicina) se habrían subido a GitHub con un `git add .`. Ahora ignora `capturas/*.xlsx` y `capturas/articulos/` (donde van las exportaciones desde la 17-B).
+- **La mano de `unreal_bridge.py --demo` estaba mal armada.** El nudillo del dedo medio (`points[9]`) se sobrescribía al final, así que ese dedo salía **doblado 109° hacia atrás** con la mano abierta, y el pulgar marcaba 58° de flexión en reposo. Quien armara el Blueprint con `--demo` habría visto un dedo roto. Se encontró al dibujar la imagen simulada. `demo_hand()` ahora usa `_DEMO_FINGERS` (nudillos, largo de falanges y flexión máxima de una mano adulta): abierta, ninguna articulación pasa de 14°; cerrada, cada una llega a su máximo (índice 75° / 95° / 65°); la palma mide lo que dice `palm_cm`.
+- Comentario de `JOINTS` en `unreal_bridge.py`: decía que la flexión va en los floats `[70:85]`; va en `[72:87]` (el código y `UNREAL.md` ya estaban bien).
+
+### Añadido
+- **`docs/imagen_unreal.py` y `docs/unreal_simulado.png`**: imagen **simulada** de HandMotion3D conectado con Unreal Engine 5 (ventana de `captura.py --unreal`, registro de mensajes, flexión recibida, la mano en los ejes de Unreal y el Blueprint de `UNREAL.md`). No es una captura de Unreal, pero la pose y los números salen de los mensajes OSC reales de `--demo`, decodificados: si el Blueprint lee bien el mensaje, esa es la pose que tiene que verse. En `UNREAL.md` (sección *Así se vería*) y en el README.
+- `pruebas/unreal_simulado.py`: tres comprobaciones nuevas de la mano de `--demo` (abierta sin articulaciones dobladas, cerrada = flexión máxima, largo de palma).
+
+### Verificado
+- `pruebas/correr_todo.py` en el **venv del proyecto** (Python 3.14.8 y las versiones fijadas, con YOLO), pendiente desde la 19-A: 5 de 5 OK. La parte de `excel_simulado.py` que recalcula fórmulas se omitió (no hay LibreOffice instalado).
+
 ## 2026-10-19 (versión 19-A: pausa, Excel para artículos y conexión con Unreal Engine)
 
 Tres pedidos: pausar el video cuando se solicite, generar un Excel con el formato de artículos de ingeniería y de medicina, y conectar el movimiento de las manos con un modelo 3D en Unreal Engine.
