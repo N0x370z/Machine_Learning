@@ -34,6 +34,8 @@ Ejecutar con el intérprete del venv del proyecto:
     ./venv/bin/python3 captura.py --palma-cm 8.7    # cm/s con TU palma
     ./venv/bin/python3 captura.py --estereo         # dos cámaras (estereo.py)
     ./venv/bin/python3 captura.py --unreal          # manda la mano a Unreal Engine
+    ./venv/bin/python3 captura.py --video sesion.mp4   # analiza un video grabado (17-C)
+    ./venv/bin/python3 captura.py --participante P01   # código del participante (17-D)
 
 Velocidad: de cada punto (flechas), de la muñeca y de cada dedo (su
 punta), absoluta o relativa a la muñeca (tecla 'f'). Ver kinematics.py.
@@ -51,6 +53,17 @@ CSV de resultados (ingeniería y medicina) de lo grabado hasta ese
 momento, sin parar la captura (ver exportar_csv.py). Unreal Engine (19-A): --unreal [host:puerto] manda la
 pose de las manos por OSC (ver unreal_bridge.py y UNREAL.md); 'u' pausa
 y reanuda el envío.
+
+Video (17-C): --video ARCHIVO analiza un video ya grabado en lugar de la
+cámara. El tiempo de cada fotograma sale del VIDEO (no del reloj), así
+las velocidades son las reales aunque el análisis vaya más lento o más
+rápido que el video; se procesan todos los fotogramas, sin saltar
+ninguno. Al terminar el video, el CSV queda guardado.
+
+Datos de la sesión (17-D): junto al CSV queda hand_data_<inicio>.json
+con el participante (--participante), la fuente (cámara o video con su
+huella SHA-256), los parámetros y las versiones del programa (ver
+sesion.py).
 
 Para salir: 'q' o Esc en cualquier ventana, cerrar la ventana de la
 cámara o Ctrl+C en la terminal. En todos los casos el CSV queda cerrado
@@ -75,6 +88,7 @@ from mediapipe.tasks.python import vision
 import exportar_csv
 import hand_style
 import kinematics
+import sesion
 import unreal_bridge
 import viewer3d
 
@@ -731,6 +745,35 @@ def parse_args():
         ),
     )
     parser.add_argument(
+        "--video", type=Path, default=None, metavar="ARCHIVO",
+        help=(
+            "Analiza un video grabado (mp4, mov, avi...) en lugar de la cámara "
+            "(17-C). El tiempo sale del video: las velocidades son las reales "
+            "aunque el análisis vaya a otra velocidad. No se combina con --estereo."
+        ),
+    )
+    parser.add_argument(
+        "--video-espejado", action="store_true",
+        help=(
+            "Con --video: el video YA está en espejo (grabado con la vista "
+            "previa de una cámara frontal que se ve como un espejo). Sin esto "
+            "se voltea como la webcam en vivo. Si Left/Right salen al revés, "
+            "agrega o quita esta opción."
+        ),
+    )
+    parser.add_argument(
+        "--participante", default="", metavar="CODIGO",
+        help=(
+            "Código del participante (P01, S-12...; nunca el nombre). Se guarda "
+            "en el .json de la sesión y en la columna 'participante' de los CSV "
+            "para artículos (17-D)."
+        ),
+    )
+    parser.add_argument(
+        "--notas", default="", metavar="TEXTO",
+        help="Nota libre para el .json de la sesión (tarea, condición...) (17-D).",
+    )
+    parser.add_argument(
         "--cam", type=int, default=0,
         help="Índice de la cámara (la cámara 1 con --estereo) (default: 0).",
     )
@@ -742,7 +785,54 @@ def parse_args():
         "--calibracion", type=Path, default=None,
         help="Archivo de calibración estéreo (default: calibracion/estereo.npz).",
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.video is not None and args.estereo:
+        parser.error("--video no se combina con --estereo (hace falta una cámara por vista).")
+    return args
+
+
+def open_video(path):
+    """
+    Abre un video grabado (--video, 17-C). Devuelve (cap, fps, fotogramas).
+    Si el archivo no dice sus FPS, se suponen 30 y se avisa (el tiempo de
+    cada fotograma sale de ahí cuando el video no lo trae).
+    """
+    path = Path(path)
+    if not path.is_file():
+        raise FileNotFoundError(f"No existe el video {path}")
+    cap = cv2.VideoCapture(str(path))
+    if not cap.isOpened():
+        raise RuntimeError(f"OpenCV no pudo abrir {path} (¿formato o códec no soportado?).")
+    fps = cap.get(cv2.CAP_PROP_FPS) or 0.0
+    if not 1 <= fps <= 1000:
+        print(f"Aviso: {path.name} no dice sus FPS; se suponen 30.")
+        fps = 30.0
+    return cap, fps, int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+
+
+class VideoClock:
+    """
+    Tiempo de cada fotograma de un video (17-C): el que da el contenedor
+    (CAP_PROP_POS_MSEC, sirve para videos de celular con FPS variable) o,
+    si no lo da o no avanza, número de fotograma / FPS. Siempre crece.
+    """
+
+    def __init__(self, fps):
+        self.fps = fps
+        self.n = 0              # fotogramas leídos
+        self.last_ms = -1.0
+
+    def tick(self, cap):
+        """Tiempo en ms del fotograma recién leído."""
+        self.n += 1
+        by_count = (self.n - 1) * 1000.0 / self.fps
+        pos = cap.get(cv2.CAP_PROP_POS_MSEC) or 0.0
+        # POS_MSEC a veces es el tiempo del SIGUIENTE fotograma o no avanza:
+        # solo se usa si es razonable (a menos de 2 fotogramas del conteo).
+        t = pos if pos > self.last_ms and abs(pos - by_count) < 2000.0 / self.fps else by_count
+        t = max(t, self.last_ms + 1e-3)
+        self.last_ms = t
+        return t
 
 
 def open_camera(index, width, height):
@@ -781,12 +871,16 @@ def draw_camera2(frame2, hands2):
 
 
 def drain(cap, n=DRAIN_FRAMES):
-    """Descarta las imágenes que la cámara acumuló mientras no se leía."""
+    """
+    Descarta las imágenes que la cámara acumuló mientras no se leía. Con
+    --video no se llama (17-C): un video no acumula nada y descartar
+    saltaría fotogramas.
+    """
     for _ in range(n):
         cap.grab()
 
 
-def export_now(recorder):
+def export_now(recorder, participant=""):
     """
     Genera los dos CSV para artículos (exportar_csv.py: ingeniería y
     medicina) de lo grabado hasta ahora, sin cerrar el CSV de la captura.
@@ -799,7 +893,7 @@ def export_now(recorder):
     if recorder.rows_written == 0:
         return "CSV articulos: todavia no hay datos grabados"
     try:
-        written = exportar_csv.export(recorder.path)
+        written = exportar_csv.export(recorder.path, participant=participant)
     except exportar_csv.ExportError as err:
         print(f"CSV para artículos: {err}")
         return "CSV articulos: error (ver terminal)"
@@ -837,11 +931,27 @@ def main():
         min_tracking_confidence=args.min_tracking_confidence,
     )
 
-    cap = open_camera(args.cam, args.cam_width, args.cam_height)
+    clock = None
+    if args.video is not None:
+        cap, video_fps, video_frames = open_video(args.video)
+        clock = VideoClock(video_fps)
+    else:
+        cap = open_camera(args.cam, args.cam_width, args.cam_height)
     # Tamaño real del frame (la cámara puede ignorar el pedido).
     img_w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     img_h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     aspect = img_h / img_w
+    if clock is not None:
+        print(f"Video: {args.video.name}, {img_w}x{img_h}, {video_fps:.2f} FPS, "
+              f"{video_frames or '?'} fotogramas. Calculando su huella SHA-256...")
+        source = {"tipo": "video", "archivo": str(args.video), "nombre": args.video.name,
+                  "sha256": sesion.file_sha256(args.video), "fps": round(video_fps, 3),
+                  "fotogramas": video_frames, "espejado": args.video_espejado,
+                  "resolucion": [img_w, img_h]}
+    else:
+        source = {"tipo": "camara", "indice": args.cam,
+                  "resolucion_pedida": [args.cam_width, args.cam_height],
+                  "resolucion": [img_w, img_h]}
 
     # Dos cámaras (--estereo, 28-D): se valida todo ANTES de cargar YOLO,
     # para que un error de calibración salga al instante.
@@ -856,6 +966,10 @@ def main():
             raise RuntimeError(f"La cámara 2 abrió a {size2[0]}x{size2[1]} y la 1 a "
                                f"{img_w}x{img_h}: tienen que ser iguales.")
         stereo = estereo.StereoHands(rig, img_w, img_h)
+        calib = Path(args.calibracion or estereo.DEFAULT_CALIB)
+        source["estereo"] = {"camara2": args.cam2, "calibracion": str(calib),
+                             "calibracion_sha256": sesion.file_sha256(calib),
+                             "separacion_cm": round(rig.baseline_cm, 2)}
         print(f"Estéreo: cámaras {args.cam} y {args.cam2}, separadas "
               f"{rig.baseline_cm:.1f} cm (error de calibración "
               f"{rig.info.get('rms_estereo', float('nan')):.2f} px).")
@@ -878,6 +992,10 @@ def main():
     last_timestamp_ms = -1
     frame_idx = 0
     recorder = CsvRecorder()
+    session = sesion.SessionLog(recorder.path, args, source)
+    end_reason = "error"            # se reemplaza en cada forma de salir
+    last_t_s = 0.0                  # tiempo del último fotograma (s)
+    frames_read = 0                 # imágenes leídas y procesadas (para el .json)
     tracker = HandTracker()
     velocity = kinematics.VelocityEstimator()
     show_names = True
@@ -936,23 +1054,28 @@ def main():
                             viewer = None
                     key = cv2.waitKey(30) & 0xFF
                     if key in QUIT_KEYS:
+                        end_reason = "tecla q / Esc"
                         break
                     if key in PAUSE_KEYS:
                         paused = False
-                        drain(cap)
-                        if cap2 is not None:
-                            drain(cap2)
+                        # Con video no se descarta nada, y como el tiempo es
+                        # el del video la pausa no deja hueco en el CSV.
+                        if clock is None:
+                            drain(cap)
+                            if cap2 is not None:
+                                drain(cap2)
                         last_tick = time.monotonic()
                     elif key == ord("s"):
                         save_screenshot(clean_frame)
                     elif key == EXPORT_KEY:
-                        status_msg = export_now(recorder)
+                        status_msg = export_now(recorder, args.participante)
                         status_until = time.monotonic() + STATUS_SECONDS
                     elif key == UNREAL_KEY and unreal is not None:
                         unreal_on = not unreal_on
                     elif viewer is not None:
                         viewer.handle_key(key)
                     if cv2.getWindowProperty(CAMERA_WINDOW, cv2.WND_PROP_VISIBLE) < 1:
+                        end_reason = "ventana cerrada"
                         break
                     continue
 
@@ -967,16 +1090,34 @@ def main():
                         ok2, frame2 = cap2.retrieve()
                         ok = ok1 and ok2
                 if not ok:
-                    print("La cámara dejó de entregar imágenes (¿se desconectó?).")
+                    if clock is not None:
+                        print(f"Fin del video: {frame_idx} fotogramas analizados.")
+                        end_reason = "fin del video"
+                    else:
+                        print("La cámara dejó de entregar imágenes (¿se desconectó?).")
+                        end_reason = "la cámara dejó de entregar imágenes"
                     break
+                frames_read += 1
 
-                frame = cv2.flip(frame, 1)
+                # La webcam (y un video normal) se voltean para verse como
+                # un espejo; un video que ya está en espejo, no.
+                if not (clock is not None and args.video_espejado):
+                    frame = cv2.flip(frame, 1)
                 rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
 
-                timestamp_ms = int((time.monotonic() - start_time) * 1000)
+                if clock is not None:
+                    # Video (17-C): el tiempo del fotograma en el video. La
+                    # velocidad usa el valor exacto (t_s); MediaPipe y el CSV,
+                    # ms enteros como siempre.
+                    t_ms = clock.tick(cap)
+                    timestamp_ms = int(round(t_ms))
+                else:
+                    timestamp_ms = int((time.monotonic() - start_time) * 1000)
                 timestamp_ms = max(timestamp_ms, last_timestamp_ms + 1)
                 last_timestamp_ms = timestamp_ms
+                t_s = t_ms / 1000.0 if clock is not None else timestamp_ms / 1000.0
+                last_t_s = t_s
                 t0 = time.monotonic()
                 result = landmarker.detect_for_video(mp_image, timestamp_ms)
                 timed("mano", t0)
@@ -1023,7 +1164,7 @@ def main():
                         # Velocidad de cada punto: posición x, y, z + tiempo
                         # real del fotograma (ver kinematics.py).
                         hand["velocities"] = velocity.update(
-                            hand["id"], timestamp_ms / 1000,
+                            hand["id"], t_s,
                             viewer3d.scene_points(hand))
                     finger_speeds = {
                         h["id"]: {f: v[1 if relative_fingers else 0] for f, v in
@@ -1042,6 +1183,7 @@ def main():
                                                      hands_scene, scores,
                                                      img_w, img_h))
                     frames_recorded += 1
+                    session.start()        # crea el .json con la primera mano
                 n_hands = len(tracked_hands)
                 if unreal is not None and unreal_on:
                     unreal.send_frame(frame_idx, timestamp_ms, hands_scene)
@@ -1069,17 +1211,19 @@ def main():
                 # el panel de estado en la imagen.
                 key = cv2.waitKey(1) & 0xFF
                 if key in QUIT_KEYS:
+                    end_reason = "tecla q / Esc"
                     break
                 if key in PAUSE_KEYS:
                     # La copia limpia (sin panel) es la que guarda 's' en pausa.
                     paused = True
                     clean_frame = frame.copy()
                 elif key == EXPORT_KEY:
-                    status_msg = export_now(recorder)
+                    status_msg = export_now(recorder, args.participante)
                     status_until = time.monotonic() + STATUS_SECONDS
-                    drain(cap)
-                    if cap2 is not None:
-                        drain(cap2)
+                    if clock is None:
+                        drain(cap)
+                        if cap2 is not None:
+                            drain(cap2)
                     last_tick = time.monotonic()
                 elif key == UNREAL_KEY and unreal is not None:
                     unreal_on = not unreal_on
@@ -1118,6 +1262,12 @@ def main():
                                 f"  {h['label']} #{h['id']}: a {info.distance_cm:.0f} cm, "
                                 f"palma {palm} cm, error {info.error_px:.1f} px")
                 info_lines = []
+                if clock is not None:
+                    total = f"/{video_frames}" if video_frames else ""
+                    pct = f" ({100 * clock.n / video_frames:.0f} %)" if video_frames else ""
+                    info_lines.append(f"Video: {clock.n}{total}{pct}, t = {t_s:.2f} s")
+                if args.participante:
+                    info_lines.append(f"Participante: {args.participante}")
                 if unreal is not None:
                     info_lines.append(
                         f"Unreal {args.unreal[0]}:{args.unreal[1]}: "
@@ -1138,9 +1288,11 @@ def main():
                 # Cerrar la ventana de la cámara con el botón rojo también
                 # termina (antes el bucle seguía corriendo sin ventana).
                 if cv2.getWindowProperty(CAMERA_WINDOW, cv2.WND_PROP_VISIBLE) < 1:
+                    end_reason = "ventana cerrada"
                     break
     except KeyboardInterrupt:
         print("\nInterrumpido con Ctrl+C.")
+        end_reason = "Ctrl+C"
     finally:
         if landmarker2 is not None:
             landmarker2.close()
@@ -1158,6 +1310,11 @@ def main():
         for _ in range(10):
             cv2.waitKey(1)
         recorder.close()
+        # Duración: la del video (con --video) o la de la sesión en vivo.
+        duration = last_t_s if clock is not None else time.monotonic() - start_time
+        session.finish(frames_read, frames_recorded, duration, end_reason)
+        if session.started:
+            print(f"Datos de la sesión en {session.path}")
 
 
 if __name__ == "__main__":

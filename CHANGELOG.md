@@ -3,6 +3,38 @@
 Historial de cambios del proyecto. Formato libre pero cronológico
 (más reciente arriba), en español porque así está el resto del repo.
 
+## 2026-11-17 (versión 17-D: datos de cada sesión)
+
+Idea 3 de la lista de mejoras: guardar con qué se midió cada sesión, para la reproducibilidad que piden las revistas.
+
+### Añadido
+- **`sesion.py`** y **`capturas/hand_data_<inicio>.json`** junto a cada CSV: participante, notas, fuente (cámara con resolución pedida y real, o video con ruta, **huella SHA-256**, FPS y fotogramas; con `--estereo`, la calibración con su huella y la separación entre cámaras), parámetros que cambian la medición (palma, umbrales, modelo YOLO, filtro One Euro, hueco máximo), destino de Unreal, versión del programa (la del CHANGELOG), **commit de git** y si había cambios sin commit, Python, sistema y versiones de mediapipe, OpenCV, numpy, ultralytics y torch; hora de inicio y fin, fotogramas procesados y con mano, duración, FPS efectivos y motivo del fin.
+  - Se crea al grabar la primera mano con `"estado": "en curso"` y se completa al salir (`"completa"`, o `"error"` si el programa falló). Si queda `"en curso"`, el proceso murió sin poder cerrar. Se escribe con archivo temporal + renombrar, y un error al escribirlo solo se avisa.
+- `captura.py --participante CODIGO` y `--notas TEXTO`; el participante se muestra en el panel y pasa solo a la columna `participante` del CSV de medicina (tecla `e`). `exportar_csv.py` lo toma del `.json` si no se le da `--participante`.
+- `.gitignore`: `capturas/*.json` (pueden tener el código del participante y rutas).
+- `pruebas/captura_simulada.py`: el `.json` en vivo y con video (fuente, huella, versión, commit, motivo del fin, error), y el participante hasta el CSV de medicina.
+
+### Corregido al escribir las pruebas
+- Los fotogramas procesados del `.json` salían uno menos que los grabados al salir con `q` (el contador del bucle se incrementa al final); ahora hay un contador propio (`frames_read`).
+
+## 2026-11-17 (versión 17-C: analizar videos grabados)
+
+Idea 1 de la lista de mejoras: reanalizar sesiones, procesar videos clínicos ya grabados y que otra persona reproduzca los resultados con el mismo archivo.
+
+### Añadido
+- **`captura.py --video ARCHIVO`**: analiza un video (mp4, mov, avi…) en lugar de la cámara, con todo lo demás igual (antebrazo, velocidad, vista 3D, CSV, pausa, `e`, Unreal).
+  - **El tiempo sale del video, no del reloj** (`VideoClock`: `CAP_PROP_POS_MSEC`, que sirve para videos de celular con FPS variable, o número de fotograma / FPS). Las velocidades son las reales aunque el análisis vaya más lento o más rápido que el video. Comprobado: con un video simulado a 120 FPS analizado ~3 veces más lento, 20.3 cm/s (real 20.0); con el reloj habría salido ~3 veces menos.
+  - Se analizan **todos los fotogramas**: con video no se descartan fotogramas al reanudar la pausa ni tras exportar (`drain` solo con cámara), y la pausa no deja hueco en el tiempo.
+  - Al terminar el video: `Fin del video: N fotogramas analizados.` y el CSV queda cerrado.
+  - El panel muestra el avance (`Video: 450/900 (50 %), t = 15.00 s`).
+  - `--video-espejado`: para videos que ya están en espejo (grabados con la vista previa de una cámara frontal); sin esto se voltean como la webcam.
+  - No se combina con `--estereo` (error claro).
+- `plot_csv.py` acepta `timestamp_ms` con decimales (por robustez; el CSV sigue escribiendo ms enteros).
+- `pruebas/captura_simulada.py`, sección 6: todos los fotogramas, tiempo del video, velocidad real con análisis lento, pausa sin saltos, video inexistente, `--video` con `--estereo`.
+
+### Verificado
+- Con un mp4 real escrito por OpenCV (60 FPS, 120 fotogramas): se leen los 120 y el tiempo de cada uno avanza exactamente 16.667 ms.
+
 ## 2026-11-17 (versión 17-B: dos CSV para artículos en lugar del Excel)
 
 Pedido: quitar el Excel y que solo se generen CSV: dos, uno con el formato de ingeniería y otro con el de medicina, para usarlos después en publicaciones científicas.

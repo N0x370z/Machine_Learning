@@ -40,6 +40,8 @@ Uso:
     ./venv/bin/python3 exportar_csv.py                                  # el último CSV de capturas/
     ./venv/bin/python3 exportar_csv.py capturas/hand_data_X.csv --participante P01
     ./venv/bin/python3 exportar_csv.py --formato medicina --todos-los-puntos
+El participante sale de --participante o, si no se da, del .json de la
+sesión (captura.py --participante, desde la 17-D).
 Desde captura.py: tecla 'e' (los dos, con lo grabado hasta ese momento).
 
 Historial de cambios relevantes: ver CHANGELOG.md.
@@ -55,6 +57,7 @@ from pathlib import Path
 import numpy as np
 
 import hand_style
+import sesion
 
 FORMATS = ("ingenieria", "medicina")
 OUT_SUBDIR = "articulos"
@@ -261,6 +264,10 @@ def export(csv_path, formats=FORMATS, out_dir=None, all_points=False, participan
     if unknown or not formats:
         raise ExportError(f"Formato desconocido {sorted(unknown)}: usa {' o '.join(FORMATS)}.")
     cap = load_capture(csv_path, all_points)
+    if not participant:
+        # 17-D: el código guardado en el .json de la sesión (captura.py
+        # --participante), si lo hay.
+        participant = (sesion.read(csv_path) or {}).get("participante", "")
     paths = output_paths(csv_path, out_dir)
     builders = {
         "ingenieria": (INGENIERIA_COLUMNS, lambda: engineering_rows(cap)),
@@ -300,7 +307,7 @@ def main():
                         help="Qué CSV generar (default: ambos).")
     parser.add_argument("--participante", default="",
                         help="Código del participante para la columna 'participante' "
-                             "(solo medicina; default: vacío, por completar).")
+                             "(solo medicina; default: el del .json de la sesión, o vacío).")
     parser.add_argument("--salida", type=Path, default=None,
                         help="Carpeta donde guardarlos (default: articulos/ junto a la captura).")
     parser.add_argument("--todos-los-puntos", action="store_true",

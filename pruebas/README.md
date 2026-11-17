@@ -39,7 +39,7 @@ Inventa un par de cámaras (lentes con distorsión, separadas 18 cm, la segunda 
 | Mano con puntos **lejos** de la imagen de la cámara 2 | No produce puntos con error > 1.5 cm |
 | La cámara 2 ve una sola mano / ninguna; resolución distinta a la calibración | Se triangula solo la que se ve / ninguna / error claro |
 
-### `captura_simulada.py` — de punta a punta (28-B, 28-D, 28-E, 19-A)
+### `captura_simulada.py` — de punta a punta (28-B, 28-D, 28-E, 19-A, 17-B, 17-C, 17-D)
 
 Corre el `main()` real de `captura.py` con cámaras que devuelven imágenes negras, ventanas que no se abren (y un `waitKey` que "presiona" teclas en frames fijos) y un `HandLandmarker` que devuelve una mano sintética: palma de 8.5 cm, a 45 cm, yendo y viniendo a 20 cm/s. Todo lo demás es el código real: tracker, `estereo.py`, YOLO (si `models/yolo11s-pose.pt` ya está descargado), velocidad, visor 3D y `CsvRecorder`. Los CSV van a una carpeta temporal, no a `capturas/`.
 
@@ -62,6 +62,8 @@ Corre el `main()` real de `captura.py` con cámaras que devuelven imágenes negr
 | Tecla `e` (17-B) | Los dos CSV para artículos en `articulos/`, con lo grabado hasta ese momento (30 frames) y sin parar; `plot_csv.py` no los toma por una captura |
 | `e` dos veces, en pausa, sin datos (17-B) | Reemplaza con lo de la segunda (45) / los 10 frames grabados / no se crea nada y no se cae |
 | Tecla `m` (17-B) | Ya no exporta nada (era el Excel de medicina) |
+| `--video` (17-C): video simulado de 90 fotogramas a 120 FPS, analizado ~3 veces más lento | Los 90 fotogramas, tiempo del video (último a 742 ms), 20 ± 1 cm/s, pausa sin saltos (≤ 9 ms); video inexistente y `--video --estereo` dan error claro |
+| `.json` de la sesión (17-D) | Fuente, huella SHA-256, FPS, duración y motivo del fin con video; participante, notas, versión, commit y librerías en vivo; `estado: error` si el programa falla; sin manos no se crea; el participante llega al CSV de medicina (tecla `e` y `exportar_csv.py`) |
 | `plot_csv.py --3d`: espacio y `p` (19-A) | Se repite el frame con `[pausa]` mientras dura |
 
 ### `exportar_csv_simulado.py` — CSV para artículos (17-B)

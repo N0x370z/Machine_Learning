@@ -57,6 +57,10 @@ El modelo de YOLO (`models/yolo11s-pose.pt`) se descarga solo la primera vez que
 | `--cam2 N` | `1` | Índice de la segunda cámara (solo con `--estereo`) | 28-D |
 | `--calibracion ARCHIVO` | `calibracion/estereo.npz` | Calibración estéreo a usar (solo con `--estereo`) | 28-D |
 | `--unreal [HOST:PUERTO]` | apagado (sin valor: `127.0.0.1:8000`) | Manda la pose de las manos a Unreal Engine por OSC/UDP ([`UNREAL.md`](UNREAL.md)) | 19-A |
+| `--video ARCHIVO` | apagado (cámara) | Analiza un video grabado; el tiempo sale del video. No se combina con `--estereo` | 17-C |
+| `--video-espejado` | apagado | Con `--video`: el video ya está en espejo (no se voltea) | 17-C |
+| `--participante CODIGO` | vacío | Código del participante (nunca el nombre): va al `.json` de la sesión y al CSV de medicina | 17-D |
+| `--notas TEXTO` | vacío | Nota libre para el `.json` de la sesión | 17-D |
 
 Ejemplos útiles:
 
@@ -116,7 +120,7 @@ Ejemplos útiles:
 |------|---------|----------|
 | `csv_path` | el último de `capturas/` | CSV de la captura |
 | `--formato {ingenieria,medicina,ambos}` | `ambos` | Ingeniería: SI (m/s), N, T, f_s, media, RMS, σ, pico. Medicina: cm/s, media (DE), mediana [Q1-Q3], mín-máx |
-| `--participante CODIGO` | vacío | Columna `participante` del de medicina |
+| `--participante CODIGO` | el del `.json` de la sesión, o vacío | Columna `participante` del de medicina |
 | `--salida CARPETA` | `articulos/` junto a la captura | Dónde guardarlos (`<captura>_ingenieria.csv`, `<captura>_medicina.csv`) |
 | `--todos-los-puntos` | apagado | Una serie por cada uno de los 22 puntos (por defecto: muñeca, puntas de los dedos y codo) |
 
@@ -319,6 +323,17 @@ git rm exportar_excel.py pruebas/excel_simulado.py     # reemplazados por export
 ```
 
 Deshacer: `git checkout e8bf00b -- exportar_excel.py pruebas/excel_simulado.py` (el commit de la 17-A) y `./venv/bin/python3 -m pip install openpyxl==3.1.5`.
+
+### 2026-11-17 — versiones 17-C y 17-D: video y datos de la sesión
+
+Sin dependencias nuevas. Comandos corridos:
+
+```bash
+./venv/bin/python3 pruebas/correr_todo.py      # 5 de 5 OK (captura_simulada con la sección 6: video y .json)
+git check-ignore -v capturas/x.json            # .gitignore:25 capturas/*.json
+```
+
+Probar a mano: `./venv/bin/python3 captura.py --video mi_video.mp4 --participante P01` y revisar el `.json` que queda junto al CSV.
 
 ### Pendiente: nombre del repositorio en GitHub
 

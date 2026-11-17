@@ -163,3 +163,4 @@ Pausa (último cuadro, descarte de fotogramas, teclas, cerrar en pausa), pausa 2
 | Validar la rapidez contra una referencia antes de publicar cifras (captura de movimiento, goniómetro, sensores) | Rev. 4 | ⏳ Pendiente |
 | Mandar a Unreal la orientación de la muñeca (cuaternión) | Rev. 4 | 💡 Mejora futura |
 | Decidir el autor y la línea `Co-Authored-By` del commit `552d55f` (19-A) y cuándo fusionar `handmotion3d-19-a` a `main` | Rev. 5 | ⏳ Pendiente (decisión del dueño del repositorio) |
+| Probar `--video` con videos reales (celular con FPS variable, `.mov` de iPhone, video en espejo) y comparar Left/Right con lo que se ve | 17-C | ⏳ Pendiente (solo se probó con un mp4 generado y con simulaciones) |
