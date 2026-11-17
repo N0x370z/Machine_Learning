@@ -2,9 +2,11 @@
 
 Seguimiento de la **mano y el antebrazo en 3D** con una webcam (o dos, para medir la profundidad real): esqueleto de la mano con MediaPipe, codo con YOLO pose, vista 3D con dos puntos de vista independientes (como Blender) y velocidad de cada punto y de cada dedo.
 
+> **Novedades del 2026-11-17 (versión 17-B):** el Excel se reemplaza por **dos CSV para artículos científicos**, uno con el formato de **ingeniería** (SI: media, RMS, σ y pico en m/s) y otro con el de **medicina** (media (DE), mediana [Q1-Q3] en cm/s). Se generan con la tecla **`e`** durante la captura o con **`exportar_csv.py`**, y quedan en `capturas/articulos/`. La tecla `m` y `openpyxl` ya no se usan. Detalle en [Exportar para artículos](#exportar-para-artículos-exportar_csvpy).
+
 > **Novedades del 2026-11-17 (versión 17-A):** correcciones de la **revisión 5** ([`REVISION.md`](REVISION.md)): las exportaciones ya no se pueden subir a git por accidente, y la mano de `unreal_bridge.py --demo` tiene proporciones reales (antes el dedo medio salía doblado hacia atrás). Además, una **imagen simulada de cómo se ve la conexión con Unreal Engine** ([abajo](#unreal-engine-unreal_bridgepy) y en [`UNREAL.md`](UNREAL.md)).
 
-> **Novedades del 2026-10-19 (versión 19-A):** **pausa** de la captura (`espacio` o `p`), **Excel para artículos** de ingeniería y de medicina (`e` / `m` durante la captura, o `exportar_excel.py`) y **conexión con Unreal Engine** para mover un modelo 3D con la mano (`--unreal`, guía en [`UNREAL.md`](UNREAL.md)). Detalle en [Pausa](#pausa), [Exportar a Excel](#exportar-a-excel-exportar_excelpy) y [Unreal Engine](#unreal-engine-unreal_bridgepy).
+> **Novedades del 2026-10-19 (versión 19-A):** **pausa** de la captura (`espacio` o `p`), **Excel para artículos** de ingeniería y de medicina (`e` / `m` durante la captura, o `exportar_excel.py`; **reemplazado por CSV en la 17-B**) y **conexión con Unreal Engine** para mover un modelo 3D con la mano (`--unreal`, guía en [`UNREAL.md`](UNREAL.md)). Detalle en [Pausa](#pausa), [Exportar para artículos](#exportar-para-artículos-exportar_csvpy) y [Unreal Engine](#unreal-engine-unreal_bridgepy).
 
 > **Novedades del 2026-09-28 (versiones 28-A a 28-F):** `Prueba.py` pasa a llamarse **`captura.py`**; dependencias con **versiones fijas**; el CSV se **escribe mientras se graba**; **`--palma-cm`** para que los cm/s usen el tamaño de tu mano; velocidad con **filtro One Euro** (menos temblor y menos retraso); y **dos cámaras** (`--estereo`, [`estereo.py`](#dos-cámaras-estereopy)) para medir la profundidad y la palma de verdad. Además, desde la 28-F hay **pruebas sin cámara** ([`pruebas/`](pruebas/README.md)), un **registro de comandos** ([`COMANDOS.md`](COMANDOS.md)) y un **registro de revisiones** ([`REVISION.md`](REVISION.md)). Detalle en [Cambios](#cambios-comandos-partes-quitadas-y-por-qué) y en [`CHANGELOG.md`](CHANGELOG.md).
 
@@ -30,7 +32,7 @@ Seguimiento de la **mano y el antebrazo en 3D** con una webcam (o dos, para medi
 3. [`captura.py` — captura en vivo](#capturapy--captura-en-vivo) · [Formato del CSV](#formato-del-csv-exportado)
 4. [Vista 3D con dos POV](#vista-3d-con-dos-pov-viewer3dpy) · [Antebrazo](#antebrazo-forearmpy) · [Velocidad](#velocidad-kinematicspy)
 5. [Dos cámaras (`estereo.py`)](#dos-cámaras-estereopy) · [`plot_csv.py`](#plot_csvpy--graficar-los-puntos-del-csv)
-6. [Pausa](#pausa) · [Exportar a Excel (`exportar_excel.py`)](#exportar-a-excel-exportar_excelpy) · [Unreal Engine (`unreal_bridge.py`)](#unreal-engine-unreal_bridgepy)
+6. [Pausa](#pausa) · [Exportar para artículos (`exportar_csv.py`)](#exportar-para-artículos-exportar_csvpy) · [Unreal Engine (`unreal_bridge.py`)](#unreal-engine-unreal_bridgepy)
 7. [Pruebas](#pruebas) · [Cambios: comandos, partes quitadas y por qué](#cambios-comandos-partes-quitadas-y-por-qué) · [Historial](#historial-de-cambios)
 
 Detección de manos en tiempo real con [MediaPipe Tasks API](https://ai.google.dev/edge/mediapipe/solutions/vision/hand_landmarker), vista 3D de la mano con **dos puntos de vista (POV)** a la vez (como los viewports de Blender) usando la profundidad `z`, el esqueleto extendido **hasta el antebrazo** (codo detectado con YOLO pose), la **velocidad** de cada punto (a partir de `x`, `y`, `z` y del tiempo de cada fotograma), opcionalmente la **profundidad real con dos cámaras** (triangulación estéreo), captura de los 21 landmarks por mano (+ el codo) en un CSV, y un script separado para volver a graficar esos mismos puntos a partir del CSV (sin necesidad de la cámara).
@@ -94,7 +96,7 @@ Las teclas funcionan con **cualquiera de las dos ventanas** activa (haz clic en 
 | `f` | Cambia la velocidad de cada dedo entre **absoluta** y **relativa a la muñeca** |
 | `s` | Guarda una foto de la vista de la cámara en `capturas/` |
 | `espacio` o `p` | **Pausa** / sigue (ver [Pausa](#pausa)) |
-| `e` / `m` | Genera el **Excel** de lo grabado: `e` formato ingeniería, `m` formato medicina (ver [Exportar a Excel](#exportar-a-excel-exportar_excelpy)) |
+| `e` | Genera los **dos CSV para artículos** (ingeniería y medicina) de lo grabado hasta ese momento, en `capturas/articulos/` (ver [Exportar para artículos](#exportar-para-artículos-exportar_csvpy)) |
 | `u` | Con `--unreal`: pausa / reanuda el envío a Unreal Engine |
 | `q` o `Esc` | Termina y guarda los datos |
 | `1` `3` `7` `9` `.` `r` `+` `-` | Controles del POV bajo el mouse en la vista 3D (ver más abajo) |
@@ -169,7 +171,7 @@ HandMotion3D/           # raíz del repositorio
 ├── forearm.py          # Antebrazo: codo con YOLO pose + estimación de su z
 ├── kinematics.py       # Velocidad (filtro One Euro) y escala en cm (palma)
 ├── estereo.py          # Dos cámaras: calibración y triangulación (profundidad real)
-├── exportar_excel.py   # Excel para artículos: formato ingeniería o medicina (19-A)
+├── exportar_csv.py     # Dos CSV para artículos: formato ingeniería y medicina (17-B; antes exportar_excel.py)
 ├── unreal_bridge.py    # Puente OSC/UDP hacia Unreal Engine (19-A)
 ├── UNREAL.md           # Guía de la conexión con Unreal Engine
 ├── docs/
@@ -179,8 +181,8 @@ HandMotion3D/           # raíz del repositorio
 │   ├── correr_todo.py        # Corre las cinco y resume
 │   ├── filtro_velocidad.py   # One Euro vs media exponencial
 │   ├── estereo_simulado.py   # Calibración y triangulación simuladas
-│   ├── captura_simulada.py   # captura.py y plot_csv.py de punta a punta (con pausa, Excel y Unreal)
-│   ├── excel_simulado.py     # exportar_excel.py: estructura y fórmulas
+│   ├── captura_simulada.py   # captura.py y plot_csv.py de punta a punta (con pausa, CSV para artículos y Unreal)
+│   ├── exportar_csv_simulado.py   # exportar_csv.py: columnas y cada número contra numpy
 │   └── unreal_simulado.py    # unreal_bridge.py: OSC, ejes, flexión y UDP
 ├── COMANDOS.md         # Registro de comandos (referencia + bitácora de mantenimiento)
 ├── REVISION.md         # Registro de revisiones: hallazgos, correcciones, pendientes
@@ -192,7 +194,8 @@ HandMotion3D/           # raíz del repositorio
 │   └── yolo11s-pose.pt        # Modelo YOLO pose (se descarga solo, no va en git)
 ├── capturas/
 │   ├── hand_data_YYYYMMDD_HHMMSS.csv   # Un CSV por sesión (hora de inicio)
-│   ├── hand_data_YYYYMMDD_HHMMSS_ingenieria.xlsx / _medicina.xlsx   # Excel (teclas 'e' / 'm' o exportar_excel.py)
+│   ├── articulos/                       # CSV para artículos (tecla 'e' o exportar_csv.py), no va en git
+│   │   └── hand_data_YYYYMMDD_HHMMSS_ingenieria.csv / _medicina.csv
 │   └── screenshot_*.png                 # Fotos tomadas con la tecla 's'
 ├── calibracion/        # Solo con dos cámaras; no va en git (es de TUS cámaras)
 │   ├── estereo.npz     # Calibración (estereo.py calibrar)
@@ -229,7 +232,6 @@ Desde la versión **28-A** (2026-09-28) todas las dependencias tienen versión f
 | `matplotlib` | `3.11.2` | `plot_csv.py` en 2D |
 | `ultralytics` | `8.4.162` | YOLO pose (antebrazo) |
 | `torch` / `torchvision` | `2.14.0` / `0.29.0` | Los instala `ultralytics`; son lo más pesado y lo que más cambia entre versiones |
-| `openpyxl` | `3.1.5` | Excel de `exportar_excel.py` (19-A); solo se carga al exportar. Se probó fuera del venv del proyecto (ver CHANGELOG, 19-A) |
 
 Para actualizar una dependencia: subir **una** versión, probar `captura.py` (en vivo) y `plot_csv.py` (2D y `--3d`), y recién ahí cambiarla en `requirements.txt` y anotarlo en el CHANGELOG.
 
@@ -306,7 +308,7 @@ Mientras corre la ventana de la cámara:
 | `n` | Mostrar/ocultar los nombres de los dedos (útil si se enciman con el puño cerrado o la mano de perfil) |
 | `s` | Guardar una foto del frame actual en `capturas/screenshot_<fecha>.png` (con el esqueleto dibujado, sin el panel de estado; con `--estereo`, solo la cámara 1) |
 | `espacio` o `p` | **Pausa** / sigue (ver [Pausa](#pausa)) |
-| `e` / `m` | **Excel** de lo grabado hasta ese momento: `e` ingeniería, `m` medicina (ver [Exportar a Excel](#exportar-a-excel-exportar_excelpy)) |
+| `e` | **Dos CSV para artículos** (ingeniería y medicina) de lo grabado hasta ese momento (ver [Exportar para artículos](#exportar-para-artículos-exportar_csvpy)) |
 | `u` | Con `--unreal`: pausa / reanuda el envío a Unreal Engine |
 
 En la esquina superior izquierda hay un panel de estado con los **FPS** reales, las **manos** detectadas en el frame, los **antebrazos** (de YOLO / estimados), los **frames grabados** hasta ahora para el CSV, la **velocidad de la muñeca** de cada mano en cm/s, una fila por mano con la **velocidad de cada dedo** (`Pul`, `Ind`, `Med`, `Anu`, `Men`; absoluta o relativa según la tecla `f`, se oculta con `v`), los **ms por etapa** (`mano` = MediaPipe, `yolo` = antebrazo, `3D` = dibujar la vista 3D, `estereo` = MediaPipe en la cámara 2) y una línea con el estado de las teclas `n`, `v`, `f`, `s` y `q`. Si los FPS bajan mucho, reduce `--max-hands` o la resolución (`--cam-width`/`--cam-height`). Si "Frames grabados" sigue en 0, no se está detectando ninguna mano y al salir no se va a generar CSV.
@@ -727,44 +729,126 @@ Con `captura.py` en marcha, **`espacio`** o **`p`** (en cualquiera de las dos ve
 | CSV | **No se graba nada**: los frames quedan seguidos (`frame` no salta) |
 | Unreal Engine | **No se manda nada** (el modelo se queda en la última pose) |
 | Vista 3D | Sigue viva: se puede girar, mover y hacer zoom |
-| Teclas que siguen | `s` (foto sin panel), `e` / `m` (Excel), `u`, las del visor 3D y `q` / `Esc` |
+| Teclas que siguen | `s` (foto sin panel), `e` (CSV para artículos), `u`, las del visor 3D y `q` / `Esc` |
 
 Al reanudar se descartan unos fotogramas que la cámara acumuló, para que la imagen no vaya atrasada. Como el tiempo del CSV es el real, la pausa deja un **hueco en `timestamp_ms`**; la velocidad se reinicia en 0 al volver (hueco mayor que 0.25 s, ver [Velocidad](#velocidad-kinematicspy)) en lugar de inventar un salto.
 
 En **`plot_csv.py`**: `espacio` pausa y sigue la animación 2D (en 3D ya existía, y desde la 19-A `p` también). En 2D no se usa `p` porque matplotlib ya la usa para el paneo.
 
-## Exportar a Excel (`exportar_excel.py`)
+## Exportar para artículos (`exportar_csv.py`)
 
-Genera un `.xlsx` de una captura **cuando se pide**, listo para escribir un artículo. Hay dos formatos, porque en ingeniería y en medicina las ecuaciones y los resultados se presentan de forma distinta:
-
-| | **Ingeniería** (`ingenieria`, estilo IEEE) | **Medicina** (`medicina`, estilo revista médica) |
-|---|---|---|
-| Unidades | **SI**: m/s | **cm/s** |
-| Ecuaciones | Hoja **Ecuaciones**: 12 ecuaciones numeradas, en texto y en **LaTeX** (velocidad, escala, filtro One Euro, media, RMS, σ, pico, muestreo, triangulación estéreo) | No hay ecuaciones físicas: hoja **Notas estadísticas** con las definiciones estadísticas y cómo reportarlas |
-| Resultados | **Tabla II**: N, media, **RMS**, **σ** y **pico** por serie | **Tabla 2**: n, **media (DE)**, **mediana [Q1-Q3]** y **mín-máx** por serie, más las mismas cifras en número |
-| Descripción de la medición | Hoja **Parámetros** (N, T, f_s, resolución, largo de palma, profundidad) con símbolos y unidades | Hoja **Métodos** (borrador) y **Tabla 1** de características |
-| Campos por completar | Los que no están en el CSV | Más: ética y consentimiento, participante, edad, sexo, instrumento, tarea (celdas amarillas `[completar]`) |
-| Estilo | Times New Roman, tablas de tres líneas, pies en cursiva | Arial, tablas de tres líneas, «Tabla N.» en negrita |
-
-Los dos traen además la hoja **Limitaciones** (visión monocular sin validar contra una referencia, escala por la palma, filtro que atenúa picos, fotogramas sin mano, ids de mano) y la hoja **Datos**.
-
-**Cómo está armado:** la hoja *Datos* tiene una fila por fotograma y una columna por serie (por defecto: muñeca, las 5 puntas absolutas y relativas a la muñeca, y el codo; con `--todos-los-puntos`, los 22 puntos). Los resultados son **fórmulas de Excel** sobre esas columnas (`AVERAGE`, `STDEV`, `MEDIAN`, `QUARTILE`...): cualquier número se puede rastrear a sus datos, y si borras filas de *Datos* (un tramo mal detectado) los resultados se recalculan solos. Solo usa funciones clásicas, para que abra igual en Excel, LibreOffice y Google Sheets, y los textos «media (DE)» se arman con `FIXED`, que respeta el separador decimal de tu idioma.
+Desde la **17-B** una captura se exporta a **dos CSV de resultados**, uno con el formato de **ingeniería** y otro con el de **medicina**, para usarlos después en publicaciones científicas. Reemplazan al Excel de la 19-A (ver [Cambios](#cambios-comandos-partes-quitadas-y-por-qué)).
 
 ```bash
-./venv/bin/python3 exportar_excel.py --formato ingenieria                       # el último CSV de capturas/
-./venv/bin/python3 exportar_excel.py capturas/hand_data_X.csv --formato medicina
-./venv/bin/python3 exportar_excel.py --formato medicina --todos-los-puntos --salida resultados.xlsx
+./venv/bin/python3 exportar_csv.py                                        # los dos, del último CSV de capturas/
+./venv/bin/python3 exportar_csv.py capturas/hand_data_X.csv --participante P01
+./venv/bin/python3 exportar_csv.py --formato medicina --todos-los-puntos  # solo uno, con los 22 puntos
 ```
 
-Durante la captura: **`e`** (ingeniería) o **`m`** (medicina) generan el Excel de lo grabado **hasta ese momento**, sin parar la captura, junto al CSV (`hand_data_<inicio>_ingenieria.xlsx`). El aviso sale en el panel y en la terminal. Un error al exportar nunca interrumpe la captura. Necesita `openpyxl` (`requirements.txt`, solo se carga al exportar).
+Durante la captura: **`e`** genera los dos con lo grabado **hasta ese momento**, sin parar. Si se vuelve a pulsar, **reemplaza** los anteriores (que tenían menos datos). El aviso sale en el panel y en la terminal, y un error al exportar nunca interrumpe la captura. Exportar congela la imagen un momento (1.1 s medidos con una captura simulada de 10 min y una mano; con el Excel eran 2.6 s), y como la pausa pasa de 0.25 s, la velocidad vuelve a empezar en 0.
 
-**Qué hay que saber antes de publicar:**
+**Dónde quedan:** en `capturas/articulos/`, con el nombre de la captura más el formato:
 
-- Los formatos son un **punto de partida**: revisa las normas de tu revista o congreso (IEEE, Vancouver, AMA...). Los textos de las hojas están en español.
-- **Los fotogramas consecutivos no son observaciones independientes.** Por eso la versión de medicina **no calcula intervalos de confianza ni valores p entre fotogramas**: saldrían demasiado optimistas. Para comparar personas o condiciones, resume cada participante en un valor (p. ej. su mediana) y analiza esos valores.
-- La rapidez se estima con visión por computadora y **no está validada contra una referencia** (captura de movimiento, goniómetro, sensores inerciales). Para una medida clínica o de ingeniería, valídala antes (en medicina, lo habitual es Bland-Altman e ICC).
-- Los cm/s dependen del largo de palma que indiques (`--palma-cm`) o midas con dos cámaras.
-- Excel calcula las fórmulas **al abrir** el archivo (los visores de vista previa pueden mostrarlas vacías).
+```
+capturas/articulos/hand_data_20261117_100000_ingenieria.csv
+capturas/articulos/hand_data_20261117_100000_medicina.csv
+```
+
+Van en una subcarpeta para que `plot_csv.py` (que abre el último `hand_data_*.csv` de `capturas/`) no los confunda con una captura. No se suben a git (`.gitignore`): pueden traer datos de participantes.
+
+### Cómo están hechos
+
+- **Una fila por serie:** mano × punto × tipo de rapidez. Por defecto la muñeca, las cinco puntas y el codo (rapidez absoluta), más las cinco puntas relativas a la muñeca: 12 filas por mano. Con `--todos-los-puntos`, 27.
+- **Formato "tidy"**, el que esperan R, Python/pandas, SPSS, Stata o JASP: separador **coma**, **punto decimal**, UTF-8, primera fila con los nombres de columna **en ASCII y con la unidad al final** (`media_m_s`, `de_cm_s`). Una celda **vacía** significa que no se puede calcular (la DE con un solo dato).
+- **Los números vienen calculados** (no son fórmulas). Para juntar varias sesiones o participantes, se concatenan los CSV: cada fila dice de qué `archivo` y `participante` sale.
+- En Excel con idioma de **coma decimal**, ábrelos con *Datos → Desde texto/CSV* (separador coma, origen UTF-8). Si se abren con doble clic, los números se pueden leer mal.
+
+| | **Ingeniería** (`_ingenieria.csv`) | **Medicina** (`_medicina.csv`) |
+|---|---|---|
+| Unidades | **SI: m/s** (4 decimales = 0.1 mm/s) | **cm/s** (2 decimales; los textos, 1) |
+| Resultados por serie | N, T, f_s, **media, RMS, σ, pico** | n, duración, **media, DE, mediana, Q1, Q3, mín, máx** |
+| Listo para la tabla del artículo | — | `media_de` = «12.3 (4.5)», `mediana_q1_q3` = «11.0 [8.2-14.1]» |
+| Descripción de la medición | `palma_cm`, `profundidad`, `resolucion_px` | `palma_cm`, `profundidad` |
+| Para juntar sesiones | `archivo` | `participante` (`--participante`, o por completar) y `archivo` |
+
+`palma_cm` es la **mediana de la palma de esa mano**. Con `--estereo` la palma se mide en cada fotograma, y con dos manos cada una lleva la suya; antes, en el Excel, se ponía un solo valor, el más repetido (revisión 5). `profundidad` vale `monocular` (z estimada por MediaPipe), `estereo` (dos cámaras) o `mixta` (la cámara 2 vio la mano solo a ratos).
+
+#### Columnas de `_ingenieria.csv`
+
+| Columna | Qué es |
+|---------|--------|
+| `archivo` | CSV de la captura de la que salen los datos |
+| `mano` | Lateralidad real de la mano: Left o Right |
+| `id_mano` | Número de seguimiento (cambia si la mano sale de cámara y vuelve) |
+| `punto` | Nombre del punto: Muñeca, Pulgar, Índice, Medio, Anular, Meñique (punta) o Codo |
+| `indice_punto` | Índice del punto en MediaPipe (0-20; 21 = codo) |
+| `rapidez` | absoluta, o relativa_muneca (lo que se mueve el dedo dentro de la mano) |
+| `N` | Fotogramas en que se vio el punto |
+| `T_s` | Duración: del primer al último de esos fotogramas, s |
+| `fs_hz` | Frecuencia de muestreo efectiva (N - 1) / T, Hz |
+| `media_m_s` | Media de la rapidez, m/s |
+| `rms_m_s` | Valor cuadrático medio de la rapidez, m/s |
+| `sigma_m_s` | Desviación estándar muestral (N - 1), m/s |
+| `pico_m_s` | Rapidez máxima observada, m/s |
+| `palma_cm` | Largo de palma con el que se pasó a cm (mediana de esa mano), cm |
+| `profundidad` | monocular (z de MediaPipe), estereo (dos cámaras) o mixta |
+| `resolucion_px` | Resolución de la imagen, ancho x alto en px |
+
+#### Columnas de `_medicina.csv`
+
+| Columna | Qué es |
+|---------|--------|
+| `participante` | Código del participante (--participante o por completar) |
+| `archivo` | CSV de la captura de la que salen los datos |
+| `mano` | Lateralidad real de la mano: Left o Right |
+| `id_mano` | Número de seguimiento (cambia si la mano sale de cámara y vuelve) |
+| `punto` | Nombre del punto: Muñeca, Pulgar, Índice, Medio, Anular, Meñique (punta) o Codo |
+| `indice_punto` | Índice del punto en MediaPipe (0-20; 21 = codo) |
+| `rapidez` | absoluta, o relativa_muneca (lo que se mueve el dedo dentro de la mano) |
+| `n` | Fotogramas en que se vio el punto |
+| `duracion_s` | Duración: del primer al último de esos fotogramas, s |
+| `media_cm_s` | Media, cm/s |
+| `de_cm_s` | Desviación estándar muestral (n - 1), cm/s |
+| `mediana_cm_s` | Mediana, cm/s |
+| `q1_cm_s` | Primer cuartil (método inclusivo), cm/s |
+| `q3_cm_s` | Tercer cuartil (método inclusivo), cm/s |
+| `min_cm_s` | Mínimo, cm/s |
+| `max_cm_s` | Máximo, cm/s |
+| `media_de` | Texto listo para la tabla: «media (DE)», 1 decimal |
+| `mediana_q1_q3` | Texto listo para la tabla: «mediana [Q1-Q3]», 1 decimal |
+| `palma_cm` | Largo de palma con el que se pasó a cm (mediana de esa mano), cm |
+| `profundidad` | monocular (z de MediaPipe), estereo (dos cámaras) o mixta |
+
+#### Ecuaciones (para la sección de métodos de un artículo de ingeniería)
+
+Antes iban en la hoja *Ecuaciones* del Excel. Con `p̂` la posición filtrada (x, y, z de la escena; unidad = ancho del fotograma) y `t` el tiempo de cada fotograma:
+
+| N.º | Ecuación | Qué es |
+|-----|----------|--------|
+| (1) | $\vec v_k = (\hat{\vec p}_k - \hat{\vec p}_{k-1}) / (t_k - t_{k-1})$ | Velocidad de un punto |
+| (2) | $\kappa = L_{palma} / \lVert \vec p_9 - \vec p_0 \rVert$ | Escala, cm por unidad de escena (muñeca → nudillo del medio) |
+| (3) | $s = \kappa \lVert \vec v \rVert$ | Rapidez absoluta (`rapidez_cm_s` del CSV de captura) |
+| (4) | $s_{rel} = \kappa \lVert \vec v - \vec v_{mu\tilde{n}eca} \rVert$ | Rapidez relativa a la muñeca |
+| (5) | $\alpha = 1/(1+\tau/T_e),\ \tau = 1/(2\pi f_c),\ f_c = f_{min} + \beta\lvert\hat{\dot x}\rvert$ | Filtro One Euro (Casiez, Roussel y Vogel, CHI 2012): $f_{min}$ = 0.5 Hz, β = 10.0, corte de la derivada = 2.0 Hz |
+| (6) | $\hat x_k = \alpha x_k + (1-\alpha)\hat x_{k-1}$ | Suavizado con el α de (5) |
+| (7) | $\bar v = \frac{1}{N}\sum s_k$ | `media_m_s` |
+| (8) | $v_{RMS} = \sqrt{\frac{1}{N}\sum s_k^2}$ | `rms_m_s` |
+| (9) | $\sigma = \sqrt{\frac{1}{N-1}\sum (s_k-\bar v)^2}$ | `sigma_m_s` |
+| (10) | $v_{pico} = \max_k s_k$ | `pico_m_s` (atenuado por el filtro) |
+| (11) | $f_s = (N-1)/(t_N - t_1)$ | `fs_hz`; subestima la real si hubo fotogramas sin mano |
+| (12) | $\mathbf x_i \simeq \mathbf P_i \mathbf X,\ \mathbf P_i = \mathbf K_i[\mathbf R_i \mid \mathbf t_i]$ | Solo con dos cámaras: triangulación lineal (DLT) de cada punto |
+
+### Qué hay que saber antes de publicar
+
+- **Fotogramas consecutivos no son observaciones independientes.** Por eso no se calculan intervalos de confianza ni valores p entre fotogramas: saldrían demasiado optimistas. Para comparar personas o condiciones, resume a cada participante en **un valor** (por ejemplo, su `mediana_cm_s`) y analiza esos valores. Para eso está la columna `participante`.
+- **Validación:** la rapidez se estima con visión por computadora y **no está validada contra una referencia** (captura de movimiento óptica, goniómetro, sensores inerciales). Antes de reportarla como medida clínica o de ingeniería, hay que validarla. En medicina lo habitual es Bland-Altman (sesgo y límites de concordancia al 95 %) y el coeficiente de correlación intraclase.
+- Con **una cámara**, la profundidad `z` es una estimación relativa; con `--estereo` se mide.
+- Los cm/s dependen del **largo de palma** (`--palma-cm` o medido con dos cámaras). Si la palma real es distinta, todas las rapideces se desvían en la misma proporción.
+- El filtro One Euro quita el temblor, pero **atenúa los picos más breves** (retraso del orden de 0.1 s).
+- Solo cuentan los fotogramas con la mano detectada: los huecos **no** cuentan como cero. Si la mano se pierde más de 0.25 s, la velocidad se reinicia.
+- `id_mano` es un seguimiento: si la mano sale de cámara y vuelve, recibe otro número. Para agrupar, usa `mano` (Left/Right).
+- Los cuartiles se calculan con el método **inclusivo** (el de `QUARTILE`/`QUARTILE.INC` de Excel y `numpy.percentile`). Otros programas usan otros métodos por defecto (R `quantile` type 7 coincide; SPSS no): dilo en los métodos.
+- Revisa las normas de tu revista o congreso (IEEE, Vancouver, AMA…) para el formato final de las tablas.
 
 ## Unreal Engine (`unreal_bridge.py`)
 
@@ -795,17 +879,17 @@ Desde la versión **28-F** el repositorio trae pruebas que se corren **sin cáma
 |--------|---------------|
 | `pruebas/filtro_velocidad.py` | One Euro contra la media exponencial de antes: menos ruido quieto, menos retraso, mismos golpeteos |
 | `pruebas/estereo_simulado.py` | Calibración, triangulación, emparejamiento de manos, dedos fuera de cuadro, casos borde |
-| `pruebas/captura_simulada.py` | `captura.py` de punta a punta (**pausa, Excel (`e`/`m`) y envío a Unreal (19-A)**, una cámara, `--palma-cm`, `--estereo`, CSV durante la sesión, `Ctrl+C`, sin manos, nombres de CSV) y `plot_csv.py` con ese CSV |
-| `pruebas/excel_simulado.py` | `exportar_excel.py` (19-A): hojas de cada formato, series, y las **fórmulas recalculadas con LibreOffice** contra numpy (media, RMS, σ, pico, «media (DE)», «mediana [Q1-Q3]»); CSV viejo, fila cortada, formato desconocido |
+| `pruebas/captura_simulada.py` | `captura.py` de punta a punta (**pausa y envío a Unreal (19-A), CSV para artículos con `e` (17-B)**, una cámara, `--palma-cm`, `--estereo`, CSV durante la sesión, `Ctrl+C`, sin manos, nombres de CSV) y `plot_csv.py` con ese CSV |
+| `pruebas/exportar_csv_simulado.py` | `exportar_csv.py` (17-B): columnas de cada formato, **cada número contra numpy** (media, RMS, σ, pico, DE, mediana, cuartiles inclusivos, mín, máx y los textos «media (DE)» y «mediana [Q1-Q3]»), palma por mano con dos manos en estéreo, `--participante`; CSV viejo, fila cortada, un solo dato, exportar dos veces |
 | `pruebas/unreal_simulado.py` | `unreal_bridge.py` (19-A): codificador OSC (ida y vuelta), cambio de ejes a Unreal, ángulos de flexión, envío por UDP, destino `host:puerto` |
 
-Lo que **no** cubren: las cámaras reales (temblor, luz, sincronización), lo que se ve en las ventanas, YOLO sobre personas reales, **Unreal Engine** recibiendo los mensajes y el Excel abierto en **Excel de escritorio** (las fórmulas se comprueban con LibreOffice). Detalle en [`pruebas/README.md`](pruebas/README.md).
+Lo que **no** cubren: las cámaras reales (temblor, luz, sincronización), lo que se ve en las ventanas, YOLO sobre personas reales, **Unreal Engine** recibiendo los mensajes y los CSV para artículos abiertos en programas de estadística (se leen con el módulo `csv` de Python). Detalle en [`pruebas/README.md`](pruebas/README.md).
 
 ## Cambios: comandos, partes quitadas y por qué
 
 Resumen de todo lo que cambió en el proyecto: los comandos de ahora, los de antes, lo que se quitó o reemplazó en el código y por qué. El detalle fechado de cada error y corrección está en [`CHANGELOG.md`](CHANGELOG.md).
 
-Las versiones se nombran por día y letra. El 2026-09-24 hubo cinco (24-A a 24-E), el 2026-09-28 seis (28-A a 28-F), el 2026-10-19 una (19-A) y el 2026-11-17 una (17-A). Todos los comandos en un solo lugar: [`COMANDOS.md`](COMANDOS.md).
+Las versiones se nombran por día y letra. El 2026-09-24 hubo cinco (24-A a 24-E), el 2026-09-28 seis (28-A a 28-F), el 2026-10-19 una (19-A) y el 2026-11-17 dos (17-A y 17-B). Todos los comandos en un solo lugar: [`COMANDOS.md`](COMANDOS.md).
 
 | Versión | Qué trajo |
 |---------|-----------|
@@ -822,6 +906,7 @@ Las versiones se nombran por día y letra. El 2026-09-24 hubo cinco (24-A a 24-E
 | **28-F** | **Pruebas en el repositorio** (`pruebas/`), **registro de comandos** (`COMANDOS.md`) y **de revisiones** (`REVISION.md`); `estereo.py` ya no triangula puntos fuera de la imagen; historial de git sin la línea `Co-Authored-By` |
 | **19-A** | **Pausa** (`espacio`/`p`), **Excel para artículos** de ingeniería y de medicina (`exportar_excel.py`, teclas `e`/`m`), **conexión con Unreal Engine** (`unreal_bridge.py`, `--unreal`, [`UNREAL.md`](UNREAL.md)); `openpyxl` en `requirements.txt` |
 | **17-A** | **Correcciones de la revisión 5**: `.gitignore` deja fuera las exportaciones, mano de `--demo` con proporciones reales, comentario de `JOINTS`; **imagen simulada de Unreal** (`docs/imagen_unreal.py`) |
+| **17-B** | El **Excel se reemplaza por dos CSV para artículos** (`exportar_csv.py`, tecla `e`): ingeniería (SI) y medicina (estadística descriptiva), en `capturas/articulos/`; se quitan `exportar_excel.py`, la tecla `m` y `openpyxl` |
 
 ### Comandos actuales (referencia completa)
 
@@ -859,14 +944,15 @@ Las versiones se nombran por día y letra. El 2026-09-24 hubo cinco (24-A a 24-E
 | `calibrar --cam-width W` / `--cam-height H` | `1280` / `720` | Resolución (la misma que se usará en `captura.py`) |
 | `calibrar --salida ARCHIVO` | `calibracion/estereo.npz` | Dónde guardar la calibración |
 
-`exportar_excel.py` (Excel para artículos, desde la 19-A):
+`exportar_csv.py` (dos CSV para artículos, desde la 17-B; reemplaza a `exportar_excel.py`):
 
 | Comando / flag | Default | Qué hace |
 |----------------|---------|----------|
-| `./venv/bin/python3 exportar_excel.py --formato ingenieria` | (obligatorio) | Excel estilo IEEE (SI, ecuaciones, RMS) del último CSV |
-| `--formato medicina` | (obligatorio) | Excel de revista médica (media (DE), mediana [Q1-Q3], Métodos, Tabla 1/2) |
-| `exportar_excel.py capturas/archivo.csv ...` | el último CSV | Un CSV específico |
-| `--salida ARCHIVO.xlsx` | junto al CSV, con el formato en el nombre | Dónde guardarlo |
+| `./venv/bin/python3 exportar_csv.py` | — | Los dos CSV (ingeniería y medicina) del último CSV de `capturas/` |
+| `exportar_csv.py capturas/archivo.csv` | el último CSV | Un CSV de captura específico |
+| `--formato {ingenieria,medicina,ambos}` | `ambos` | Generar solo uno |
+| `--participante CODIGO` | vacío | Llena la columna `participante` (medicina) |
+| `--salida CARPETA` | `articulos/` junto a la captura | Dónde guardarlos |
 | `--todos-los-puntos` | apagado | Una serie por cada uno de los 22 puntos (por defecto: muñeca, puntas y codo) |
 
 `unreal_bridge.py` (herramientas de prueba, desde la 19-A; el envío real es `captura.py --unreal`):
@@ -893,7 +979,7 @@ Teclas:
 
 | Dónde | Teclas |
 |-------|--------|
-| Captura (cualquiera de las dos ventanas) | `q`/`Esc` salir y guardar · `n` nombres · `v` velocidad · `f` dedos absoluta/relativa · `s` foto · `espacio`/`p` **pausa** · `e`/`m` **Excel** (ingeniería/medicina) · `u` pausar el envío a Unreal |
+| Captura (cualquiera de las dos ventanas) | `q`/`Esc` salir y guardar · `n` nombres · `v` velocidad · `f` dedos absoluta/relativa · `s` foto · `espacio`/`p` **pausa** · `e` **CSV para artículos** (ingeniería y medicina) · `u` pausar el envío a Unreal |
 | Vista 3D (POV bajo el mouse) | arrastrar = girar · `Shift`+arrastrar o botón central = mover · rueda/clic derecho/`+`/`-` = zoom · `1` `3` `7` `9` vistas · `.` encuadrar · `r` reiniciar |
 | Vista 3D (los dos POV) | `l` vincular 180 · `v` velocidad · `f` dedos absoluta/relativa |
 | Reproducción 2D | `espacio` pausa / sigue |
@@ -933,6 +1019,8 @@ Teclas:
 | Velocidad suavizada con media exponencial (`VELOCITY_SMOOTHING = 0.35`) | Filtro **One Euro** | 28-C | Mitad de temblor con la mano quieta y mitad de retraso al arrancar y frenar (ver [Velocidad](#por-qué-one-euro-y-no-la-media-exponencial-de-antes)) |
 | Siempre la cámara `0` | `--cam N` | 28-D | Elegir la cámara (hace falta con dos) |
 | Solo una cámara | `--estereo` con `estereo.py` | 28-D | Medir la profundidad y la palma en vez de estimarlas |
+| `e` = Excel de ingeniería, `m` = Excel de medicina (`.xlsx` junto al CSV) | `e` = **los dos CSV** para artículos, en `capturas/articulos/`; `m` ya no hace nada | 17-B | Pedido: solo CSV, uno con el formato de ingeniería y otro con el de medicina, para publicaciones científicas |
+| `exportar_excel.py --formato X [--salida ARCHIVO.xlsx]` | `exportar_csv.py [--formato X\|ambos] [--salida CARPETA] [--participante CODIGO]` | 17-B | Ídem; un CSV lo lee cualquier programa de estadística, sin depender de que Excel recalcule fórmulas |
 | Si la cámara dejaba de entregar imágenes, el programa terminaba sin decir nada | Avisa `La cámara dejó de entregar imágenes` (y el CSV queda guardado) | 28-E | Se veía como un cierre inexplicable |
 
 ### Partes del código quitadas o reemplazadas
@@ -964,6 +1052,9 @@ Teclas:
 | `load_frames()` devolvía 4 valores | `plot_csv.py` | Devuelve 5 (agrega `palma_cm` de cada mano y frame) | Reproducir con la misma escala con la que se grabó (28-B) |
 | `time.time()` para timestamps y FPS | `captura.py` | `time.monotonic()` y timestamps que siempre crecen | La hora del sistema puede saltar hacia atrás y MediaPipe exige timestamps crecientes (28-E) |
 | `StereoHands.update` triangulaba los 21 puntos siempre | `estereo.py` | Solo los puntos dentro de las dos imágenes (`_inside`, `MIN_VISIBLE_POINTS`, `INSIDE_MARGIN_FRAC`); `StereoHand.points_cm` tiene `None` en los de afuera y `palm_cm` puede ser `None` hasta poder medirla | Fuera de la imagen el modelo del lente no vale y el punto se corría varios cm (28-F) |
+| `exportar_excel.py` (Excel con hojas Parámetros/Ecuaciones/Resultados o Métodos/Tabla 1/Tabla 2, fórmulas de Excel) y `pruebas/excel_simulado.py` | Raíz, `pruebas/` (19-A) | `exportar_csv.py` (una fila por serie, números ya calculados) y `pruebas/exportar_csv_simulado.py`; las ecuaciones, limitaciones y notas estadísticas pasaron al README | Pedido: solo CSV (17-B). Además resolvía tres hallazgos de la revisión 5: palma «más repetida», `523.00` fotogramas y fórmulas vacías en vistas previas |
+| `export_excel_now(recorder, fmt)` y `EXCEL_KEYS` | `captura.py` (19-A) | `export_now(recorder)` y `EXPORT_KEY` (`e`) | Un solo comando genera los dos formatos (17-B) |
+| `openpyxl==3.1.5` | `requirements.txt` (19-A) | — | Ya no hace falta (17-B) |
 | Mano de `demo_hand()` armada con offsets fijos (y `points[9]` sobrescrito al final) | `unreal_bridge.py` (19-A) | `demo_hand()` con `_DEMO_FINGERS`: nudillos, falanges y flexión máxima de una mano adulta | El dedo medio salía doblado 109° hacia atrás con la mano abierta; en Unreal se habría visto un dedo roto (17-A) |
 | Scripts de comprobación sueltos, fuera del repositorio | — | `pruebas/` (`correr_todo.py`, `filtro_velocidad.py`, `estereo_simulado.py`, `captura_simulada.py`) | Poder repetir cada número documentado (28-F) |
 
@@ -986,10 +1077,10 @@ Teclas:
 ./venv/bin/python3 plot_csv.py --3d            # o en 3D con los dos POV
 ```
 
-Para un artículo (el Excel sale junto al CSV; también con `e` / `m` durante la captura):
+Para un artículo (los dos CSV quedan en `capturas/articulos/`; también con `e` durante la captura):
 
 ```bash
-./venv/bin/python3 exportar_excel.py --formato ingenieria    # o medicina
+./venv/bin/python3 exportar_csv.py --participante P01
 ```
 
 Con Unreal Engine (ver [`UNREAL.md`](UNREAL.md)):
@@ -1009,6 +1100,6 @@ Con dos cámaras (calibradas una vez con `estereo.py calibrar`):
 
 Todo error corregido, cambio y mejora se documenta con fecha en [`CHANGELOG.md`](CHANGELOG.md); las revisiones, en [`REVISION.md`](REVISION.md); los comandos ejecutados sobre el repositorio, en la [bitácora de `COMANDOS.md`](COMANDOS.md#3-bitácora-de-mantenimiento).
 
-Última entrada: **2026-11-17**, versión **17-A** (correcciones de la revisión 5 e imagen simulada de Unreal). Antes, **2026-10-19**, versión **19-A** (pausa, Excel para artículos y conexión con Unreal Engine); antes, **2026-09-28**, versiones **28-A** (`captura.py`, versiones fijas), **28-B** (CSV mientras se graba, `--palma-cm`), **28-C** (filtro One Euro), **28-D** (dos cámaras), **28-E** (correcciones de la revisión completa) y **28-F** (pruebas, registro de comandos y de revisiones, puntos fuera de cuadro en estéreo, historial sin `Co-Authored-By`), más la revisión de la documentación de ese mismo día. Antes, el **2026-09-24**: eje z en 3D, visor de dos POV, antebrazo con YOLO pose y velocidad (24-A/24-B), POV independientes (24-C), velocidad de cada dedo (24-D) y el cambio de nombre a HandMotion3D (24-E).
+Última entrada: **2026-11-17**, versiones **17-A** (correcciones de la revisión 5 e imagen simulada de Unreal) y **17-B** (el Excel se reemplaza por dos CSV para artículos: ingeniería y medicina). Antes, **2026-10-19**, versión **19-A** (pausa, Excel para artículos y conexión con Unreal Engine); antes, **2026-09-28**, versiones **28-A** (`captura.py`, versiones fijas), **28-B** (CSV mientras se graba, `--palma-cm`), **28-C** (filtro One Euro), **28-D** (dos cámaras), **28-E** (correcciones de la revisión completa) y **28-F** (pruebas, registro de comandos y de revisiones, puntos fuera de cuadro en estéreo, historial sin `Co-Authored-By`), más la revisión de la documentación de ese mismo día. Antes, el **2026-09-24**: eje z en 3D, visor de dos POV, antebrazo con YOLO pose y velocidad (24-A/24-B), POV independientes (24-C), velocidad de cada dedo (24-D) y el cambio de nombre a HandMotion3D (24-E).
 
 > **Hashes de commits:** el 2026-09-28 se reescribió el historial para quitar una línea `Co-Authored-By` de los mensajes, así que los commits anteriores tienen hashes nuevos (el contenido es el mismo). La tabla de correspondencia está en [`COMANDOS.md`](COMANDOS.md#2026-09-28--versión-28-f-quitar-la-línea-co-authored-by-del-historial).

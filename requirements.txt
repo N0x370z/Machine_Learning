@@ -32,6 +32,5 @@ ultralytics==8.4.162
 torch==2.14.0
 torchvision==0.29.0
 
-# Exportar a Excel (exportar_excel.py, desde la 19-A). Solo se importa al
-# exportar: sin esto el resto del programa funciona igual.
-openpyxl==3.1.5
+# openpyxl==3.1.5 (Excel de la 19-A) se quitó en la 17-B: ahora solo se
+# exportan CSV (exportar_csv.py), que no necesitan dependencias nuevas.
