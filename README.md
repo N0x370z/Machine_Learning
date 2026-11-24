@@ -190,7 +190,7 @@ Con dos cámaras la palma se mide sola (no hace falta `--palma-cm`). Si mueves u
 
 ![La mano en Unreal Engine 5.8](docs/unreal_mano.png)
 
-*Renders reales de Unreal Engine 5.8 (2026-11-23): la mano que recibió Unreal de `unreal_bridge.py --csv` (la más abierta y la más cerrada de la captura). La captura es el ejemplo simulado que genera las pruebas, no una mano real.* Se regeneran con `docs/imagenes_unreal.py`. El proyecto, el formato de los mensajes y cómo hacerlo con un Blueprint y otro modelo: **[UNREAL.md](UNREAL.md)**.
+*Renders reales de Unreal Engine 5.8 (2026-11-24): la vista del editor mientras recibe la captura `hand_data_20260924_135051.csv` con `unreal_bridge.py --csv`. Dos manos, el esqueleto con un color por dedo y una piel translúcida.* Se regeneran con `docs/imagenes_unreal.py`. El proyecto, el formato de los mensajes y cómo hacerlo con un Blueprint y otro modelo: **[UNREAL.md](UNREAL.md)**.
 
 ### Más opciones de `captura.py`
 

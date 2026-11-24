@@ -38,3 +38,7 @@ unreal/HandMotionUE/Intermediate/
 unreal/HandMotionUE/DerivedDataCache/
 unreal/HandMotionUE/Binaries/
 unreal/HandMotionUE/Content/Python/__pycache__/
+
+# Material de la piel (2026-11-24): lo crea handmotion_escena.py al abrir
+# el proyecto, no hace falta subirlo.
+unreal/HandMotionUE/Content/HandMotion/

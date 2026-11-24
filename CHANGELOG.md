@@ -3,6 +3,19 @@
 Historial de cambios del proyecto. Formato libre pero cronológico
 (más reciente arriba), en español porque así está el resto del repo.
 
+## 2026-11-24 (Unreal: dos manos, piel translúcida y vista del editor; sin versión nueva)
+
+Pedido: ver las capturas reales en Unreal, corregir la cámara y cómo se ve, y agregar una piel transparente a los huesos.
+
+### Corregido
+- **Solo se dibujaba una mano**, y casi todas las capturas guardadas tienen las dos (65-100 % de los fotogramas). El receptor ahora dibuja **hasta dos**, cada una por su id, con su separación real y centradas; una mano que deja de llegar medio segundo se oculta.
+- **La vista del editor**: la exposición automática quemaba u oscurecía la mano (ahora un volumen de post-proceso fija EV100 = 2, como las imágenes); los iconos de las luces tapaban la mano (vista de juego); la cámara estaba lejos para dos manos (más cerca y centrada); y Unreal se frenaba cuando su ventana no estaba al frente, lo que trababa la reproducción (`Config/DefaultEditorPerProjectUserSettings.ini`).
+- **Brillos blancos**: el borde de las esferas se quemaba por una luz de contorno demasiado fuerte (1800 → 120) y el material de Unreal de los huesos era muy brillante (ahora uno mate propio, `M_HuesoMate_v1`).
+
+### Añadido
+- **Piel translúcida** sobre el esqueleto: un cilindro por falange (más delgado hacia la punta), esferas en articulaciones y puntas, y la palma como una esfera aplastada. Material `M_PielTranslucida_v3`, sin iluminación y más visible en los bordes (Fresnel), tipo rayos X; se crea solo al abrir el proyecto (`Content/HandMotion/`, fuera de git). La primera versión, con iluminación, reflejaba el mapa de ambiente en manchas blancas.
+- Las imágenes de la documentación se hacen ahora con el **mismo receptor que en vivo** y con una captura real (`hand_data_20260924_135051.csv`): `docs/unreal_vista_1.png`, `unreal_vista_2.png`, `unreal_tres_cuartos.png` y `unreal_mano.png`. Se quitan `unreal_abierta.png` y `unreal_cerrada.png`.
+
 ## 2026-11-24 (corrección tras la revisión 7: invertir izquierda/derecha al reproducir en Unreal; sin versión nueva)
 
 Pedido: revisar el commit de la revisión 7 (capturas subidas).

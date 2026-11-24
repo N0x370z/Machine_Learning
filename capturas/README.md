@@ -57,7 +57,7 @@ Comprobado el 2026-11-24 en macOS con el código de la 23-B:
 | `plot_csv.py` (verla en 2D / 3D) | ✅ (la velocidad se recalcula) | ✅ |
 | `exportar_csv.py` (CSV para artículos) | ❌ `no tiene la(s) columna(s) ['rapidez_cm_s']` | ✅ |
 
-Para Unreal conviene empezar con una de formato **D** (palma conocida) o la **C** de 31 s. En `hand_data_20260924_125606.csv` casi todas las filas dicen `Right` (a veces dos manos con la misma lateralidad): sirve para probar ese caso.
+Para Unreal conviene empezar con una de formato **D** (palma conocida) o la **C** de 31 s (`hand_data_20260924_135051.csv`: sin huecos y mucho movimiento de dedos; es la de las imágenes de [`UNREAL.md`](../UNREAL.md)). La del 01/10 tiene un hueco de 6 s sin manos (la mano se queda quieta en Unreal). Casi todas tienen **las dos manos** a la vez: el receptor de Unreal dibuja las dos desde el 2026-11-24. En `hand_data_20260924_125606.csv` casi todas las filas dicen `Right` (a veces dos manos con la misma lateralidad): sirve para probar ese caso.
 
 ## En la PC con Unreal y la 4090
 

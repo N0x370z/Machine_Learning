@@ -1,15 +1,16 @@
 """
 Regenera las imágenes de Unreal Engine de la documentación (desde la
-23-A, 2026-11-23): docs/unreal_abierta.png, unreal_cerrada.png,
+23-A, 2026-11-23): docs/unreal_vista_1.png, unreal_vista_2.png,
 unreal_tres_cuartos.png y unreal_mano.png (las tres juntas).
 
 Son renders REALES de Unreal Engine (no una simulación como
 docs/unreal_simulado.png): se abre el proyecto unreal/HandMotionUE sin
 ventana (-RenderOffscreen: el motor corre normal pero no crea ventana, así no
 interrumpe lo que haya en pantalla), se le manda una captura con unreal_bridge.py
---csv por UDP, igual que en vivo, y Unreal renderiza la mano más abierta
-y la más cerrada que recibió. Aquí solo se reducen a la mitad (bordes
-suaves) y se juntan.
+--csv por UDP, igual que en vivo, y Unreal renderiza la vista del mismo
+receptor que se ve en vivo (dos manos, piel) a los 3, 7 y 11 s (desde el
+2026-11-24; antes: la mano más abierta y la más cerrada). Aquí solo se
+reducen a la mitad (bordes suaves) y se juntan.
 
 Uso (desde la raíz del repositorio, con Unreal 5.x instalado):
     venv\\Scripts\\python docs\\imagenes_unreal.py [captura.csv]
@@ -34,8 +35,8 @@ import plot_csv         # noqa: E402
 import unreal_bridge    # noqa: E402
 
 PORT = 8020
-NAMES = [("unreal_abierta.png", "Mano abierta"), ("unreal_cerrada.png", "Mano cerrada"),
-         ("unreal_tres_cuartos.png", "Cerrada, vista de 3/4")]
+NAMES = [("unreal_vista_1.png", "A los 3 s"), ("unreal_vista_2.png", "A los 7 s"),
+         ("unreal_tres_cuartos.png", "A los 11 s, vista de 3/4")]
 
 
 def main():
@@ -73,7 +74,7 @@ def main():
         proc.kill()
         print("\n".join(log_lines[-30:]))
         raise SystemExit("Unreal no llegó a escuchar (ver el registro de arriba).")
-    unreal_bridge.run_csv(csv_path, ("127.0.0.1", PORT), loop=True, seconds=12)
+    unreal_bridge.run_csv(csv_path, ("127.0.0.1", PORT), loop=True, seconds=16)
     proc.wait(600)
 
     meta_path = out / "unreal_imagenes.json"

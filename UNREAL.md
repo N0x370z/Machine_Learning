@@ -6,7 +6,7 @@ Cómo hacer que una mano 3D en **Unreal Engine 5** siga el movimiento de tus man
 
 ![La mano en Unreal Engine 5.8](docs/unreal_mano.png)
 
-Renders **reales** de Unreal Engine 5.8.4 (no una simulación): `unreal_bridge.py --csv` mandó una captura por OSC/UDP, el proyecto [`unreal/HandMotionUE`](unreal/HandMotionUE) la recibió (416 fotogramas, ver [`docs/unreal_imagenes.json`](docs/unreal_imagenes.json)) y se renderizaron la mano más abierta y la más cerrada que llegaron. Esferas en las articulaciones, cilindros en los huesos y un color por dedo, los mismos de la ventana de la cámara (`hand_style.py`). La captura usada es el **ejemplo simulado** de las pruebas (una mano sintética que abre y cierra los dedos pasada por `captura.py`), no una mano real: todavía no hay capturas hechas en Windows.
+Renders **reales** de Unreal Engine 5.8.4 (no una simulación), hechos con el **mismo receptor que se ve en vivo**: `unreal_bridge.py --csv` mandó la captura real `capturas/hand_data_20260924_135051.csv` por OSC/UDP, el proyecto [`unreal/HandMotionUE`](unreal/HandMotionUE) la recibió (170 fotogramas, ver [`docs/unreal_imagenes.json`](docs/unreal_imagenes.json)) y se renderizó la vista del editor a los 3, 7 y 11 segundos. Las **dos manos** con su separación real; dentro, el esqueleto (esferas en las articulaciones, cilindros en los huesos, un color por dedo, los mismos de la ventana de la cámara) y por fuera una **piel translúcida** tipo rayos X (2026-11-24).
 
 Para volver a generarlas (Unreal se abre **sin ventana**, así no interrumpe lo que haya en pantalla, y se cierra solo):
 
@@ -43,11 +43,17 @@ La mano aparece con el primer mensaje. Lo que va llegando se registra en `unreal
 | Archivo (en `unreal/HandMotionUE/Content/Python/`) | Qué hace |
 |---|---|
 | `init_unreal.py` | Unreal lo corre al abrir el proyecto: arranca el receptor (o, con `HM_CAPTURA=1`, el render de las imágenes) |
-| `handmotion_escena.py` | La mano (21 esferas y 21 cilindros), las luces y cómo poner una pose a partir de los 87 floats |
-| `receptor_handmotion.py` | Escucha el puerto, decodifica el OSC y mueve la mano en cada tick del editor |
-| `capturar_imagenes.py` | Las imágenes de esta guía: recibe datos reales, elige poses y las renderiza (lo usa `docs/imagenes_unreal.py`) |
+| `handmotion_escena.py` | La mano: esqueleto (21 esferas y 21 cilindros, material mate) y piel translúcida (un cilindro por falange, esferas en articulaciones y puntas, la palma como una esfera aplastada); las luces, la exposición fija y cómo poner una pose a partir de los 87 floats. Crea la primera vez los materiales `M_PielTranslucida_v3` y `M_HuesoMate_v1` en `Content/HandMotion/` (no van en git) |
+| `receptor_handmotion.py` | Escucha el puerto, decodifica el OSC y mueve **hasta dos manos** en cada tick del editor; pone la cámara del viewport frente a ellas y la vista de juego (sin iconos de luces) |
+| `capturar_imagenes.py` | Las imágenes de esta guía: usa el mismo receptor y renderiza su vista (lo usa `docs/imagenes_unreal.py`) |
 
-Es una mano de **esferas y cilindros**, no un modelo con piel: sirve para ver que los datos llegan bien y con qué forma. Para mover un personaje (Mannequin, MetaHuman…) se usan los mismos datos con los pasos de abajo.
+`Config/DefaultEditorPerProjectUserSettings.ini` quita el freno de Unreal cuando su ventana no está al frente (si no, la mano se traba mientras usas otra ventana).
+
+**Dos manos.** Cada mano que llega (por su id) ocupa uno de dos lugares; si deja de llegar medio segundo se oculta. Se dibujan con su separación real y centradas: el centro sigue, suavizado, al promedio de las muñecas. Casi todas las capturas guardadas tienen las dos manos (ver [`capturas/README.md`](capturas/README.md)).
+
+**La piel** es una envoltura aproximada (cilindros y esferas), no un modelo de mano con piel: sirve para ver el volumen de la mano y que los datos llegan bien. Para mover un personaje (Mannequin, MetaHuman…) se usan los mismos datos con los pasos de abajo.
+
+**Cómo se ve, y por qué** (2026-11-24): fondo negro; exposición fija (EV100 = 2) también en el viewport, con un volumen de post-proceso (con la automática se quemaba u oscurecía); la piel **sin iluminación** y más visible en los bordes (con iluminación reflejaba el mapa de ambiente en manchas blancas); el esqueleto con un material **mate** propio; luz de contorno baja (con la de antes, 1800, el borde de las esferas se quemaba en blanco).
 
 ### Reproducir una captura guardada (`--csv`, 23-A)
 
