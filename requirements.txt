@@ -31,6 +31,10 @@ matplotlib==3.11.2
 ultralytics==8.4.162
 torch==2.14.0
 torchvision==0.29.0
+# Con tarjeta NVIDIA (Windows/Linux), las mismas versiones con CUDA para
+# que YOLO use la GPU (~5 veces más rápido, 23-B). Después del install de
+# arriba (el "+cu130" cumple igual el ==2.14.0):
+#   python -m pip install --force-reinstall --no-deps torch==2.14.0+cu130 torchvision==0.29.0+cu130 --index-url https://download.pytorch.org/whl/cu130
 
 # openpyxl==3.1.5 (Excel de la 19-A) se quitó en la 17-B: ahora solo se
 # exportan CSV (exportar_csv.py), que no necesitan dependencias nuevas.

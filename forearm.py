@@ -11,7 +11,7 @@ Por qué YOLO y no MediaPipe/OpenCV:
     entre ellos codos (7, 8) y muñecas (9, 10).
 
 Modelo: por defecto yolo11s-pose.pt (~9 ms por frame con MPS en Apple
-Silicon). Con yolo11n-pose.pt (el de la primera versión, ~6 ms) el codo
+Silicon; 7.6 ms con CUDA en una RTX 4090 y 36.9 ms en su CPU, 23-B). Con yolo11n-pose.pt (el de la primera versión, ~6 ms) el codo
 se detectaba tarde y mal a distancia de webcam (bug del 2026-09-24, ver
 CHANGELOG.md). Se elige con --yolo-modelo en captura.py.
 
@@ -45,7 +45,7 @@ Profundidad (z) del codo:
   postura normal al mostrarle la mano a la webcam. Es una estimación, no
   una medición: sirve para visualizar, no para medir ángulos exactos.
 
-Última actualización: 2026-09-28. Historial: ver CHANGELOG.md.
+Última actualización: 2026-11-23.
 """
 
 import math
@@ -94,9 +94,14 @@ ELBOW_SMOOTHING = 0.5
 
 
 def _pick_device():
-    """MPS (GPU de Apple Silicon) si está disponible, si no CPU."""
+    """
+    GPU si hay: CUDA (NVIDIA, desde la 23-B; hace falta torch con CUDA,
+    ver COMANDOS.md) o MPS (Apple Silicon). Si no, CPU.
+    """
     try:
         import torch
+        if torch.cuda.is_available():
+            return "cuda:0"
         if torch.backends.mps.is_available():
             return "mps"
     except Exception:

@@ -386,7 +386,7 @@ git switch handmotion3d-19-a                                 # el trabajo de la 
 ```
 
 Notas de Windows:
-- `pip install torch` trae la versión **para procesador**: aunque haya una tarjeta NVIDIA, YOLO corre en la CPU (`torch.cuda.is_available()` da `False`). Para usar la GPU habría que instalar torch con CUDA desde el índice de PyTorch; no se hizo ni se probó.
+- `pip install torch` trae la versión **para procesador**: aunque haya una tarjeta NVIDIA, YOLO corre en la CPU (`torch.cuda.is_available()` da `False`). Resuelto en la 23-B (abajo).
 - La consola muestra `c�mara` si no se pone `PYTHONIOENCODING=utf-8` (solo afecta a lo que se ve en la terminal).
 
 Publicar la versión (rama → `main`):
@@ -409,6 +409,21 @@ git push --force-with-lease origin handmotion3d-19-a
 ```
 
 Deshacer el merge (antes de que alguien más lo use): `git reset --hard 845f30b` en `main` (el commit de la 28-F) y `git push --force-with-lease origin main`.
+
+### 2026-11-23 — versión 23-B: torch con CUDA (RTX 4090)
+
+```powershell
+nvidia-smi --query-gpu=name,driver_version --format=csv         # RTX 4090, driver 621.24 (CUDA 13)
+venv\Scripts\python -m pip index versions torch --index-url https://download.pytorch.org/whl/cu130   # hay 2.14.0+cu130
+venv\Scripts\python -m pip install --force-reinstall --no-deps torch==2.14.0+cu130 torchvision==0.29.0+cu130 --index-url https://download.pytorch.org/whl/cu130
+venv\Scripts\python -m pip check                                # sin conflictos
+venv\Scripts\python -c "import torch; print(torch.cuda.is_available(), torch.cuda.get_device_name(0))"   # True NVIDIA GeForce RTX 4090
+venv\Scripts\python pruebas\correr_todo.py                     # 5 de 5 OK
+```
+
+Mismas versiones que las fijadas (2.14.0 / 0.29.0), compiladas para CUDA 13.0: `requirements.txt` se sigue cumpliendo. `forearm.py` ahora elige `cuda:0` si está disponible (antes solo MPS o CPU). YOLO `yolo11s-pose` sobre 1280×720: **36.9 ms en CPU, 7.6 ms en la GPU**.
+
+Deshacer (volver a la de procesador): `venv\Scripts\python -m pip install --force-reinstall --no-deps torch==2.14.0 torchvision==0.29.0`.
 
 ### Pendiente: nombre del repositorio en GitHub
 

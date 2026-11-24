@@ -197,5 +197,5 @@ Primera revisión en **Windows 11** (Python 3.13.0) y primera con **Unreal Engin
 | Decidir el autor y la línea `Co-Authored-By` del commit `552d55f` (19-A) y cuándo fusionar `handmotion3d-19-a` a `main` | Rev. 5 | ✅ Hecho (23-A): se quitó la línea, Guillermo Campos Salas sigue como autor; fusionado a `main` el 2026-11-23 |
 | Probar `--video` con videos reales (celular con FPS variable, `.mov` de iPhone, video en espejo) y comparar Left/Right con lo que se ve | 17-C | ⏳ Pendiente (solo se probó con un mp4 generado y con simulaciones) |
 | Probar en Windows con una webcam real (captura, `--unreal` en vivo, el panel con cámara) | Rev. 6 | ⏳ Pendiente (no había webcam el 2026-11-23) |
-| torch con CUDA en Windows, para que YOLO use la tarjeta NVIDIA | Rev. 6 | 💡 Mejora futura (hoy corre en la CPU) |
+| torch con CUDA en Windows, para que YOLO use la tarjeta NVIDIA | Rev. 6 | ✅ Hecho (23-B): 7.6 ms por fotograma en la RTX 4090 (36.9 en CPU); `forearm.py` no elegía CUDA y se corrigió |
 | Grabar capturas reales en Windows y regenerar las imágenes de Unreal con una mano real (`docs/imagenes_unreal.py`) | Rev. 6 | ⏳ Pendiente (las de hoy usan el ejemplo simulado) |

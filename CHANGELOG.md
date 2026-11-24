@@ -3,6 +3,17 @@
 Historial de cambios del proyecto. Formato libre pero cronológico
 (más reciente arriba), en español porque así está el resto del repo.
 
+## 2026-11-23 (versión 23-B: YOLO en la GPU NVIDIA)
+
+Pedido: instalar torch con CUDA para usar la RTX 4090.
+
+### Corregido
+- **`forearm.py` nunca usaba una GPU NVIDIA**: `_pick_device()` solo probaba MPS (Apple) y si no, CPU. Ahora prueba primero CUDA (`cuda:0`). Antes daba igual (torch de `pip` en Windows es solo para CPU), pero con torch CUDA instalado YOLO seguía en el procesador.
+
+### Añadido
+- Instalación de torch 2.14.0 / torchvision 0.29.0 **con CUDA 13.0** (las mismas versiones fijadas) para tarjetas NVIDIA: paso 2b del README, comentario en `requirements.txt` y bitácora en `COMANDOS.md`.
+- Medido (yolo11s-pose, 1280×720, RTX 4090): **36.9 ms por fotograma en CPU → 7.6 ms en la GPU**. Las 5 pruebas pasan con torch CUDA.
+
 ## 2026-11-23 (versión 23-A: Windows, panel y Unreal probado de verdad)
 
 Pedido: revisar el proyecto en la PC con Windows, correrlo con lo guardado (no había webcam), comprobar que funciona con Unreal Engine, hacer una interfaz que se vea bien, guardar imágenes de cómo se ve en Unreal y subirlo todo.

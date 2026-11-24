@@ -26,6 +26,7 @@ Mide el movimiento de la **mano y el antebrazo en 3D** con una webcam: el esquel
 - Una **webcam** (o dos, para la profundidad real).
 - **~3 GB libres**: las librerías de YOLO (PyTorch) son grandes.
 - Para la parte de Unreal: **Unreal Engine 5** (probado con 5.8) instalado desde el Epic Games Launcher.
+- Con una **tarjeta NVIDIA** conviene instalar torch con CUDA (paso 2b de la instalación): el codo (YOLO) se calcula ~5 veces más rápido.
 - **Internet la primera vez**, para instalar las librerías y descargar los modelos.
 
 ## Instalación
@@ -56,6 +57,15 @@ venv\Scripts\python -m pip install -r requirements.txt
 ```
 
 </td></tr></table>
+
+**2b. Solo con tarjeta NVIDIA (Windows o Linux):** cambia torch por su versión con CUDA (~3 GB), para que YOLO use la GPU:
+
+```powershell
+venv\Scripts\python -m pip install --force-reinstall --no-deps torch==2.14.0+cu130 torchvision==0.29.0+cu130 --index-url https://download.pytorch.org/whl/cu130
+venv\Scripts\python -c "import torch; print(torch.cuda.is_available())"   # tiene que decir True
+```
+
+Hace falta un driver NVIDIA reciente (CUDA 13; probado con el 621.24). Sin este paso todo funciona igual, pero YOLO corre en el procesador. En macOS no hace falta: usa la GPU de Apple sola.
 
 **3. Descargar el modelo de la mano** (~8 MB). El de YOLO para el codo se descarga solo la primera vez que capturas.
 
@@ -238,7 +248,7 @@ El nombre lleva la fecha y hora de **inicio** de la sesión. Si no se detectó n
 | Le cuesta detectar la mano o la pierde | Más luz, acerca la mano, o `--min-detection-confidence 0.3 --min-tracking-confidence 0.3` |
 | `Frames grabados` se queda en 0 | No ve ninguna mano: revisa la luz y que la mano entera entre en cuadro |
 | Las velocidades en cm/s parecen altas o bajas | Indica tu palma: `--palma-cm 8.5`, o usa dos cámaras |
-| Va lento (pocos FPS) | La línea `ms:` del panel dice qué etapa tarda. Si es `yolo`: `--yolo-modelo n` o `--sin-antebrazo`; si es `mano`: `--max-hands 2` o `--cam-width 960 --cam-height 540` |
+| Va lento (pocos FPS) | La línea `ms:` del panel dice qué etapa tarda. Si es `yolo` y tienes NVIDIA: instala torch con CUDA ([paso 2b](#instalación)); si no, `--yolo-modelo n` o `--sin-antebrazo`; si es `mano`: `--max-hands 2` o `--cam-width 960 --cam-height 540` |
 | El antebrazo sale punteado (`Codo (estimado)`) | YOLO no ve el codo: aléjate para que entre en cuadro. `--yolo-modelo m` detecta mejor; `--antebrazo-solo-yolo` no dibuja estimados |
 | Las teclas no hacen nada | Haz clic en una de las ventanas para darle el foco |
 | Con `--video`, Left/Right al revés | Agrega o quita `--video-espejado` |

@@ -4,7 +4,7 @@ Resumen de todo lo que cambió en el proyecto: los comandos de ahora, los de ant
 
 > Hasta la versión 17-E (2026-11-17) esta sección estaba dentro del README. Se movió aquí entera para que el README sea solo la guía de uso; se sigue actualizando con cada cambio.
 
-Las versiones se nombran por día y letra. El 2026-09-24 hubo cinco (24-A a 24-E), el 2026-09-28 seis (28-A a 28-F), el 2026-10-19 una (19-A), el 2026-11-17 cinco (17-A a 17-E) y el 2026-11-23 una (23-A). Todos los comandos en un solo lugar: [`COMANDOS.md`](../COMANDOS.md).
+Las versiones se nombran por día y letra. El 2026-09-24 hubo cinco (24-A a 24-E), el 2026-09-28 seis (28-A a 28-F), el 2026-10-19 una (19-A), el 2026-11-17 cinco (17-A a 17-E) y el 2026-11-23 dos (23-A y 23-B). Todos los comandos en un solo lugar: [`COMANDOS.md`](../COMANDOS.md).
 
 | Versión | Qué trajo |
 |---------|-----------|
@@ -25,6 +25,7 @@ Las versiones se nombran por día y letra. El 2026-09-24 hubo cinco (24-A a 24-E
 | **17-C** | **Analizar videos grabados** (`captura.py --video`, `--video-espejado`): el tiempo sale del video |
 | **17-D** | **Datos de cada sesión** (`sesion.py`, `hand_data_<inicio>.json`): participante, fuente con huella SHA-256, parámetros, versiones; `--participante`, `--notas` |
 | **23-A** | **Panel** (`panel.py`); **`unreal_bridge.py --csv`** (reproducir una captura en Unreal); **proyecto de Unreal** listo (`unreal/HandMotionUE`), **probado en UE 5.8**, con **imágenes reales** (`docs/imagenes_unreal.py`) en lugar de la simulada; CSV siempre en UTF-8 (en Windows fallaba con acentos); probado en Windows |
+| **23-B** | **YOLO en la GPU NVIDIA**: `forearm.py` elige CUDA; torch con CUDA 13.0 (paso 2b del README) |
 | **17-E** | **README reestructurado** como guía de uso (instalación para macOS/Linux y Windows, primera captura, recetas); lo técnico pasa a `docs/TECNICO.md`, la guía para publicar a `docs/ARTICULOS.md` y esta sección a `docs/CAMBIOS.md` |
 
 ### Comandos actuales (referencia completa)
