@@ -16,6 +16,7 @@ Documentación técnica: cómo funciona cada parte, todos sus flags y por qué e
 - [`plot_csv.py` — graficar los puntos del CSV](#plot_csvpy--graficar-los-puntos-del-csv)
 - [Pausa](#pausa)
 - [Unreal Engine (`unreal_bridge.py`)](#unreal-engine-unreal_bridgepy)
+- [El panel (`panel.py`)](#el-panel-panelpy)
 - [Pruebas](#pruebas)
 
 ## Estructura del proyecto
@@ -32,20 +33,29 @@ HandMotion3D/           # raíz del repositorio
 ├── exportar_csv.py     # Dos CSV para artículos: formato ingeniería y medicina (17-B; antes exportar_excel.py)
 ├── unreal_bridge.py    # Puente OSC/UDP hacia Unreal Engine (19-A)
 ├── sesion.py           # Datos de cada sesión: el .json junto al CSV (17-D)
+├── panel.py            # El panel: una ventana para lanzar todo sin recordar comandos (23-A)
 ├── UNREAL.md           # Guía de la conexión con Unreal Engine
+├── unreal/HandMotionUE/   # Proyecto de Unreal Engine 5 listo para abrir (23-A)
+│   ├── HandMotionUE.uproject     # Usa solo los plugins Python Editor Script y OSC
+│   ├── Config/                   # DefaultEngine.ini (modo desarrollador de Python)
+│   └── Content/Python/           # init_unreal.py, handmotion_escena.py, receptor_handmotion.py, capturar_imagenes.py
 ├── docs/
 │   ├── TECNICO.md            # Este documento: cómo funciona cada parte
 │   ├── ARTICULOS.md          # Guía para publicaciones: CSV de resultados, ecuaciones, reproducibilidad
 │   ├── CAMBIOS.md            # Comandos, teclas y partes que cambiaron o se quitaron, y por qué
 │   ├── imagen_unreal.py      # Genera la imagen simulada de la conexión con Unreal (17-A)
-│   └── unreal_simulado.png   # Esa imagen (va en git)
+│   ├── unreal_simulado.png   # Esa imagen (va en git; se conserva como esquema)
+│   ├── imagenes_unreal.py    # Renders REALES de Unreal (23-A): abre Unreal sin ventana y le manda una captura
+│   ├── unreal_mano.png       # Las tres juntas (abierta, cerrada, 3/4); también unreal_abierta/cerrada/tres_cuartos.png
+│   ├── unreal_imagenes.json  # De qué captura salieron y cuántos fotogramas recibió Unreal
+│   └── panel_captura.png, panel_unreal.png   # El panel (panel.py --captura)
 ├── pruebas/            # Pruebas sin cámara (ver pruebas/README.md)
 │   ├── correr_todo.py        # Corre las cinco y resume
 │   ├── filtro_velocidad.py   # One Euro vs media exponencial
 │   ├── estereo_simulado.py   # Calibración y triangulación simuladas
 │   ├── captura_simulada.py   # captura.py y plot_csv.py de punta a punta (con pausa, CSV para artículos y Unreal)
 │   ├── exportar_csv_simulado.py   # exportar_csv.py: columnas y cada número contra numpy
-│   └── unreal_simulado.py    # unreal_bridge.py: OSC, ejes, flexión y UDP
+│   └── unreal_simulado.py    # unreal_bridge.py: OSC, ejes, flexión, UDP y --csv
 ├── COMANDOS.md         # Registro de comandos (referencia + bitácora de mantenimiento)
 ├── REVISION.md         # Registro de revisiones: hallazgos, correcciones, pendientes
 ├── requirements.txt    # Dependencias con versiones fijas (ver más abajo)
@@ -618,11 +628,28 @@ Conecta el movimiento de tus manos con un **modelo 3D en Unreal Engine 5**. `cap
 ./venv/bin/python3 unreal_bridge.py --escuchar 8000          # ver lo que llega, sin Unreal
 ```
 
-![Imagen simulada de HandMotion3D conectado con Unreal Engine 5](unreal_simulado.png)
+Sin cámara, `unreal_bridge.py --csv [ruta] [--bucle] [--velocidad X] [--destino H:P]` (23-A) reproduce una captura guardada con los tiempos con los que se grabó: carga el CSV con `plot_csv.load_frames`, rearma cada fotograma con `plot_csv.frame_to_scene` (lo mismo que ve `plot_csv.py --3d`) y, si el CSV es de estéreo, agrega la posición absoluta de la muñeca (`x_cm`/`y_cm`/`z_cm`). Espera a cada `timestamp_ms` (relativo al primero, dividido por la velocidad).
 
-*Imagen **simulada** (17-A), no una captura de Unreal: la pose y los números son los mensajes OSC reales de `unreal_bridge.py --demo`, decodificados y dibujados en los ejes de Unreal. Se regenera con `./venv/bin/python3 docs/imagen_unreal.py`. Detalle en [`UNREAL.md`](../UNREAL.md#así-se-vería-imagen-simulada).*
+![La mano en Unreal Engine 5.8](unreal_mano.png)
 
-**Todo el detalle (formato de los 87 valores, ejes, plugin, Blueprint, mapeo a los huesos del Mannequin y límites) está en [`UNREAL.md`](../UNREAL.md).** Dos avisos honestos: *(1)* el lado de Python está probado sin Unreal (`pruebas/unreal_simulado.py`), pero **lo que ocurre dentro de Unreal no se probó**; *(2)* con una cámara la profundidad es aproximada (con `--estereo`, la de la muñeca es real) y **la orientación de la muñeca no se manda** (se calcula en Unreal con los puntos 0, 5 y 17).
+*Renders reales de Unreal Engine 5.8.4 (23-A) con el proyecto `unreal/HandMotionUE` y una captura mandada con `--csv`. Se regeneran con `docs/imagenes_unreal.py`, que abre el editor con `-RenderOffscreen` (corre el motor normal pero sin crear ventana) y `HM_CAPTURA=1`, para que `init_unreal.py` cargue `capturar_imagenes.py` en vez del receptor. Ese módulo recibe los datos, elige la mano más abierta y la más cerrada y las renderiza con una `SceneCapture2D` a 2560×1440, tick a tick (el motor tiene que avanzar entre poner la pose y capturar); el script de `docs/` las reduce a la mitad (bordes suaves) y las junta. Dos intentos que no sirvieron: en un commandlet (`-run=pythonscript -AllowCommandletRendering`) el motor no avanza y la imagen sale negra; y con la exposición manual por defecto (EV100 ≈ 10, sol de día) la escena, iluminada con unos 10 lux, también sale negra, así que se fija en EV100 = 2.*
+
+**Todo el detalle (proyecto listo, formato de los 87 valores, ejes, plugin, Blueprint, mapeo a los huesos del Mannequin y límites) está en [`UNREAL.md`](../UNREAL.md).** Avisos: *(1)* desde la 23-A está **probado en Unreal 5.8** con el receptor de Python del proyecto; el Blueprint de la guía todavía no; *(2)* desde Python dentro de Unreal no se puede leer un mensaje del plugin OSC (llega vacío), por eso el receptor decodifica el OSC él mismo; *(3)* con una cámara la profundidad es aproximada (con `--estereo`, la de la muñeca es real) y **la orientación de la muñeca no se manda** (se calcula en Unreal con los puntos 0, 5 y 17).
+
+## El panel (`panel.py`)
+
+Una ventana de **Qt (PySide6)** para usar el proyecto sin recordar comandos (23-A). No tiene lógica propia del proyecto: cada pantalla es una lista de campos que se traducen a los flags del script correspondiente, y lo que se ejecuta es ese script, con el mismo Python del venv, en un `QProcess` (directorio de trabajo = raíz del repositorio; `PYTHONIOENCODING=utf-8` y `PYTHONUNBUFFERED=1`, para que la salida llegue línea a línea y con acentos).
+
+![Reproducir en Unreal, en el panel](panel_unreal.png)
+
+- **Comando visible.** Siempre se muestra el comando exacto, con el `python` del venv de tu sistema, para copiarlo a la terminal. Los flags que quedan en su valor por defecto no se escriben, así el comando queda como lo escribirías a mano.
+- **Capturas.** La lista sale de `capturas/hand_data_*.csv` (la más nueva primero) con la fecha, la duración, los fotogramas y el participante, leídos del `.json` de la sesión. *Otro…* elige un CSV de otra carpeta. Al terminar una tarea la lista se actualiza.
+- **Consola.** La salida del programa. Las líneas internas de MediaPipe/TensorFlow Lite (`W0000…`, `I0000…`) se ocultan, salvo que se marque *Mostrar mensajes internos*. Los errores salen en rojo.
+- **Detener** termina el proceso en seco. En la captura, lo grabado ya está en el CSV (se escribe mientras se graba, 28-B), pero el `.json` queda como sesión no cerrada: para terminar bien, `q` en la ventana de la cámara.
+- **Abrir proyecto de Unreal** busca el motor en `C:\ProgramData\Epic\UnrealEngineLauncher\LauncherInstalled.dat` (la instalación más nueva del Epic Games Launcher) y abre `unreal/HandMotionUE`. Solo Windows; en macOS se abre el `.uproject` a mano.
+- **Estilo.** Gris oscuro con un solo color de acento (ámbar), sin degradados: el aspecto de una herramienta de escritorio, en la línea del visor 3D estilo Blender. Qt y no tkinter porque tkinter no llega a este acabado sin dibujar cada control a mano.
+
+Comprobado sin mostrar la ventana (`QT_QPA_PLATFORM=offscreen`, 2026-11-23): el comando de cada pantalla, con los valores por defecto y con todo cambiado, lo acepta el `argparse` del script (las 11 pantallas); *Reproducir en Unreal* desde el botón mandó 267 paquetes en 4 s a un receptor; *Detener* corta el proceso; *Pruebas* corre las cinco y termina bien. No se probó con una cámara real.
 
 ## Pruebas
 
@@ -638,6 +665,6 @@ Desde la versión **28-F** el repositorio trae pruebas que se corren **sin cáma
 | `pruebas/estereo_simulado.py` | Calibración, triangulación, emparejamiento de manos, dedos fuera de cuadro, casos borde |
 | `pruebas/captura_simulada.py` | `captura.py` de punta a punta (**pausa y envío a Unreal (19-A), CSV para artículos con `e` (17-B)**, una cámara, `--palma-cm`, `--estereo`, CSV durante la sesión, `Ctrl+C`, sin manos, nombres de CSV) y `plot_csv.py` con ese CSV |
 | `pruebas/exportar_csv_simulado.py` | `exportar_csv.py` (17-B): columnas de cada formato, **cada número contra numpy** (media, RMS, σ, pico, DE, mediana, cuartiles inclusivos, mín, máx y los textos «media (DE)» y «mediana [Q1-Q3]»), palma por mano con dos manos en estéreo, `--participante`; CSV viejo, fila cortada, un solo dato, exportar dos veces |
-| `pruebas/unreal_simulado.py` | `unreal_bridge.py` (19-A): codificador OSC (ida y vuelta), cambio de ejes a Unreal, ángulos de flexión, envío por UDP, destino `host:puerto` |
+| `pruebas/unreal_simulado.py` | `unreal_bridge.py` (19-A): codificador OSC (ida y vuelta), cambio de ejes a Unreal, ángulos de flexión, envío por UDP, destino `host:puerto`; desde la 23-A, `--csv`: tiempos, ejes, palma, id y muñeca de estéreo |
 
-Lo que **no** cubren: las cámaras reales (temblor, luz, sincronización), lo que se ve en las ventanas, YOLO sobre personas reales, **Unreal Engine** recibiendo los mensajes y los CSV para artículos abiertos en programas de estadística (se leen con el módulo `csv` de Python). Detalle en [`pruebas/README.md`](../pruebas/README.md).
+Lo que **no** cubren: las cámaras reales (temblor, luz, sincronización), lo que se ve en las ventanas, YOLO sobre personas reales, **Unreal Engine** recibiendo los mensajes (se comprueba aparte con `docs/imagenes_unreal.py`, ver [`UNREAL.md`](../UNREAL.md)), el panel (comprobado a mano, ver [El panel](#el-panel-panelpy)) y los CSV para artículos abiertos en programas de estadística (se leen con el módulo `csv` de Python). Detalle en [`pruebas/README.md`](../pruebas/README.md).

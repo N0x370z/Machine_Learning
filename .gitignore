@@ -29,3 +29,12 @@ capturas/articulos/
 # puestas; en otra máquina no sirve. El tablero PNG se genera con
 # "estereo.py tablero".
 calibracion/
+
+# Proyecto de Unreal (23-A, unreal/HandMotionUE): solo se suben el
+# .uproject, Config/ y los scripts de Content/Python. Lo demás lo genera
+# Unreal al abrirlo (cachés de shaders, registros, binarios).
+unreal/HandMotionUE/Saved/
+unreal/HandMotionUE/Intermediate/
+unreal/HandMotionUE/DerivedDataCache/
+unreal/HandMotionUE/Binaries/
+unreal/HandMotionUE/Content/Python/__pycache__/

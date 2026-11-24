@@ -3,6 +3,35 @@
 Historial de cambios del proyecto. Formato libre pero cronológico
 (más reciente arriba), en español porque así está el resto del repo.
 
+## 2026-11-23 (versión 23-A: Windows, panel y Unreal probado de verdad)
+
+Pedido: revisar el proyecto en la PC con Windows, correrlo con lo guardado (no había webcam), comprobar que funciona con Unreal Engine, hacer una interfaz que se vea bien, guardar imágenes de cómo se ve en Unreal y subirlo todo.
+
+### Corregido
+- **CSV con acentos en Windows.** `captura.py` abría el CSV sin decir la codificación: en Windows se escribía en cp1252 (la `ñ` de `Muñeca` en un solo byte) y en macOS en UTF-8. Peor: un CSV hecho en la Mac con `Índice` hacía **fallar** `plot_csv.py` en Windows (el byte 0x8D de la `Í` en UTF-8 no existe en cp1252). Ahora se escribe siempre en UTF-8 (como ya hacían `exportar_csv.py` y `sesion.py`) y `plot_csv.py` / `unreal_bridge.py` leen en UTF-8 tolerando bytes raros (`errors="replace"`), así también se leen los CSV viejos de Windows. Las pruebas leen y escriben en UTF-8.
+
+### Añadido
+- **`panel.py`**: una ventana (Qt, PySide6) para usar todo sin recordar comandos: capturar, analizar un video, ver y exportar una captura, reproducir en Unreal, mano de prueba, ver lo que llega, tablero y calibración, pruebas. Cada opción con una línea que la explica, el **comando exacto** que se ejecuta (con *Copiar*) y la salida del programa. Las capturas se eligen de una lista con fecha, duración y participante. Estilo de herramienta de escritorio (gris oscuro, un solo acento ámbar, sin degradados). `PySide6==6.11.3` en `requirements.txt`. Ver [docs/TECNICO.md](docs/TECNICO.md#el-panel-panelpy).
+- **`unreal_bridge.py --csv [ruta]`**: reproduce una captura guardada en Unreal **como si fuera en vivo**, con los tiempos con los que se grabó (`--velocidad`, `--bucle`, `--destino`, `--segundos`). Con CSV de estéreo manda la muñeca absoluta.
+- **`unreal/HandMotionUE`**: un proyecto de Unreal Engine 5 listo para abrir. Al abrirse arranca un receptor (Python dentro del editor) que dibuja una mano de esferas y cilindros con los colores por dedo de `hand_style.py` y la mueve con los mensajes que llegan al puerto 8000. Registro en `Saved/handmotion_receptor.log`.
+- **Imágenes reales de Unreal** (`docs/unreal_mano.png` y las tres sueltas) y el script que las genera, **`docs/imagenes_unreal.py`**: abre Unreal **sin ventana** (`-RenderOffscreen`), le manda una captura con `--csv` y renderiza la mano más abierta y la más cerrada que recibió. Reemplazan a la imagen simulada en el README, `UNREAL.md` y `docs/TECNICO.md` (la simulada se conserva como esquema).
+- `pruebas/unreal_simulado.py`: sección 7, `--csv` (tiempos, ejes, palma, id, muñeca de estéreo y acentos en UTF-8). 6 comprobaciones nuevas.
+
+### Comprobado en Unreal Engine 5.8.4 (antes solo se había probado sin Unreal)
+- El receptor recibió **495 de 495** fotogramas mandados con `--csv`, a ~41 por segundo; la flexión del índice va de 9° a 74° y vuelve, igual que en el CSV.
+- El **plugin OSC** de Unreal recibe los paquetes y dispara *On OSC Message Received*.
+- Tres cosas que no se sabían y que quedan en `UNREAL.md`: *(1)* desde **Python** no se puede leer un mensaje del plugin OSC (`FOSCMessage` guarda el paquete en un campo que no es `UPROPERTY` y llega vacío), por eso el receptor decodifica el OSC él mismo; en Blueprint no pasa; *(2)* si el servidor OSC no queda guardado en una variable, el recolector de basura lo destruye a los pocos fotogramas; *(3)* en UE 5.8 la dirección se pasa a texto con *Get OSC Address Full Path*.
+- Lo que costó llegar a las imágenes (para no repetirlo): `-ExecutePythonScript` **cierra el editor** al terminar el script (por eso el receptor arranca desde `init_unreal.py`); en un commandlet con `-AllowCommandletRendering` el motor no avanza y la imagen sale negra; con la exposición manual por defecto (EV100 ≈ 10) la escena también sale negra (se fija EV100 = 2); el nivel por defecto del editor trae cielo, terreno y sol (se usa un nivel en blanco); un piso o un fondo oscuro salían blancos por el reflejo del mapa de ambiente (la mano va sobre negro).
+
+### Windows
+- Primera vez en **Windows 11** con Python 3.13.0: las versiones fijadas se instalan todas y las **5 pruebas pasan** (antes y después de los cambios). No se probó con una webcam (no había).
+- `pip` instala **torch para procesador**: con una tarjeta NVIDIA, YOLO sigue en la CPU. Anotado en `COMANDOS.md`; no se cambió.
+- README: Windows en *Requisitos*, *El panel*, la receta de Unreal con el proyecto y `--csv`, y dos problemas comunes nuevos (Unreal no se mueve; acentos en la consola).
+
+### Rama e historial
+- Todo el trabajo de la 19-A a la 17-E estaba solo en la rama `handmotion3d-19-a`; en esta PC el clon estaba en `main` (28-F). La 23-A se hizo sobre la rama y se fusiona a `main` (ver `COMANDOS.md`).
+- Antes de fusionar se quitó del mensaje del commit de la 19-A la línea `Co-Authored-By` que había vuelto a aparecer (como en la 28-F). **Guillermo Campos Salas sigue como autor** de ese commit; solo cambió el mensaje (archivos, autores y fechas verificados iguales). La documentación ya no nombra herramientas en esas notas.
+
 ## 2026-11-17 (versión 17-E: README reestructurado como guía de uso)
 
 Pedido: mejorar las instrucciones del README.
@@ -177,7 +206,7 @@ Tres pedidos: pausar el video cuando se solicite, generar un Excel con el format
   actualizados.
 
 ### Historial de git
-- Se quitó la línea `Co-Authored-By` de un asistente de IA de los 5
+- Se quitó una línea `Co-Authored-By` que no correspondía a un autor de los 5
   commits que la tenían, reescribiendo los mensajes con
   `git filter-branch --msg-filter` y subiendo con
   `git push --force-with-lease`. Solo cambiaron los mensajes: los
@@ -222,7 +251,7 @@ anotado al final de esta entrada.
 
 ### Proceso (anotado, no es código)
 - Los commits desde `b960527` hasta `a2ef70f` (hoy `1fa9399` a `b0bfa33`)
-  llevaban una línea `Co-Authored-By` de un asistente. Desde ahora los
+  llevaban una línea `Co-Authored-By` que no correspondía a un autor. Desde ahora los
   commits van solo a nombre del autor. **Resuelto en la 28-F**: se
   reescribió el historial.
 - Las comprobaciones "con datos simulados" (24-D y las de hoy) se

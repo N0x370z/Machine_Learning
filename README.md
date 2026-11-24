@@ -2,9 +2,9 @@
 
 Mide el movimiento de la **mano y el antebrazo en 3D** con una webcam: el esqueleto de cada mano (21 puntos, con MediaPipe), el codo (YOLO pose), la **velocidad de cada punto y de cada dedo en cm/s**, una vista 3D que se puede girar, y archivos CSV listos para analizar o para **publicaciones científicas**. Con dos webcams mide la profundidad real, puede analizar **videos ya grabados** y puede mover un **modelo 3D en Unreal Engine**.
 
-> **Versión 17-E (2026-11-17).** Lo último: analizar videos grabados (`--video`), un archivo con los datos de cada sesión (`.json`), dos CSV de resultados para artículos (ingeniería y medicina) y este README reescrito como guía de uso. Historial completo en [`CHANGELOG.md`](CHANGELOG.md).
+> **Versión 23-A (2026-11-23).** Lo último: un **panel** para usar todo sin recordar comandos ([`panel.py`](#el-panel)), la conexión con **Unreal Engine probada en Unreal 5.8** con un proyecto listo para abrir ([`unreal/HandMotionUE`](UNREAL.md)), reproducir una captura guardada en Unreal como si fuera en vivo (`unreal_bridge.py --csv`) y el proyecto **probado en Windows**. Historial completo en [`CHANGELOG.md`](CHANGELOG.md).
 
-**Índice:** [Qué hace](#qué-hace) · [Requisitos](#requisitos) · [Instalación](#instalación) · [Primera captura](#primera-captura) · [Recetas](#recetas) · [Teclas](#teclas) · [Archivos que se generan](#archivos-que-se-generan) · [Problemas comunes](#problemas-comunes) · [Más documentación](#más-documentación)
+**Índice:** [Qué hace](#qué-hace) · [Requisitos](#requisitos) · [Instalación](#instalación) · [El panel](#el-panel) · [Primera captura](#primera-captura) · [Recetas](#recetas) · [Teclas](#teclas) · [Archivos que se generan](#archivos-que-se-generan) · [Problemas comunes](#problemas-comunes) · [Más documentación](#más-documentación)
 
 ## Qué hace
 
@@ -17,13 +17,15 @@ Mide el movimiento de la **mano y el antebrazo en 3D** con una webcam: el esquel
 | **Videos grabados** (`--video`) | Analiza un video en lugar de la cámara, con el tiempo del propio video |
 | **Revisar una captura** (`plot_csv.py`) | Reproduce un CSV en 2D o en 3D, sin cámara |
 | **Dos cámaras** (`estereo.py`, `--estereo`) | Profundidad y largo de la palma medidos en vez de estimados |
-| **Unreal Engine** (`--unreal`) | Manda la pose de la mano a un modelo 3D en tiempo real |
+| **Unreal Engine** (`--unreal`, `unreal_bridge.py --csv`) | Manda la pose de la mano a Unreal en tiempo real, o reproduce una captura guardada como si fuera en vivo |
+| **Panel** (`panel.py`) | Una ventana para lanzar todo lo anterior: cada opción explicada, el comando exacto que se ejecuta y su salida |
 
 ## Requisitos
 
-- **Python 3.12 o más nuevo** (lo exige numpy 2.5, la versión fijada), salvo la 3.14.1, que torchvision excluye. El proyecto está probado con **Python 3.14 en macOS (Apple Silicon)**. En Linux y Windows debería funcionar, pero **no se ha probado**.
+- **Python 3.12 o más nuevo** (lo exige numpy 2.5, la versión fijada), salvo la 3.14.1, que torchvision excluye. Probado con **Python 3.14 en macOS (Apple Silicon)** y con **Python 3.13 en Windows 11** (desde la 23-A; en Windows, con las pruebas sin cámara y Unreal, todavía no con una webcam). En Linux debería funcionar, pero no se ha probado.
 - Una **webcam** (o dos, para la profundidad real).
 - **~3 GB libres**: las librerías de YOLO (PyTorch) son grandes.
+- Para la parte de Unreal: **Unreal Engine 5** (probado con 5.8) instalado desde el Epic Games Launcher.
 - **Internet la primera vez**, para instalar las librerías y descargar los modelos.
 
 ## Instalación
@@ -86,6 +88,20 @@ Tiene que terminar con cinco líneas `OK`. Si alguna dice `FALLA`, revisa [Probl
 > **En Windows**, en todos los comandos de este README cambia `./venv/bin/python3` por `venv\Scripts\python` y las `/` de las rutas por `\`.
 >
 > **En macOS**, la primera vez que se abre la cámara el sistema pide permiso para la terminal (Terminal, iTerm, VS Code…). Si lo negaste: *Ajustes del Sistema → Privacidad y Seguridad → Cámara*, y vuelve a abrir la terminal.
+
+## El panel
+
+Para no tener que recordar comandos ni flags:
+
+```bash
+./venv/bin/python3 panel.py        # Windows: venv\Scripts\python panel.py
+```
+
+![El panel de HandMotion3D](docs/panel_captura.png)
+
+A la izquierda, cada cosa que se puede hacer (capturar, analizar un video, ver o exportar una captura, Unreal, dos cámaras, pruebas). Cada opción tiene debajo una línea que explica para qué sirve. Abajo se ve el **comando exacto** que se va a ejecutar (con *Copiar*, para usarlo en la terminal) y, al darle a **Ejecutar**, lo que va diciendo el programa. Las capturas se eligen de una lista con la fecha, la duración y el participante de cada una.
+
+El panel no cambia nada: solo arma el comando y lo corre. Todo lo de este README sigue funcionando igual desde la terminal. Detalle en [docs/TECNICO.md](docs/TECNICO.md#el-panel-panelpy).
 
 ## Primera captura
 
@@ -150,16 +166,20 @@ Dos webcams fijas, separadas 10–30 cm y mirando a la misma zona:
 
 Con dos cámaras la palma se mide sola (no hace falta `--palma-cm`). Si mueves una cámara, hay que volver a calibrar. Detalle en [docs/TECNICO.md](docs/TECNICO.md#dos-cámaras-estereopy).
 
-### Mover un modelo 3D en Unreal Engine
+### Mover una mano 3D en Unreal Engine
+
+1. Abre **`unreal/HandMotionUE/HandMotionUE.uproject`** (o el botón *Abrir proyecto de Unreal* del panel). La mano aparece en cuanto llegan datos.
+2. Mándale datos, de una de estas formas:
 
 ```bash
-./venv/bin/python3 captura.py --unreal                       # manda la pose a 127.0.0.1:8000
-./venv/bin/python3 unreal_bridge.py --demo 127.0.0.1:8000    # o una mano sintética, sin cámara
+./venv/bin/python3 captura.py --unreal                    # en vivo, con la cámara
+./venv/bin/python3 unreal_bridge.py --csv --bucle         # una captura guardada (la última), como si fuera en vivo
+./venv/bin/python3 unreal_bridge.py --demo 127.0.0.1:8000 # una mano sintética
 ```
 
-![Imagen simulada de HandMotion3D conectado con Unreal Engine 5](docs/unreal_simulado.png)
+![La mano en Unreal Engine 5.8](docs/unreal_mano.png)
 
-*Imagen **simulada** (no es una captura de Unreal): la pose y los números son los mensajes reales que recibe Unreal.* El Blueprint, paso a paso, está en **[UNREAL.md](UNREAL.md)**. La parte de Unreal todavía no se ha probado en Unreal real.
+*Renders reales de Unreal Engine 5.8 (2026-11-23): la mano que recibió Unreal de `unreal_bridge.py --csv` (la más abierta y la más cerrada de la captura). La captura es el ejemplo simulado que genera las pruebas, no una mano real.* Se regeneran con `docs/imagenes_unreal.py`. El proyecto, el formato de los mensajes y cómo hacerlo con un Blueprint y otro modelo: **[UNREAL.md](UNREAL.md)**.
 
 ### Más opciones de `captura.py`
 
@@ -230,6 +250,8 @@ El nombre lleva la fecha y hora de **inicio** de la sesión. Si no se detectó n
 | `import cv2` falla después de instalar algo | Las dos variantes de OpenCV quedaron en versiones distintas: `./venv/bin/python3 -m pip install --force-reinstall opencv-python==5.0.0.93 opencv-contrib-python==5.0.0.93` |
 | Error al descargar `yolo11s-pose.pt` | Hace falta internet la primera vez. Mientras tanto: `--sin-antebrazo` |
 | `can't open file 'Prueba.py'` | Ahora se llama `captura.py` |
+| En Unreal no se mueve nada | Mira `unreal/HandMotionUE/Saved/handmotion_receptor.log`: si no dice `llegó la mano`, no llegan datos (¿corre `captura.py --unreal` o `unreal_bridge.py --csv`? ¿mismo puerto?). Con *Ver lo que llega* del panel se comprueba el envío sin Unreal (con Unreal cerrado: los dos usan el puerto 8000) |
+| En Windows, la consola muestra `c�mara` en vez de `cámara` | Solo es la consola: el CSV está bien. Para verlo bien, `set PYTHONIOENCODING=utf-8` antes de correr, o usa el panel |
 
 ## Más documentación
 

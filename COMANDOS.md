@@ -126,17 +126,50 @@ Ejemplos útiles:
 
 Durante la captura: `e` genera los dos con lo grabado hasta ese momento, sin parar (si se repite, reemplaza los anteriores). Columnas y cómo usarlos: [docs/ARTICULOS.md](docs/ARTICULOS.md#exportar-para-artículos-exportar_csvpy).
 
-### `unreal_bridge.py` — herramientas de prueba de la conexión con Unreal (19-A)
-
-El envío real es `captura.py --unreal`. Estas dos sirven para probar sin Unreal o sin cámara:
+### `panel.py` — el panel (23-A)
 
 ```bash
+./venv/bin/python3 panel.py           # Windows: venv\Scripts\python panel.py
+```
+
+Una ventana con todo lo de esta referencia: elige la tarea a la izquierda, llena las opciones (cada una explicada) y *Ejecutar*. Muestra el comando exacto (botón *Copiar*) y la salida del programa; *Detener* lo corta. No agrega nada que no se pueda hacer desde la terminal. Las opciones de cada pantalla se comprobaron contra el `argparse` de cada script (2026-11-23).
+
+| Pantalla | Comando que arma |
+|----------|------------------|
+| Capturar con la cámara | `captura.py [--cam N] [--palma-cm X] [--yolo-modelo n/m \| --sin-antebrazo] [--sin-3d] [--estereo --cam2 N] [--unreal [destino]] [--participante] [--notas]` |
+| Analizar un video | `captura.py --video ARCHIVO [--video-espejado] …` |
+| Ver una captura | `plot_csv.py CSV [--3d] [--frame N] [--palma-cm X]` |
+| Exportar para artículos | `exportar_csv.py CSV [--formato] [--participante] [--todos-los-puntos]` |
+| Reproducir en Unreal | `unreal_bridge.py --csv CSV [--destino] [--velocidad] [--bucle]`, y botón *Abrir proyecto de Unreal* |
+| Mano de prueba / Ver lo que llega | `unreal_bridge.py --demo DESTINO` / `--escuchar PUERTO` |
+| Imprimir el tablero / Calibrar | `estereo.py tablero` / `estereo.py calibrar --cuadro-mm X [--cam1] [--cam2]` |
+| Pruebas | `pruebas/correr_todo.py` |
+
+`panel.py --captura archivo.png [--pagina N]` guarda una imagen del panel sin mostrar la ventana (así se hicieron `docs/panel_*.png`).
+
+### `unreal_bridge.py` — conexión con Unreal (19-A; `--csv` desde la 23-A)
+
+El envío en vivo es `captura.py --unreal`. Sin cámara:
+
+```bash
+./venv/bin/python3 unreal_bridge.py --csv                      # reproduce la última captura como si fuera en vivo
+./venv/bin/python3 unreal_bridge.py --csv capturas/hand_data_X.csv --bucle --velocidad 0.5
+./venv/bin/python3 unreal_bridge.py --csv --destino 192.168.1.20:8000   # Unreal en otra computadora
 ./venv/bin/python3 unreal_bridge.py --escuchar 8000            # muestra lo que llega al puerto 8000
 ./venv/bin/python3 unreal_bridge.py --demo 127.0.0.1:8000      # manda una mano sintética (abre y cierra los dedos)
 ./venv/bin/python3 unreal_bridge.py --demo 127.0.0.1:8000 --segundos 10
 ```
 
-Imagen simulada de la conexión (17-A), se guarda en `docs/unreal_simulado.png`:
+El receptor: abrir `unreal/HandMotionUE/HandMotionUE.uproject` (arranca solo, puerto 8000; registro en `unreal/HandMotionUE/Saved/handmotion_receptor.log`).
+
+Imágenes **reales** de Unreal (23-A; abre Unreal sin ventana y lo cierra al terminar, ~1-2 min):
+
+```bash
+./venv/bin/python3 docs/imagenes_unreal.py                     # con la última captura
+./venv/bin/python3 docs/imagenes_unreal.py capturas/hand_data_X.csv
+```
+
+Imagen simulada de la conexión (17-A, se conserva como esquema), se guarda en `docs/unreal_simulado.png`:
 
 ```bash
 ./venv/bin/python3 docs/imagen_unreal.py            # pose a medio cerrar (t = 0.62 s)
@@ -165,7 +198,7 @@ Guía completa: [`UNREAL.md`](UNREAL.md).
 ./venv/bin/python3 pruebas/estereo_simulado.py     # calibración y triangulación simuladas
 ./venv/bin/python3 pruebas/captura_simulada.py     # captura.py y plot_csv.py de punta a punta (con pausa, CSV para artículos y Unreal)
 ./venv/bin/python3 pruebas/exportar_csv_simulado.py   # exportar_csv.py: columnas y cada número contra numpy
-./venv/bin/python3 pruebas/unreal_simulado.py      # unreal_bridge.py: OSC, ejes, flexión y UDP
+./venv/bin/python3 pruebas/unreal_simulado.py      # unreal_bridge.py: OSC, ejes, flexión, UDP y --csv
 ```
 
 Qué comprueba cada una: [`pruebas/README.md`](pruebas/README.md).
@@ -236,7 +269,7 @@ git mv Prueba.py captura.py                                   # conserva el hist
 
 ### 2026-09-28 — versión 28-F: quitar la línea `Co-Authored-By` del historial
 
-Los commits del 2026-09-23 al 2026-09-24 terminaban con una línea `Co-Authored-By` de un asistente de IA, que hacía que GitHub lo mostrara como colaborador del repositorio. A pedido del autor se quitó reescribiendo los mensajes. **Solo cambiaron los mensajes**: el contenido de los archivos, el autor y las fechas son los mismos.
+Los commits del 2026-09-23 al 2026-09-24 terminaban con una línea `Co-Authored-By` que no correspondía a un autor del proyecto, y GitHub la mostraba como colaborador del repositorio. A pedido del autor se quitó reescribiendo los mensajes. **Solo cambiaron los mensajes**: el contenido de los archivos, el autor y las fechas son los mismos.
 
 ```bash
 # 1. Respaldo del historial original (rama LOCAL, no se subió a GitHub)
@@ -244,7 +277,7 @@ git branch respaldo-historial-con-coautor 49a4bd2
 
 # 2. Reescribir los mensajes: borra la línea y limpia líneas en blanco sobrantes
 FILTER_BRANCH_SQUELCH_WARNING=1 git filter-branch -f \
-  --msg-filter "sed '/^Co-Authored-By: Claude/d' | git stripspace" -- main
+  --msg-filter "sed '/^Co-Authored-By:/d' | git stripspace" -- main
 
 # 3. Verificar
 git log --format='%(trailers:key=Co-Authored-By,valueonly)' | grep -c .   # 0 líneas
@@ -338,6 +371,44 @@ Probar a mano: `./venv/bin/python3 captura.py --video mi_video.mp4 --participant
 ### 2026-11-17 — versión 17-E: README reestructurado
 
 Sin comandos de mantenimiento: solo documentación. Las secciones del README anterior se movieron con un script a `docs/TECNICO.md`, `docs/ARTICULOS.md` y `docs/CAMBIOS.md`, reescribiendo los enlaces, y después se comprobaron todos los enlaces de los 9 documentos `.md` (0 rotos). El README anterior completo está en el commit `3d1b7cd` (`git show 3d1b7cd:README.md`).
+
+### 2026-11-23 — versión 23-A: Windows, panel y Unreal probado
+
+Primera vez en **Windows 11** (Python 3.13.0). Comandos corridos:
+
+```powershell
+python -m venv venv
+venv\Scripts\python -m pip install -r requirements.txt     # todas las versiones fijadas se instalan en Windows
+curl.exe -L -o models\hand_landmarker.task https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task
+venv\Scripts\python -m pip install PySide6==6.11.3          # el panel (nueva en requirements.txt)
+venv\Scripts\python pruebas\correr_todo.py                 # 5 de 5 OK (antes y después de los cambios)
+git switch handmotion3d-19-a                                 # el trabajo de la 19-A a la 17-E estaba solo en esta rama
+```
+
+Notas de Windows:
+- `pip install torch` trae la versión **para procesador**: aunque haya una tarjeta NVIDIA, YOLO corre en la CPU (`torch.cuda.is_available()` da `False`). Para usar la GPU habría que instalar torch con CUDA desde el índice de PyTorch; no se hizo ni se probó.
+- La consola muestra `c�mara` si no se pone `PYTHONIOENCODING=utf-8` (solo afecta a lo que se ve en la terminal).
+
+Publicar la versión (rama → `main`):
+
+```bash
+git push origin handmotion3d-19-a
+git switch main && git merge --no-ff handmotion3d-19-a      # main estaba en la 28-F
+git push origin main
+```
+
+Antes del merge se quitó la línea `Co-Authored-By` del commit de la 19-A (había vuelto a aparecer), dejando a su autor:
+
+```bash
+git branch respaldo-23a                              # respaldo LOCAL (no se sube); se borra al confirmar
+FILTER_BRANCH_SQUELCH_WARNING=1 git filter-branch -f \
+  --msg-filter "sed '/^Co-Authored-By:/d' | git stripspace" -- main..handmotion3d-19-a
+git log main..handmotion3d-19-a --format='%(trailers:key=Co-Authored-By,valueonly)' | grep -c .   # 0
+git diff --stat respaldo-23a handmotion3d-19-a       # vacío: archivos idénticos
+git push --force-with-lease origin handmotion3d-19-a
+```
+
+Deshacer el merge (antes de que alguien más lo use): `git reset --hard 845f30b` en `main` (el commit de la 28-F) y `git push --force-with-lease origin main`.
 
 ### Pendiente: nombre del repositorio en GitHub
 

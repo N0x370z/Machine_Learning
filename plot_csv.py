@@ -28,7 +28,7 @@ Teclas en la reproducción 3D (además de las del visor, ver viewer3d.py):
     f = velocidad de cada dedo absoluta / relativa a la muñeca
 
 Historial de cambios relevantes: ver CHANGELOG.md.
-Última actualización: 2026-10-19.
+Última actualización: 2026-11-23.
 """
 
 import argparse
@@ -96,7 +96,7 @@ def load_frames(csv_path, swap_hands=False):
     aspect = 720 / 1280
     elbow_sources = {}
     palms = {}
-    with open(csv_path, newline="") as f:
+    with open(csv_path, newline="", encoding="utf-8", errors="replace") as f:
         for row in csv.DictReader(f):
             frame_idx = int(row["frame"])
             # "hand_id" (tracker estable) en CSVs nuevos; "hand_index" (por

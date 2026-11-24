@@ -70,7 +70,7 @@ cámara o Ctrl+C en la terminal. En todos los casos el CSV queda cerrado
 y completo.
 
 Historial de cambios relevantes: ver CHANGELOG.md.
-Última actualización: 2026-11-17.
+Última actualización: 2026-11-23.
 """
 
 import argparse
@@ -617,7 +617,7 @@ class CsvRecorder:
             return
         if self._file is None:
             self.path.parent.mkdir(exist_ok=True)
-            self._file = open(self.path, "w", newline="")
+            self._file = open(self.path, "w", newline="", encoding="utf-8")
             self._writer = csv.writer(self._file)
             self._writer.writerow(CSV_HEADER)
         self._writer.writerows(rows)

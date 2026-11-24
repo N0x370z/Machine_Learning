@@ -202,7 +202,7 @@ def run_capture(argv, out_dir, frames=60, keys=None):
     sys.argv = ["captura.py", *argv]
     captura.main()
     new = sorted(set(out_dir.glob("*.csv")) - before)
-    return list(csv.DictReader(open(new[-1]))) if new else []
+    return list(csv.DictReader(open(new[-1], encoding="utf-8"))) if new else []
 
 
 def wrist_speed(rows):

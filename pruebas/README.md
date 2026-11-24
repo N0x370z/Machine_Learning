@@ -80,7 +80,7 @@ Arma CSV de captura con rapideces de valor conocido, exporta los dos formatos y 
 | Dos manos en estéreo con la palma medida cada fotograma (revisión 5) | Cada mano con la mediana de su palma (± 0.02 cm) |
 | Punto visto una vez; CSV de antes de la 24-A; formato desconocido; sin filas; no existe; fila final cortada; exportar dos veces | DE/σ/f_s vacías sin error; error claro (×4); se salta la fila; reemplaza sin `.tmp` sueltos |
 
-### `unreal_simulado.py` — puente a Unreal Engine (19-A)
+### `unreal_simulado.py` — puente a Unreal Engine (19-A, `--csv` desde la 23-A)
 
 | Comprobación | Condición |
 |--------------|-----------|
@@ -89,6 +89,7 @@ Arma CSV de captura con rapideces de valor conocido, exporta los dos formatos y 
 | Ejes | Escena (x der, y abajo, z lejos) → Unreal (X adelante, Y der, Z arriba) en cm; muñeca absoluta con estéreo; codo relativo |
 | Formato | 87 floats en el orden de `FLOAT_LAYOUT`; solo floats; < 1400 bytes por mensaje |
 | UDP | Un mensaje de fotograma + uno por mano; sin manos solo el de fotograma; sin receptor no se cae |
+| Reproducir un CSV (`--csv`, 23-A) | CSV de 3 fotogramas a 100 ms (con `Muñeca`/`Índice` en UTF-8): manda los 3; un mensaje de fotograma y uno de mano por cada uno; respeta los tiempos (200 ms a x2 llegan en 100 ms, ±20); el tiempo de cada mensaje es relativo al primero; palma e id del CSV; muñeca de estéreo en los ejes de Unreal |
 | Destino y demo | `host:puerto` en 4 formas y 3 inválidas; la mano de `--demo` (17-A): abierta, ninguna articulación pasa de 15°; cerrada, cada articulación llega a su flexión máxima (±2°); la palma mide lo que dice `palm_cm` |
 
 ## Qué se encontró al pasarlas aquí (28-F)
@@ -98,7 +99,8 @@ Arma CSV de captura con rapideces de valor conocido, exporta los dos formatos y 
 
 ## Lo que estas pruebas NO cubren
 
-- **Unreal Engine**: se comprueba lo que Python manda, no que Unreal lo reciba ni cómo se ve el modelo (ver [`UNREAL.md`](../UNREAL.md)).
+- **Unreal Engine**: se comprueba lo que Python manda, no que Unreal lo reciba ni cómo se ve el modelo. Eso necesita Unreal instalado y se comprueba con `docs/imagenes_unreal.py` (ver [`UNREAL.md`](../UNREAL.md#estado-de-la-prueba)).
+- **El panel** (`panel.py`): se comprobó a mano el 2026-11-23 (ver [docs/TECNICO.md](../docs/TECNICO.md#el-panel-panelpy)); no hay una prueba en esta carpeta.
 - **Programas de estadística**: los CSV para artículos se leen con el módulo `csv` de Python (y con pandas si está instalado), no con R, SPSS ni Excel.
 - **Requisito:** `captura_simulada.py` necesita que exista `models/hand_landmarker.task` (aunque MediaPipe esté simulado). En un clon limpio, descárgalo (README, paso 1) o crea un archivo vacío con ese nombre.
 - **Cámaras reales**: el temblor real de MediaPipe, la luz, la sincronización entre dos webcams y la calibración con un tablero impreso. Hay que probarlo a mano (ver [`COMANDOS.md`](../COMANDOS.md)).

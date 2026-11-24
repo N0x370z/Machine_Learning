@@ -37,15 +37,16 @@ interno entre los dos huesos que se unen en la articulación. Es lo más
 cómodo para mover los huesos de un esqueleto en Unreal (un giro por
 articulación) sin depender de la orientación de la mano.
 
-Uso suelto (herramientas para probar sin Unreal ni cámara):
+Uso suelto (sin cámara):
+    ./venv/bin/python3 unreal_bridge.py --csv [ruta] [--bucle]   # una captura, como en vivo (23-A)
     ./venv/bin/python3 unreal_bridge.py --escuchar 8000      # mostrar lo que llega
     ./venv/bin/python3 unreal_bridge.py --demo 127.0.0.1:8000  # mano sintética
 
 Uso real: ./venv/bin/python3 captura.py --unreal 127.0.0.1:8000
-Guía de Unreal paso a paso: UNREAL.md.
+Guía de Unreal paso a paso: UNREAL.md. Receptor listo: unreal/HandMotionUE.
 
 Historial de cambios relevantes: ver CHANGELOG.md.
-Última actualización: 2026-11-17.
+Última actualización: 2026-11-23.
 """
 
 import argparse
@@ -363,17 +364,96 @@ def run_demo(destino, seconds, fps=30):
     print(f"{bridge.frames_sent} fotogramas enviados.")
 
 
+def _wrist_cm_from_csv(csv_path):
+    """
+    {(frame, hand_id): (x_cm, y_cm, z_cm)} de la muñeca, solo en CSVs
+    grabados con --estereo (columnas x_cm/y_cm/z_cm llenas). Vacío si no.
+    """
+    import csv
+    wrists = {}
+    with open(csv_path, newline="", encoding="utf-8", errors="replace") as f:
+        for row in csv.DictReader(f):
+            if row["landmark_index"] == "0" and row.get("x_cm"):
+                wrists[(int(row["frame"]), int(row["hand_id"]))] = (
+                    float(row["x_cm"]), float(row["y_cm"]), float(row["z_cm"]))
+    return wrists
+
+
+def run_csv(csv_path, destino, speed=1.0, loop=False, seconds=None):
+    """
+    Reproduce un CSV de captura.py como si fuera en vivo: manda cada
+    fotograma a destino respetando los tiempos con los que se grabó
+    (speed 2 = el doble de rápido). Es lo mismo que mandaría
+    captura.py --unreal, pero sin cámara. loop: vuelve a empezar al
+    terminar. Devuelve el número de fotogramas enviados.
+    """
+    import plot_csv   # aquí: trae matplotlib, que --escuchar/--demo no usan
+    host, port = destino
+    frames, timestamps, aspect, elbow_sources, palms = plot_csv.load_frames(csv_path)
+    if not frames:
+        raise SystemExit(f"{csv_path} no tiene fotogramas con manos.")
+    wrists_cm = _wrist_cm_from_csv(csv_path)
+    order = sorted(frames)
+    ts0 = timestamps[order[0]]
+    duration = (timestamps[order[-1]] - ts0) / 1000
+    print(f"Reproduciendo {csv_path.name}: {len(order)} fotogramas con manos, "
+          f"{duration:.1f} s{' (estéreo)' if wrists_cm else ''}, "
+          f"a {host}:{port} (x{speed:g}{', en bucle' if loop else ''}; Ctrl+C para salir)...")
+    bridge = UnrealBridge(host, port)
+    t_start = time.monotonic()
+    sent = 0
+    try:
+        while True:
+            t0 = time.monotonic()
+            for frame in order:
+                rel_s = (timestamps[frame] - ts0) / 1000
+                wait = t0 + rel_s / speed - time.monotonic()
+                if wait > 0:
+                    time.sleep(wait)
+                if seconds is not None and time.monotonic() - t_start >= seconds:
+                    return sent
+                hands = plot_csv.frame_to_scene(frames[frame], aspect, frame,
+                                                elbow_sources, palms=palms)
+                for hand in hands:
+                    wrist = wrists_cm.get((frame, hand["id"]))
+                    if wrist is not None:
+                        hand["points_cm"] = [wrist] + [None] * (N_POINTS - 1)
+                bridge.send_frame(sent, rel_s * 1000, hands)
+                sent += 1
+            if not loop:
+                return sent
+    except KeyboardInterrupt:
+        print()
+        return sent
+    finally:
+        bridge.close()
+        print(f"{sent} fotogramas enviados.")
+
+
 def parse_args(argv=None):
-    """Flags de las herramientas de prueba (--escuchar y --demo)."""
+    """Flags de las herramientas (--escuchar, --demo y --csv)."""
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--escuchar", type=int, metavar="PUERTO",
                        help="Muestra los mensajes que llegan a ese puerto.")
     group.add_argument("--demo", type=parse_destino, metavar="HOST:PUERTO",
                        help="Manda una mano sintética (abre y cierra los dedos).")
+    group.add_argument("--csv", nargs="?", const="", metavar="RUTA",
+                       help="Reproduce un CSV de captura.py como si fuera en vivo "
+                            "(sin ruta: el más reciente de capturas/).")
+    parser.add_argument("--destino", type=parse_destino,
+                        default=(DEFAULT_HOST, DEFAULT_PORT), metavar="HOST:PUERTO",
+                        help=f"Con --csv: a dónde mandar (default {DEFAULT_HOST}:{DEFAULT_PORT}).")
+    parser.add_argument("--velocidad", type=float, default=1.0,
+                        help="Con --csv: 2 = el doble de rápido, 0.5 = la mitad.")
+    parser.add_argument("--bucle", action="store_true",
+                        help="Con --csv: vuelve a empezar al terminar.")
     parser.add_argument("--segundos", type=float, default=None,
                         help="Termina solo tras estos segundos (default: sin fin).")
-    return parser.parse_args(argv)
+    args = parser.parse_args(argv)
+    if args.velocidad <= 0:
+        parser.error("--velocidad tiene que ser mayor que 0")
+    return args
 
 
 def main():
@@ -381,6 +461,11 @@ def main():
     args = parse_args()
     if args.escuchar is not None:
         listen(args.escuchar, args.segundos)
+    elif args.csv is not None:
+        from pathlib import Path
+        import plot_csv
+        path = Path(args.csv) if args.csv else plot_csv.latest_csv()
+        run_csv(path, args.destino, args.velocidad, args.bucle, args.segundos)
     else:
         run_demo(args.demo, args.segundos)
 

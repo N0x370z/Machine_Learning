@@ -1,16 +1,66 @@
 # Conexión con Unreal Engine — HandMotion3D
 
-Cómo hacer que un modelo 3D de **Unreal Engine 5** siga el movimiento de tus manos, usando lo que ya detecta `captura.py`. Funciona desde la versión **19-A** (2026-10-19).
+Cómo hacer que una mano 3D en **Unreal Engine 5** siga el movimiento de tus manos, con lo que detecta `captura.py` o con una captura guardada. Funciona desde la versión **19-A** (2026-10-19); desde la **23-A** (2026-11-23) está **probado en Unreal Engine 5.8** y el repositorio trae un proyecto listo para abrir.
 
-> **Estado de la prueba (honesto):** el lado de Python (`unreal_bridge.py`) está probado sin Unreal ([`pruebas/unreal_simulado.py`](pruebas/README.md)): el formato de los mensajes, los ejes, los ángulos y el envío por UDP. **Lo que pasa dentro de Unreal Engine no se probó**: esta guía se escribió sin tener Unreal a mano, así que los nombres exactos de los nodos de Blueprint pueden variar un poco entre versiones de UE 5. Para eso está `--demo`: una mano sintética que no necesita cámara, para armar y depurar el lado de Unreal por separado. (Desde la **17-A** la mano de `--demo` tiene proporciones reales: antes el dedo medio salía doblado 109° hacia atrás con la mano abierta.)
+## Así se ve
 
-## Así se vería (imagen simulada)
+![La mano en Unreal Engine 5.8](docs/unreal_mano.png)
 
-![Simulación de HandMotion3D conectado con Unreal Engine 5](docs/unreal_simulado.png)
+Renders **reales** de Unreal Engine 5.8.4 (no una simulación): `unreal_bridge.py --csv` mandó una captura por OSC/UDP, el proyecto [`unreal/HandMotionUE`](unreal/HandMotionUE) la recibió (416 fotogramas, ver [`docs/unreal_imagenes.json`](docs/unreal_imagenes.json)) y se renderizaron la mano más abierta y la más cerrada que llegaron. Esferas en las articulaciones, cilindros en los huesos y un color por dedo, los mismos de la ventana de la cámara (`hand_style.py`). La captura usada es el **ejemplo simulado** de las pruebas (una mano sintética que abre y cierra los dedos pasada por `captura.py`), no una mano real: todavía no hay capturas hechas en Windows.
 
-**Es una simulación, no una captura de Unreal** (no se tiene Unreal a mano). Pero los datos sí son los del programa: la mano de `unreal_bridge.py --demo` se codifica como el mensaje OSC que recibe Unreal, se decodifica, y el modelo del *viewport* se arma **solo con esos 87 floats**. Si el Blueprint lee bien el mensaje, esa es la pose que tiene que verse en el modelo. Se muestra: la ventana de `captura.py --unreal`, el registro de mensajes (como `--escuchar`), los 15 ángulos de flexión que llegan, la mano en los ejes de Unreal y los nodos del Blueprint de esta guía. Se regenera con `./venv/bin/python3 docs/imagen_unreal.py` (`--t 0` mano abierta, `--t 1` cerrada).
+Para volver a generarlas (Unreal se abre **sin ventana**, así no interrumpe lo que haya en pantalla, y se cierra solo):
 
-> **"Real engine":** se interpretó como **Unreal Engine** (el motor de Epic Games). Si era otro motor (Unity, Godot…), el formato de red sigue sirviendo (es OSC estándar sobre UDP), pero esta guía no.
+```bash
+./venv/bin/python3 docs/imagenes_unreal.py [capturas/una_captura.csv]
+```
+
+## Estado de la prueba
+
+| Qué | Estado |
+|-----|--------|
+| Python: formato de los mensajes, ejes, ángulos, envío por UDP, `--csv` | Probado sin Unreal ([`pruebas/unreal_simulado.py`](pruebas/README.md)) |
+| Unreal recibe los mensajes y mueve la mano (proyecto `unreal/HandMotionUE`) | **Probado en UE 5.8.4** (2026-11-23): 495 de 495 fotogramas recibidos, la flexión del índice va de 9° a 74° y vuelve, igual que en el CSV |
+| El plugin OSC de Unreal recibe los paquetes y dispara *On OSC Message Received* | **Probado en UE 5.8.4** |
+| Leer el mensaje OSC desde **Python** dentro de Unreal | **No se puede** en UE 5.8 (ver abajo). Por eso el receptor del proyecto decodifica el OSC él mismo |
+| El **Blueprint** de los pasos 2 a 4 | Sin probar todavía: los nombres de los nodos se revisaron contra el código del plugin de UE 5.8 |
+| Con una webcam real en Windows | Sin probar (no había webcam) |
+
+**Por qué el receptor no usa el plugin OSC.** Se probó primero (es lo que haría un Blueprint): el servidor OSC recibe y dispara el evento, pero `FOSCMessage` guarda el contenido en un campo que no es `UPROPERTY`, y cuando Unreal se lo pasa a Python llega una **copia vacía** (dirección `/`, sin floats). En Blueprint el mensaje se pasa por referencia nativa y sí trae el contenido. El receptor de Python abre su propio socket UDP en el mismo puerto y decodifica el OSC (unas 10 líneas, `handmotion_escena.osc_decode`).
+
+## Paso 0 — El proyecto listo (lo más rápido)
+
+1. Abre `unreal/HandMotionUE/HandMotionUE.uproject` con Unreal Engine 5 (o el botón **Abrir proyecto de Unreal** del [panel](README.md#el-panel)). Si pregunta por la versión del motor, elige la tuya; usa solo los plugins **Python Editor Script Plugin** y **OSC**, que vienen con Unreal.
+2. Al abrirse, `Content/Python/init_unreal.py` arranca el receptor (`receptor_handmotion.py`): crea un nivel en blanco con luces y la cámara del *viewport* frente a la mano, y escucha en el **puerto 8000**.
+3. Manda datos:
+
+```bash
+./venv/bin/python3 unreal_bridge.py --csv --bucle     # la última captura, en bucle
+./venv/bin/python3 captura.py --unreal                # o en vivo con la cámara
+```
+
+La mano aparece con el primer mensaje. Lo que va llegando se registra en `unreal/HandMotionUE/Saved/handmotion_receptor.log` (una línea por segundo: fotogramas, palma, muñeca, flexión del índice).
+
+| Archivo (en `unreal/HandMotionUE/Content/Python/`) | Qué hace |
+|---|---|
+| `init_unreal.py` | Unreal lo corre al abrir el proyecto: arranca el receptor (o, con `HM_CAPTURA=1`, el render de las imágenes) |
+| `handmotion_escena.py` | La mano (21 esferas y 21 cilindros), las luces y cómo poner una pose a partir de los 87 floats |
+| `receptor_handmotion.py` | Escucha el puerto, decodifica el OSC y mueve la mano en cada tick del editor |
+| `capturar_imagenes.py` | Las imágenes de esta guía: recibe datos reales, elige poses y las renderiza (lo usa `docs/imagenes_unreal.py`) |
+
+Es una mano de **esferas y cilindros**, no un modelo con piel: sirve para ver que los datos llegan bien y con qué forma. Para mover un personaje (Mannequin, MetaHuman…) se usan los mismos datos con los pasos de abajo.
+
+### Reproducir una captura guardada (`--csv`, 23-A)
+
+`unreal_bridge.py --csv [ruta]` manda un CSV de `captura.py` **con los mismos tiempos con los que se grabó**, como si fuera en vivo. Sin ruta usa el más reciente de `capturas/`.
+
+| Flag | Para qué |
+|------|----------|
+| `--destino HOST:PUERTO` | A dónde mandar (por defecto `127.0.0.1:8000`) |
+| `--velocidad 2` | El doble de rápido (`0.5` = la mitad) |
+| `--bucle` | Volver a empezar al terminar |
+| `--segundos N` | Terminar solo tras N segundos |
+
+Si el CSV se grabó con `--estereo`, la muñeca va con su posición absoluta (columnas `x_cm`, `y_cm`, `z_cm`). Los fotogramas sin manos no están en el CSV, así que no se mandan.
 
 ## Cómo viaja la información
 
@@ -23,7 +73,7 @@ cámara ──► captura.py ──► unreal_bridge.py ──► OSC / UDP ─�
 - **OSC** (Open Sound Control) sobre **UDP**: ligero, sin conexión (si Unreal no está escuchando, simplemente se pierden los paquetes y `captura.py` sigue igual).
 - Unreal Engine 5 trae el **plugin OSC**; no hay que instalar nada más. En Python el codificador OSC es propio: **no hay dependencias nuevas** por esto.
 
-## Paso 1 — Probar el envío sin Unreal
+## Paso 1 — Probar el envío sin Unreal (para tu propio proyecto)
 
 Con dos terminales (desde la raíz del repositorio):
 
@@ -50,8 +100,9 @@ Con la cámara de verdad: `./venv/bin/python3 captura.py --unreal` (o `--unreal 
 
 1. Crea un **Blueprint Actor** (por ejemplo `BP_ManoReceptor`) y colócalo en el nivel.
 2. En el **Event BeginPlay**: nodo **Create OSC Server** con *Receive IP Address* `0.0.0.0` (o `127.0.0.1` si todo está en la misma máquina), *Port* `8000` y *Start Listening* activado. Guarda el resultado en una variable `OscServer`.
+   **Guarda el servidor en una variable del actor**: si no queda referenciado, el recolector de basura de Unreal lo destruye a los pocos fotogramas y deja de recibir (en el log: `Destroying OSC Socket Receiver`). Pasó en la prueba de la 23-A.
 3. Con `OscServer`: **Bind Event to On OSC Message Received** y conecta un evento propio.
-4. En ese evento recibes el mensaje: usa **Get OSC Message Address** y compáralo con `/handmotion/Right` o `/handmotion/Left` (y `/handmotion/frame` si quieres saber cuántas manos hay en el fotograma).
+4. En ese evento recibes el mensaje: usa **Get OSC Message Address** y, para tener el texto, **Get OSC Address Full Path** (en UE 5.8 no hay un nodo "convert to string"); compáralo con `/handmotion/Right` o `/handmotion/Left` (y `/handmotion/frame` si quieres saber cuántas manos hay en el fotograma).
 5. Para leer los números, usa los nodos de **OSC → Message** que obtienen los **floats** del mensaje (por índice, o todos a la vez en un arreglo). **Todos los mensajes llevan solo floats**, y en cada mano van en este orden (87 valores):
 
 | Índices | Qué es | Unidad |
@@ -121,10 +172,11 @@ Consejos:
 
 ## Limitaciones y pendientes
 
-- **Sin probar en Unreal Engine real** (ver arriba). Lo primero que hay que confirmar allí: los nombres de los nodos de OSC y el eje de giro de los dedos del modelo.
+- **El Blueprint no se probó todavía** (el proyecto de la 23-A usa Python, ver [Estado de la prueba](#estado-de-la-prueba)). Lo que hay que confirmar al armarlo: el eje de giro de los dedos del modelo.
+- La imagen simulada de la 17-A ([`docs/unreal_simulado.png`](docs/unreal_simulado.png), `docs/imagen_unreal.py`) se conserva como esquema del recorrido de los datos, pero ya no es lo que se muestra: las imágenes reales están en [Así se ve](#así-se-ve).
 - **Una cámara = profundidad aproximada.** Los dedos se doblan bien de frente; la profundidad fina mejora con `--estereo`.
 - **No se manda la orientación de la muñeca** (se calcula en Unreal con los puntos 0, 5 y 17). Mejora pendiente: mandarla como cuaternión.
 - **No se manda audio, imagen ni el CSV**: solo la pose. Para el CSV y los CSV para artículos, ver [docs/ARTICULOS.md](docs/ARTICULOS.md#exportar-para-artículos-exportar_csvpy).
 - El `id` de la mano cambia si la pierde de vista; el nombre del mensaje (`Left`/`Right`) es más estable para elegir qué mano mover.
 
-Historial de cambios: [`CHANGELOG.md`](CHANGELOG.md) (versión 19-A) · Comandos: [`COMANDOS.md`](COMANDOS.md).
+Historial de cambios: [`CHANGELOG.md`](CHANGELOG.md) (versiones 19-A y 23-A) · Comandos: [`COMANDOS.md`](COMANDOS.md).

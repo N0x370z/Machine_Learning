@@ -1,10 +1,12 @@
 """
 Prueba de unreal_bridge.py (19-A) SIN Unreal Engine ni cámara: comprueba
 el codificador OSC, el cambio de ejes a Unreal, los ángulos de flexión y
-el envío por UDP a un receptor de prueba en esta misma máquina.
+el envío por UDP a un receptor de prueba en esta misma máquina, y desde la
+23-A la reproducción de un CSV (--csv): tiempos, ejes y estéreo.
 
-Qué NO cubre: que Unreal Engine los reciba y los use (eso se prueba en
-Unreal con `unreal_bridge.py --demo`, ver UNREAL.md).
+Qué NO cubre: que Unreal Engine los reciba y los use. Eso se comprobó en
+Unreal Engine 5.8 el 2026-11-23 con unreal/HandMotionUE y se repite con
+docs/imagenes_unreal.py (ver UNREAL.md).
 
 Uso:
     ./venv/bin/python3 pruebas/unreal_simulado.py
@@ -142,6 +144,57 @@ def main():
         * open_["cm_per_unit"]
     check("demo: la palma mide lo que dice palm_cm", abs(palm - open_["palm_cm"]) < 0.01,
           f"{palm:.2f} cm")
+
+    print("7. Reproducir un CSV (--csv, 23-A)")
+    import csv
+    import tempfile
+    import time
+    header = ["frame", "timestamp_ms", "hand_id", "handedness", "score", "landmark_index",
+              "x", "y", "z", "img_w", "img_h", "vx", "vy", "vz", "rapidez_cm_s",
+              "rapidez_rel_cm_s", "dedo", "fuente", "palma_cm", "x_cm", "y_cm", "z_cm"]
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "hand_data_20990101_000000.csv"
+        # 3 fotogramas con 100 ms entre sí; en el último, la muñeca con cm
+        # de estéreo. "Índice"/"Muñeca" en UTF-8: en Windows se leían mal.
+        with open(path, "w", newline="", encoding="utf-8") as f:
+            w = csv.writer(f)
+            w.writerow(header)
+            for frame, ts in enumerate((1000, 1100, 1200)):
+                for i in range(21):
+                    x, y = 0.5 + 0.01 * (i % 5), 0.6 - 0.02 * (i // 4)
+                    xyz_cm = ("10", "-5", "45") if frame == 2 and i == 0 else ("", "", "")
+                    w.writerow([frame, ts, 3, "Right", 0.9, i, x, y, 0.0, 1280, 720,
+                                0, 0, 0, 0, 0, "Muñeca" if i == 0 else "Índice", "mediapipe",
+                                8.5, *xyz_cm])
+        rx = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        rx.bind(("127.0.0.1", 0))
+        rx.settimeout(1.0)
+        import threading
+        result = {}
+        sender = threading.Thread(target=lambda: result.update(
+            sent=ub.run_csv(path, rx.getsockname(), speed=2.0)))
+        sender.start()
+        got, arrivals = [], []
+        for _ in range(6):          # se recibe mientras se manda: llegada real de cada uno
+            got.append(ub.osc_decode(rx.recv(4096)))
+            arrivals.append(time.monotonic())
+        sender.join()
+        rx.close()
+        sent = result.get("sent")
+        elapsed = arrivals[4] - arrivals[0]     # 1er y 3er mensaje de fotograma
+    check("--csv: manda todos los fotogramas", sent == 3, f"{sent} de 3")
+    check("--csv: un mensaje de fotograma y uno de mano por fotograma",
+          [a for a, _ in got] == ["/handmotion/frame", "/handmotion/Right"] * 3,
+          ", ".join(a for a, _ in got[:2]))
+    check("--csv: respeta los tiempos (200 ms grabados a x2 = 100 ms)",
+          0.08 <= elapsed < 0.16, f"{elapsed * 1000:.0f} ms")
+    check("--csv: tiempo relativo al primer fotograma (s)",
+          [round(got[k][1][2], 3) for k in (0, 2, 4)] == [0.0, 0.1, 0.2],
+          str([round(got[k][1][2], 3) for k in (0, 2, 4)]))
+    check("--csv: palma y id de la mano del CSV", got[1][1][2] == 8.5 and got[1][1][0] == 3.0,
+          f"palma {got[1][1][2]}, id {got[1][1][0]:.0f}")
+    check("--csv: muñeca absoluta del estéreo -> ejes de Unreal (X=z, Y=x, Z=-y)",
+          got[5][1][3:6] == [45.0, 10.0, 5.0], str(got[5][1][3:6]))
 
     ok = all(results)
     print("\nRESULTADO:", "OK" if ok else "FALLA")

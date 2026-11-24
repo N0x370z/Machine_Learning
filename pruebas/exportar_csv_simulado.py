@@ -54,7 +54,7 @@ def make_csv(path, hands=((3, "Right", 8.5, "mediapipe"),), n_frames=N_FRAMES, p
     """
     rng = np.random.default_rng(1)
     truth = {}
-    with open(path, "w", newline="") as f:
+    with open(path, "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow(CSV_HEADER)
         for k in range(n_frames):
@@ -196,7 +196,7 @@ def main():
                 check(f"{name}: error claro", True, str(err)[:70])
         cut = tmp / "cortado.csv"
         make_csv(cut)
-        with open(cut, "a") as f:
+        with open(cut, "a", encoding="utf-8") as f:
             f.write("120,4000,3,Right,0.9")          # el programa se cortó a mitad de fila
         n = int(read(ex.export(cut)["ingenieria"])[0]["N"])
         check("fila final cortada: se salta y el resto se exporta", n == N_FRAMES, f"N = {n}")

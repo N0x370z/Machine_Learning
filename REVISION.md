@@ -9,6 +9,7 @@ Registro de las revisiones hechas al proyecto: qué se revisó, qué se encontr�
 | 3 | 2026-09-28 (28-F) | Pasar las comprobaciones al repositorio | 1 error de `estereo.py` y 1 prueba irreal encontrados y corregidos |
 | 4 | 2026-10-19 (19-A) | Pausa, Excel y Unreal Engine (código nuevo) | 4 problemas de diseño corregidos antes de publicar; 5 pendientes anotados |
 | 5 | 2026-11-17 (17-A) | Todo lo de la 19-A, con las pruebas en el venv real | 1 error de privacidad y 1 de la mano de `--demo` corregidos; 3 problemas del Excel resueltos al reemplazarlo por CSV (17-B); 2 temas de proceso para decidir |
+| 6 | 2026-11-23 (23-A) | Proyecto en Windows, Unreal Engine 5.8 real, panel | 1 error de codificación de los CSV en Windows corregido; 3 hallazgos de Unreal documentados; 2 errores propios corregidos antes de publicar |
 
 Estado actual de todo lo pendiente: [al final](#estado-de-los-pendientes).
 
@@ -61,7 +62,7 @@ Durante la misma implementación también se corrigieron problemas de diseño, c
 
 | Tema | Qué pasaba | Estado |
 |------|------------|--------|
-| Línea `Co-Authored-By` en 5 commits | GitHub mostraba a un asistente de IA como colaborador | **Resuelto en la 28-F**: historial reescrito (ver [COMANDOS.md](COMANDOS.md#2026-09-28--versión-28-f-quitar-la-línea-co-authored-by-del-historial)) |
+| Línea `Co-Authored-By` en 5 commits | GitHub mostraba como colaborador a quien no era autor del proyecto | **Resuelto en la 28-F**: historial reescrito (ver [COMANDOS.md](COMANDOS.md#2026-09-28--versión-28-f-quitar-la-línea-co-authored-by-del-historial)) |
 | Comprobaciones con scripts sueltos | Los números "comprobado con datos simulados" (24-D, 28-B a 28-D) no se podían repetir | **Resuelto en la 28-F**: [`pruebas/`](pruebas/README.md) |
 | Sin pruebas con hardware | Nada de 28-B a 28-D se probó con cámaras reales | **Pendiente** |
 
@@ -139,8 +140,39 @@ Pausa (último cuadro, descarte de fotogramas, teclas, cerrar en pausa), pausa 2
 | Tema | Qué pasa |
 |------|----------|
 | Autor del commit de la 19-A | `552d55f` tiene como autor a otra persona, no a Ivan Luna como el resto del historial |
-| `Co-Authored-By` | `552d55f` volvió a traer la línea que en la 28-F se quitó de todo el historial; ya está subido a `origin/handmotion3d-19-a` |
+| `Co-Authored-By` | `552d55f` volvió a traer la línea que en la 28-F se quitó de todo el historial; ya está subido a `origin/handmotion3d-19-a`. **Resuelto en la 23-A** (ver abajo) |
 | Rama | La 19-A (y la 17-A/17-B) están en la rama `handmotion3d-19-a`; `main` sigue en la 28-F |
+
+---
+
+## Revisión 6 — Windows, Unreal Engine real y panel (versión 23-A)
+
+Primera revisión en **Windows 11** (Python 3.13.0) y primera con **Unreal Engine** instalado (5.8.4). No había webcam: todo se probó con capturas, simulaciones y Unreal.
+
+### Encontrado y corregido
+
+| Encontrado | Consecuencia | Corrección |
+|------------|--------------|------------|
+| `captura.py` escribía el CSV sin codificación explícita | En Windows salía en cp1252 (`Muñeca` en un byte) y en macOS en UTF-8; un CSV de la Mac con `Índice` hacía **fallar** `plot_csv.py` en Windows (`UnicodeDecodeError`, byte 0x8D) | UTF-8 al escribir; UTF-8 con `errors="replace"` al leer (`plot_csv.py`, `unreal_bridge.py`); las pruebas también en UTF-8 |
+| La imagen de Unreal del README era una simulación y la guía no se había probado | No se sabía si Unreal recibía los datos | Proyecto `unreal/HandMotionUE`, probado en UE 5.8.4: 495 de 495 fotogramas; imágenes reales |
+
+### Hallazgos de Unreal (documentados en `UNREAL.md`)
+
+1. Desde Python, el contenido de un mensaje del plugin OSC llega **vacío** (`FOSCMessage` no expone el paquete como `UPROPERTY`). En Blueprint no pasa. El receptor de Python decodifica el OSC por su cuenta.
+2. Un servidor OSC que no queda referenciado lo destruye el recolector de basura a los pocos fotogramas (`Destroying OSC Socket Receiver`). En el Blueprint, guardarlo en una variable.
+3. En UE 5.8 el texto de la dirección se obtiene con *Get OSC Address Full Path*.
+
+### Errores propios corregidos antes de publicar
+
+| Error | Corrección |
+|-------|------------|
+| La primera versión de la prueba de tiempos de `--csv` medía también el tiempo de importar matplotlib (651 ms en vez de 100) | Mide la llegada del primer y el último mensaje |
+| En el panel, el campo *Destino* de la captura habría pasado la IP como argumento suelto | Se combina en `--unreal [destino]`; probado contra el `argparse` de cada script |
+
+### Proceso
+
+- Las imágenes de Unreal y del panel se generan **sin ventana** (`docs/imagenes_unreal.py` con `-RenderOffscreen`, `panel.py --captura`): no interrumpen lo que haya en pantalla y se pueden repetir.
+- Decisión de la revisión 5: el commit de la 19-A conserva a su autor (Guillermo Campos Salas) y pierde la línea `Co-Authored-By`; la rama se fusiona a `main`. Comandos en [COMANDOS.md](COMANDOS.md#2026-11-23--versión-23-a-windows-panel-y-unreal-probado).
 
 ---
 
@@ -159,8 +191,11 @@ Pausa (último cuadro, descarte de fotogramas, teclas, cerrar en pausa), pausa 2
 | Correr `pruebas/correr_todo.py` en el venv del proyecto tras la 19-A (versiones fijadas, con YOLO) | Rev. 4 | ✅ Hecho (rev. 5): 5 de 5 OK |
 | Probar la pausa, `e` (CSV para artículos, 17-B) y `--unreal` en vivo con la webcam | Rev. 4 | ⏳ Pendiente |
 | Abrir los `.xlsx` en Excel de escritorio (las fórmulas solo se comprobaron con LibreOffice) y revisar el formato contra las normas de la revista elegida | Rev. 4 | ➖ Ya no aplica: el Excel se quitó en la 17-B. Queda revisar los dos CSV contra las normas de la revista elegida |
-| Armar el Blueprint en Unreal Engine con `unreal_bridge.py --demo` y confirmar nodos de OSC y eje de giro de los dedos (`UNREAL.md`) | Rev. 4 | ⏳ Pendiente |
+| Armar el Blueprint en Unreal Engine con `unreal_bridge.py --demo` y confirmar nodos de OSC y eje de giro de los dedos (`UNREAL.md`) | Rev. 4 | 🟡 En parte (rev. 6): Unreal 5.8 recibe y mueve la mano con el proyecto `unreal/HandMotionUE` (Python); nodos de OSC revisados contra el código del plugin. Falta el Blueprint y el eje de giro de los dedos de un modelo con piel |
 | Validar la rapidez contra una referencia antes de publicar cifras (captura de movimiento, goniómetro, sensores) | Rev. 4 | ⏳ Pendiente |
 | Mandar a Unreal la orientación de la muñeca (cuaternión) | Rev. 4 | 💡 Mejora futura |
-| Decidir el autor y la línea `Co-Authored-By` del commit `552d55f` (19-A) y cuándo fusionar `handmotion3d-19-a` a `main` | Rev. 5 | ⏳ Pendiente (decisión del dueño del repositorio) |
+| Decidir el autor y la línea `Co-Authored-By` del commit `552d55f` (19-A) y cuándo fusionar `handmotion3d-19-a` a `main` | Rev. 5 | ✅ Hecho (23-A): se quitó la línea, Guillermo Campos Salas sigue como autor; fusionado a `main` el 2026-11-23 |
 | Probar `--video` con videos reales (celular con FPS variable, `.mov` de iPhone, video en espejo) y comparar Left/Right con lo que se ve | 17-C | ⏳ Pendiente (solo se probó con un mp4 generado y con simulaciones) |
+| Probar en Windows con una webcam real (captura, `--unreal` en vivo, el panel con cámara) | Rev. 6 | ⏳ Pendiente (no había webcam el 2026-11-23) |
+| torch con CUDA en Windows, para que YOLO use la tarjeta NVIDIA | Rev. 6 | 💡 Mejora futura (hoy corre en la CPU) |
+| Grabar capturas reales en Windows y regenerar las imágenes de Unreal con una mano real (`docs/imagenes_unreal.py`) | Rev. 6 | ⏳ Pendiente (las de hoy usan el ejemplo simulado) |
