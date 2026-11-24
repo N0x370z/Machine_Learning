@@ -10,6 +10,7 @@ Registro de las revisiones hechas al proyecto: qué se revisó, qué se encontr�
 | 4 | 2026-10-19 (19-A) | Pausa, Excel y Unreal Engine (código nuevo) | 4 problemas de diseño corregidos antes de publicar; 5 pendientes anotados |
 | 5 | 2026-11-17 (17-A) | Todo lo de la 19-A, con las pruebas en el venv real | 1 error de privacidad y 1 de la mano de `--demo` corregidos; 3 problemas del Excel resueltos al reemplazarlo por CSV (17-B); 2 temas de proceso para decidir |
 | 6 | 2026-11-23 (23-A) | Proyecto en Windows, Unreal Engine 5.8 real, panel | 1 error de codificación de los CSV en Windows corregido; 3 hallazgos de Unreal documentados; 2 errores propios corregidos antes de publicar |
+| 7 | 2026-11-24 (sin versión nueva) | Documentación de la 17-E contra los hechos; la 23-A y la 23-B en macOS; capturas al repositorio | 4 afirmaciones de la doc corregidas (una quinta ya no aplicaba); 1 mensaje de error con la versión equivocada; nota de apoyo de IA en el README; 14 capturas subidas |
 
 Estado actual de todo lo pendiente: [al final](#estado-de-los-pendientes).
 
@@ -143,8 +144,6 @@ Pausa (último cuadro, descarte de fotogramas, teclas, cerrar en pausa), pausa 2
 | `Co-Authored-By` | `552d55f` volvió a traer la línea que en la 28-F se quitó de todo el historial; ya está subido a `origin/handmotion3d-19-a`. **Resuelto en la 23-A** (ver abajo) |
 | Rama | La 19-A (y la 17-A/17-B) están en la rama `handmotion3d-19-a`; `main` sigue en la 28-F |
 
----
-
 ## Revisión 6 — Windows, Unreal Engine real y panel (versión 23-A)
 
 Primera revisión en **Windows 11** (Python 3.13.0) y primera con **Unreal Engine** instalado (5.8.4). No había webcam: todo se probó con capturas, simulaciones y Unreal.
@@ -176,6 +175,48 @@ Primera revisión en **Windows 11** (Python 3.13.0) y primera con **Unreal Engin
 
 ---
 
+## Revisión 7 — documentación de la 17-E, la 23-A/23-B en macOS y capturas (sin versión nueva)
+
+Se empezó el 2026-11-17 en la Mac, justo después de la 17-E, y se quedó sin commit. Mientras tanto, en la PC con Windows se hicieron la 23-A y la 23-B y se reescribió la rama `handmotion3d-19-a` (sin la línea `Co-Authored-By`), así que el `git pull` de la Mac fallaba. Se terminó el 2026-11-24, ya sobre `main` (comandos en [COMANDOS.md](COMANDOS.md#2026-11-24--revisión-7-sincronizar-la-mac-documentación-y-capturas)). En el registro de la Mac se llamaba "revisión 6"; ese número ya lo había tomado la 23-A.
+
+### Documentación de la 17-E contra los hechos
+
+Pedido: documentación correcta, declarando los errores y el apoyo de IA. Se revisaron las afirmaciones del README y de `docs/ARTICULOS.md` (midiendo cuando se podía).
+
+| Afirmación | Problema | Corrección |
+|------------|----------|------------|
+| Reanalizar un video con la misma versión "obtendrá los mismos números" | No comprobado; MediaPipe/YOLO pueden variar entre equipos | Dice que deberían coincidir o quedar muy cerca, que no está garantizado y que no se midió |
+| `shasum -a 256` para macOS **y Linux** | En Linux lo habitual es `sha256sum` | Un comando por sistema |
+| "~3 GB libres" | No medido; el venv de macOS ocupa **1.2 GB** (`du -sh venv`) | "~1.5 GB (el entorno ocupa 1.2 GB)"; con torch CUDA ocupa más, sin medir |
+| "Tiene que terminar con cinco líneas `OK`" | La salida tiene decenas de `OK` | "Un `RESUMEN` con cinco pruebas, las cinco en `OK`" |
+| `git clone` sin rama descargaba la 28-F | Era cierto el 2026-11-17 | **Ya no aplica**: la 23-A fusionó la rama a `main`. Se había agregado `-b handmotion3d-19-a` y se quitó |
+
+Comprobado sin cambios: tamaño del modelo de la mano (~8 MB: 7.8 MB descargados), requisito de Python (≥ 3.12, excepto 3.14.1, según los metadatos de numpy y torchvision), enlaces de todos los `.md`.
+
+**Apoyo de IA:** el README tiene una sección breve, *Apoyo de inteligencia artificial*, que dice que el desarrollo contó con un asistente de IA, que la responsabilidad es del equipo y que las pruebas con hardware y la validación están pendientes. Se descartó un documento más largo de declaración (decisión del dueño).
+
+### La 23-A y la 23-B, probadas en macOS
+
+Se hicieron y probaron en Windows; aquí se repasó el código y se corrió en la Mac (Python 3.14, Apple Silicon):
+
+| Qué | Resultado |
+|-----|-----------|
+| `pruebas/correr_todo.py` con `requirements.txt` nuevo (PySide6) | 5 de 5 `OK` |
+| `panel.py` en macOS (`--captura`, sin ventana) | Abre y dibuja bien; el comando mostrado usa `./venv/bin/python3` |
+| `unreal_bridge.py --csv` con los 4 formatos de CSV de `capturas/` (de antes de la 24-A a la 28-D) | Los reproduce todos |
+| `exportar_csv.py` con los mismos | Formatos B–D bien; el A (sin velocidad) da un error claro, pero decía "antes de la versión 24-A" y la velocidad llegó en la **24-B**: corregido (también en la prueba) |
+| `forearm.py` elige `cuda:0`, luego `mps`, luego CPU | Correcto; en la Mac sigue usando MPS |
+
+Anotado, sin cambiar:
+- El botón *Detener* del panel mata el proceso (`kill`). Con `captura.py` el CSV ya está escrito (se graba mientras captura), pero el `.json` de la sesión queda `"en curso"` (sin hora de fin ni resultados). Para cerrar bien, salir con `q` en la ventana de la cámara.
+- *Abrir proyecto de Unreal* solo busca Unreal instalado con el Epic Games Launcher **en Windows**; en macOS dice que no lo encontró.
+
+### Capturas al repositorio
+
+Pedido: subir las capturas guardadas para trabajarlas en la PC con Unreal Engine y la RTX 4090. Se subieron las **14** de `capturas/` (2026-09-21 a 2026-10-01, 31 MB, la mayor de 4.6 MB): son pruebas del equipo, sin participantes, sin `.json` ni imágenes. Se agregaron con `git add -f`, **sin cambiar el `.gitignore`**, para que las capturas nuevas (que sí pueden ser de participantes) sigan sin subirse solas. El repositorio es público. Qué tiene cada una y qué se puede hacer con ella: [`capturas/README.md`](capturas/README.md).
+
+---
+
 ## Estado de los pendientes
 
 | Pendiente | Desde | Estado |
@@ -198,4 +239,7 @@ Primera revisión en **Windows 11** (Python 3.13.0) y primera con **Unreal Engin
 | Probar `--video` con videos reales (celular con FPS variable, `.mov` de iPhone, video en espejo) y comparar Left/Right con lo que se ve | 17-C | ⏳ Pendiente (solo se probó con un mp4 generado y con simulaciones) |
 | Probar en Windows con una webcam real (captura, `--unreal` en vivo, el panel con cámara) | Rev. 6 | ⏳ Pendiente (no había webcam el 2026-11-23) |
 | torch con CUDA en Windows, para que YOLO use la tarjeta NVIDIA | Rev. 6 | ✅ Hecho (23-B): 7.6 ms por fotograma en la RTX 4090 (36.9 en CPU); `forearm.py` no elegía CUDA y se corrigió |
-| Grabar capturas reales en Windows y regenerar las imágenes de Unreal con una mano real (`docs/imagenes_unreal.py`) | Rev. 6 | ⏳ Pendiente (las de hoy usan el ejemplo simulado) |
+| Grabar capturas reales en Windows y regenerar las imágenes de Unreal con una mano real (`docs/imagenes_unreal.py`) | Rev. 6 | ⏳ Pendiente (las de hoy usan el ejemplo simulado). Desde la revisión 7 hay 14 capturas reales en el repositorio: se pueden regenerar sin grabar ([`capturas/README.md`](capturas/README.md#en-la-pc-con-unreal-y-la-4090)) |
+| Revisión por una persona experta (estadística y del área) de las decisiones metodológicas de `docs/ARTICULOS.md` (propuestas con apoyo de IA) | Rev. 7 | ⏳ Pendiente |
+| Medir cuánto ocupa el entorno con torch CUDA (para el requisito de espacio del README) | Rev. 7 | ⏳ Pendiente (en la PC con la 4090: `du` o *Propiedades* de `venv`) |
+| *Detener* en el panel deja el `.json` de `captura.py` en `"en curso"`: cerrar con un aviso al proceso en lugar de matarlo | Rev. 7 | 💡 Mejora futura |

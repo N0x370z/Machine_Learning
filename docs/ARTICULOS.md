@@ -191,7 +191,7 @@ Desde la **17-C**, `captura.py` puede analizar un **video grabado** en lugar de 
 ```
 
 - **El tiempo sale del video**, no del reloj: las velocidades son las reales aunque el análisis vaya más lento (por ejemplo, con YOLO en una computadora lenta). Se analizan todos los fotogramas.
-- El `.json` guarda la **huella SHA-256** del video. Otra persona puede comprobar que tiene exactamente el mismo archivo: `shasum -a 256 P01.mp4` en macOS/Linux, `certutil -hashfile P01.mp4 SHA256` en Windows. Con la misma versión del programa (el `commit` del `.json`) obtendrá los mismos números.
+- El `.json` guarda la **huella SHA-256** del video. Otra persona puede comprobar que tiene exactamente el mismo archivo: `shasum -a 256 P01.mp4` en macOS, `sha256sum P01.mp4` en Linux, `certutil -hashfile P01.mp4 SHA256` en Windows. Con la misma versión del programa (el `commit` del `.json`) y las mismas librerías (también en el `.json`) los números deberían coincidir o quedar muy cerca, pero **no se garantiza que sean idénticos**: MediaPipe y YOLO pueden dar resultados ligeramente distintos según el procesador o la GPU. Esto **no se ha medido**: si la reproducibilidad exacta importa para el artículo, reanaliza el mismo video en dos equipos y compara.
 - Sirve también para **reprocesar** sesiones cuando mejore el programa, o para analizar videos clínicos que ya existen (con el consentimiento que corresponda).
 - Si el video se grabó con la vista previa de una cámara frontal (ya en espejo), agrega `--video-espejado`. Si Left/Right salen al revés, agrega o quita esa opción.
 - Con una cámara la profundidad es estimada, igual que en vivo. `--video` no se combina con `--estereo`.

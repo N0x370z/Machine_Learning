@@ -425,6 +425,41 @@ Mismas versiones que las fijadas (2.14.0 / 0.29.0), compiladas para CUDA 13.0: `
 
 Deshacer (volver a la de procesador): `venv\Scripts\python -m pip install --force-reinstall --no-deps torch==2.14.0 torchvision==0.29.0`.
 
+### 2026-11-24 — revisión 7: sincronizar la Mac, documentación y capturas
+
+La Mac tenía la rama `handmotion3d-19-a` con los commits de antes de reescribirla (con `Co-Authored-By`) y las correcciones de la revisión 7 sin commit; el `git pull` fallaba por ramas divergentes y por esos cambios. Los 5 commits viejos tenían los mismos archivos que los nuevos (solo cambiaba el mensaje), así que se adoptó el historial de GitHub:
+
+```bash
+git fetch --all
+git diff --stat 2209c6d 0564eee                       # vacío: la 17-E vieja y la nueva tienen los mismos archivos
+diff <(git cat-file -p 552d55f) <(git cat-file -p e02500f)   # solo cambia la línea Co-Authored-By
+git branch respaldo-19-a-local                        # respaldo LOCAL de los commits viejos (no se sube)
+git stash                                             # las correcciones de la revisión 7
+git reset --hard origin/handmotion3d-19-a
+git switch main && git pull --ff-only                 # main: 28-F -> 23-B
+git stash pop                                         # conflictos en COMANDOS.md, README.md y REVISION.md, resueltos a mano
+```
+
+Comprobaciones en macOS con el código de la 23-B:
+
+```bash
+du -sh venv                                           # 1.2G: el README decía ~3 GB
+./venv/bin/python3 -m pip install -r requirements.txt # trae PySide6 (panel)
+./venv/bin/python3 pruebas/correr_todo.py             # 5 de 5 OK
+./venv/bin/python3 panel.py --captura panel_mac.png --pagina 2   # el panel abre en macOS
+./venv/bin/python3 unreal_bridge.py --csv capturas/hand_data_20260921_120519.csv --destino 127.0.0.1:8999 --velocidad 20 --segundos 4   # y uno de cada formato: los 4 bien
+./venv/bin/python3 exportar_csv.py capturas/hand_data_20260921_120519.csv --salida /tmp/exp   # error claro (sin velocidad); los otros formatos bien
+```
+
+Subir las capturas sin cambiar el `.gitignore` (las nuevas siguen sin subirse solas):
+
+```bash
+git add -f capturas/hand_data_*.csv                   # 14 archivos, 31 MB, el mayor de 4.6 MB
+git add capturas/README.md
+```
+
+Cuando todo esté confirmado, borrar los respaldos locales: `git branch -D respaldo-19-a-local` y `git stash drop`.
+
 ### Pendiente: nombre del repositorio en GitHub
 
 La versión 24-E decía que el repositorio de GitHub se renombraría a `HandMotion3D`, pero al 2026-09-28 **sigue llamándose `Machine_Learning`** (`https://github.com/N0x370z/Machine_Learning` responde sin redirección). Para renombrarlo:

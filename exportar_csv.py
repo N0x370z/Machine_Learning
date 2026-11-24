@@ -45,7 +45,7 @@ sesión (captura.py --participante, desde la 17-D).
 Desde captura.py: tecla 'e' (los dos, con lo grabado hasta ese momento).
 
 Historial de cambios relevantes: ver CHANGELOG.md.
-Última actualización: 2026-11-17.
+Última actualización: 2026-11-24.
 """
 
 import argparse
@@ -134,7 +134,7 @@ def load_capture(csv_path, all_points=False):
         if missing:
             raise ExportError(
                 f"{csv_path.name} no tiene la(s) columna(s) {sorted(missing)}: es un "
-                "CSV de antes de la versión 24-A (sin velocidad). Graba uno nuevo.")
+                "CSV de antes de la versión 24-B (sin velocidad). Graba uno nuevo.")
         has_rel = "rapidez_rel_cm_s" in reader.fieldnames
         for row in reader:
             try:

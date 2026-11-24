@@ -78,7 +78,7 @@ Arma CSV de captura con rapideces de valor conocido, exporta los dos formatos y 
 | Cuartiles con el método inclusivo (`QUARTILE` de Excel) | 1..10 → Q1 = 3.25, Q3 = 7.75 |
 | `--participante`, `--formato medicina` | Columna llena; un solo archivo |
 | Dos manos en estéreo con la palma medida cada fotograma (revisión 5) | Cada mano con la mediana de su palma (± 0.02 cm) |
-| Punto visto una vez; CSV de antes de la 24-A; formato desconocido; sin filas; no existe; fila final cortada; exportar dos veces | DE/σ/f_s vacías sin error; error claro (×4); se salta la fila; reemplaza sin `.tmp` sueltos |
+| Punto visto una vez; CSV de antes de la 24-B; formato desconocido; sin filas; no existe; fila final cortada; exportar dos veces | DE/σ/f_s vacías sin error; error claro (×4); se salta la fila; reemplaza sin `.tmp` sueltos |
 
 ### `unreal_simulado.py` — puente a Unreal Engine (19-A, `--csv` desde la 23-A)
 

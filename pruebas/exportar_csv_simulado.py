@@ -11,7 +11,7 @@ número con numpy.
     «mediana [Q1-Q3]»; columna participante.
   - Palma por mano (revisión 5): con dos manos y la palma medida cada
     fotograma (estéreo), cada mano lleva la mediana de SU palma.
-  - Casos borde: CSV de antes de la 24-A, fila final cortada, formato
+  - Casos borde: CSV de antes de la 24-B, fila final cortada, formato
     desconocido, sin filas, punto visto una sola vez (DE vacía),
     exportar dos veces (se reemplaza), el CSV se lee con pandas/csv.
 
@@ -183,7 +183,7 @@ def main():
         old = tmp / "viejo.csv"
         old.write_text("frame,timestamp_ms,hand_id,handedness,score,landmark_index,x,y,z\n0,0,0,Right,1,0,0.5,0.5,0\n")
         for name, call in (
-            ("CSV de antes de la 24-A", lambda: ex.export(old)),
+            ("CSV de antes de la 24-B", lambda: ex.export(old)),
             ("formato desconocido", lambda: ex.export(src, ("apa",))),
             ("CSV sin filas", lambda: (tmp / "vacio.csv").write_text(",".join(CSV_HEADER) + "\n")
              and ex.export(tmp / "vacio.csv")),

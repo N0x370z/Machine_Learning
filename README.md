@@ -2,9 +2,9 @@
 
 Mide el movimiento de la **mano y el antebrazo en 3D** con una webcam: el esqueleto de cada mano (21 puntos, con MediaPipe), el codo (YOLO pose), la **velocidad de cada punto y de cada dedo en cm/s**, una vista 3D que se puede girar, y archivos CSV listos para analizar o para **publicaciones científicas**. Con dos webcams mide la profundidad real, puede analizar **videos ya grabados** y puede mover un **modelo 3D en Unreal Engine**.
 
-> **Versión 23-A (2026-11-23).** Lo último: un **panel** para usar todo sin recordar comandos ([`panel.py`](#el-panel)), la conexión con **Unreal Engine probada en Unreal 5.8** con un proyecto listo para abrir ([`unreal/HandMotionUE`](UNREAL.md)), reproducir una captura guardada en Unreal como si fuera en vivo (`unreal_bridge.py --csv`) y el proyecto **probado en Windows**. Historial completo en [`CHANGELOG.md`](CHANGELOG.md).
+> **Versión 23-B (2026-11-23).** Lo último: un **panel** para usar todo sin recordar comandos ([`panel.py`](#el-panel)), la conexión con **Unreal Engine probada en Unreal 5.8** con un proyecto listo para abrir ([`unreal/HandMotionUE`](UNREAL.md)), reproducir una captura guardada en Unreal como si fuera en vivo (`unreal_bridge.py --csv`) y el proyecto **probado en Windows**, con YOLO en la **GPU NVIDIA** (23-B). Historial completo en [`CHANGELOG.md`](CHANGELOG.md).
 
-**Índice:** [Qué hace](#qué-hace) · [Requisitos](#requisitos) · [Instalación](#instalación) · [El panel](#el-panel) · [Primera captura](#primera-captura) · [Recetas](#recetas) · [Teclas](#teclas) · [Archivos que se generan](#archivos-que-se-generan) · [Problemas comunes](#problemas-comunes) · [Más documentación](#más-documentación)
+**Índice:** [Qué hace](#qué-hace) · [Requisitos](#requisitos) · [Instalación](#instalación) · [El panel](#el-panel) · [Primera captura](#primera-captura) · [Recetas](#recetas) · [Teclas](#teclas) · [Archivos que se generan](#archivos-que-se-generan) · [Problemas comunes](#problemas-comunes) · [Más documentación](#más-documentación) · [Apoyo de IA](#apoyo-de-inteligencia-artificial)
 
 ## Qué hace
 
@@ -24,7 +24,7 @@ Mide el movimiento de la **mano y el antebrazo en 3D** con una webcam: el esquel
 
 - **Python 3.12 o más nuevo** (lo exige numpy 2.5, la versión fijada), salvo la 3.14.1, que torchvision excluye. Probado con **Python 3.14 en macOS (Apple Silicon)** y con **Python 3.13 en Windows 11** (desde la 23-A; en Windows, con las pruebas sin cámara y Unreal, todavía no con una webcam). En Linux debería funcionar, pero no se ha probado.
 - Una **webcam** (o dos, para la profundidad real).
-- **~3 GB libres**: las librerías de YOLO (PyTorch) son grandes.
+- **~1.5 GB libres**: el entorno instalado ocupa 1.2 GB (medido en macOS), casi todo por las librerías de YOLO (PyTorch). Con torch para NVIDIA (paso 2b) ocupa más; eso no se ha medido.
 - Para la parte de Unreal: **Unreal Engine 5** (probado con 5.8) instalado desde el Epic Games Launcher.
 - Con una **tarjeta NVIDIA** conviene instalar torch con CUDA (paso 2b de la instalación): el codo (YOLO) se calcula ~5 veces más rápido.
 - **Internet la primera vez**, para instalar las librerías y descargar los modelos.
@@ -93,7 +93,7 @@ curl.exe -L -o models\hand_landmarker.task `
 ./venv/bin/python3 pruebas/correr_todo.py
 ```
 
-Tiene que terminar con cinco líneas `OK`. Si alguna dice `FALLA`, revisa [Problemas comunes](#problemas-comunes).
+Al final aparece un `RESUMEN` con cinco pruebas, y las cinco tienen que decir `OK`. Si alguna dice `FALLA`, revisa [Problemas comunes](#problemas-comunes).
 
 > **En Windows**, en todos los comandos de este README cambia `./venv/bin/python3` por `venv\Scripts\python` y las `/` de las rutas por `\`.
 >
@@ -184,6 +184,7 @@ Con dos cámaras la palma se mide sola (no hace falta `--palma-cm`). Si mueves u
 ```bash
 ./venv/bin/python3 captura.py --unreal                    # en vivo, con la cámara
 ./venv/bin/python3 unreal_bridge.py --csv --bucle         # una captura guardada (la última), como si fuera en vivo
+./venv/bin/python3 unreal_bridge.py --csv capturas/hand_data_20260924_135051.csv --bucle   # una de las capturas reales del repositorio
 ./venv/bin/python3 unreal_bridge.py --demo 127.0.0.1:8000 # una mano sintética
 ```
 
@@ -228,7 +229,7 @@ Funcionan con cualquiera de las ventanas activa (haz clic en una si no responde)
 
 ## Archivos que se generan
 
-Todo queda en `capturas/`, que **no se sube a git**: puede tener datos de participantes.
+Todo queda en `capturas/`, que **no se sube a git** por defecto: puede tener datos de participantes. Las únicas excepciones son las **14 capturas de prueba del equipo** (septiembre y octubre de 2026), que se subieron a propósito para trabajarlas en otra computadora (Unreal, GPU). Qué tiene cada una y cómo usarlas: [`capturas/README.md`](capturas/README.md).
 
 | Archivo | Qué es |
 |---------|--------|
@@ -275,5 +276,9 @@ El nombre lleva la fecha y hora de **inicio** de la sesión. Si no se detectó n
 | [CHANGELOG.md](CHANGELOG.md) | Historial fechado, versión por versión |
 | [REVISION.md](REVISION.md) | Revisiones del proyecto y pendientes |
 | [pruebas/README.md](pruebas/README.md) | Pruebas sin cámara: qué comprueba cada una |
+
+## Apoyo de inteligencia artificial
+
+El desarrollo de HandMotion3D contó con el apoyo de un asistente de IA (Claude Code, de Anthropic) para escribir y revisar código, pruebas y documentación. Las decisiones, la revisión y la responsabilidad sobre el programa y sus resultados son del equipo del proyecto. Lo hecho se verificó con las pruebas de `pruebas/`, que son simulaciones; **las pruebas con cámaras reales y la validación de la medición contra una referencia están pendientes** ([`REVISION.md`](REVISION.md)). Si publicas con estos datos, revisa la política de tu revista sobre declarar el uso de IA.
 
 <a id="historial"></a>El proyecto se llamaba **MediaPipeHands** y vivía en una carpeta del repositorio `Machine_Learning`; desde la versión 24-E (2026-09-24) se llama **HandMotion3D** y ocupa la raíz del repositorio. El repositorio de GitHub todavía no se ha renombrado.

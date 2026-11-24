@@ -3,6 +3,28 @@
 Historial de cambios del proyecto. Formato libre pero cronológico
 (más reciente arriba), en español porque así está el resto del repo.
 
+## 2026-11-24 (revisión 7: documentación, la 23-A/23-B en macOS y capturas subidas; sin versión nueva)
+
+Pedido: revisar por qué fallaba el `git pull` en la Mac, terminar la revisión de la documentación de la 17-E, revisar la 23-A y la 23-B, y subir las capturas guardadas para trabajarlas en la PC con Unreal Engine y la RTX 4090. Detalle en [REVISION.md](REVISION.md#revisión-7--documentación-de-la-17-e-la-23-a23-b-en-macos-y-capturas-sin-versión-nueva).
+
+### Corregido
+- `docs/ARTICULOS.md` decía que reanalizar un video con la misma versión da **los mismos números**. No se comprobó, y MediaPipe/YOLO pueden variar entre equipos: ahora lo dice así.
+- `docs/ARTICULOS.md`: `shasum -a 256` aparecía como comando de Linux; allí es `sha256sum`.
+- README: "~3 GB libres" → "~1.5 GB" (el venv de macOS mide 1.2 GB; con torch CUDA, más, sin medir).
+- README: se aclaró el ambiguo "cinco líneas `OK`" (es el `RESUMEN` con cinco pruebas).
+- `exportar_csv.py`: el error de un CSV sin velocidad decía "de antes de la versión 24-A"; la velocidad llegó en la **24-B**. También en `pruebas/exportar_csv_simulado.py` y `pruebas/README.md`.
+
+### Añadido
+- README: sección breve **Apoyo de inteligencia artificial** (asistente de IA usado en el desarrollo; responsabilidad del equipo; validación pendiente).
+- **Las 14 capturas de `capturas/`** (2026-09-21 a 2026-10-01, pruebas del equipo, sin participantes) se suben al repositorio con `git add -f`, sin tocar el `.gitignore`: las nuevas siguen sin subirse solas.
+- **`capturas/README.md`**: qué tiene cada captura (fotogramas, duración, formato), qué columnas tiene cada uno de los 4 formatos, qué se puede hacer con cada una (Unreal, `plot_csv.py`, exportar) y los comandos para la PC con Unreal y la 4090. README (*Archivos que se generan*, receta de Unreal) enlaza ahí.
+
+### Comprobado en macOS (la 23-A y la 23-B se habían probado solo en Windows)
+- 5 de 5 pruebas `OK` con PySide6 instalado; `panel.py` abre; `unreal_bridge.py --csv` reproduce los 4 formatos de CSV de `capturas/`.
+
+### Rama e historial
+- La copia de la Mac tenía los commits de la 19-A a la 17-E de antes de quitarles la línea `Co-Authored-By` (mismos archivos): se adoptó el historial de GitHub y se trabajó sobre `main` (ver `COMANDOS.md`).
+
 ## 2026-11-23 (versión 23-B: YOLO en la GPU NVIDIA)
 
 Pedido: instalar torch con CUDA para usar la RTX 4090.
@@ -62,6 +84,7 @@ Pedido: mejorar las instrucciones del README.
 
 ### Corregido
 - **Requisito de Python:** con las versiones fijadas hace falta **Python 3.12 o más nuevo** (lo exige numpy 2.5; torchvision excluye la 3.14.1). No estaba escrito en ningún lado.
+- Cuatro afirmaciones de esta versión estaban mal o sin comprobar; se corrigieron en la revisión 7 (2026-11-24, arriba).
 
 ## 2026-11-17 (versión 17-D: datos de cada sesión)
 

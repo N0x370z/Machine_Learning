@@ -144,6 +144,7 @@ Teclas:
 | `e` = Excel de ingeniería, `m` = Excel de medicina (`.xlsx` junto al CSV) | `e` = **los dos CSV** para artículos, en `capturas/articulos/`; `m` ya no hace nada | 17-B | Pedido: solo CSV, uno con el formato de ingeniería y otro con el de medicina, para publicaciones científicas |
 | `exportar_excel.py --formato X [--salida ARCHIVO.xlsx]` | `exportar_csv.py [--formato X\|ambos] [--salida CARPETA] [--participante CODIGO]` | 17-B | Ídem; un CSV lo lee cualquier programa de estadística, sin depender de que Excel recalcule fórmulas |
 | Solo la cámara en vivo | `--video ARCHIVO` | 17-C | Reanalizar sesiones, procesar videos ya grabados y que otra persona reproduzca los resultados |
+| `capturas/*.csv` nunca se subía | Las 14 capturas de prueba de 2026-09-21 a 2026-10-01 están en el repositorio (`git add -f`); las nuevas siguen sin subirse | Revisión 7 | Trabajarlas en la PC con Unreal y la RTX 4090. El `.gitignore` no se cambió para no subir por error datos de participantes |
 | El README (1,100 líneas) tenía la guía, la parte técnica y el historial | README = guía de uso; `docs/TECNICO.md`, `docs/ARTICULOS.md`, `docs/CAMBIOS.md` | 17-E | Antes de la primera instrucción había 6 bloques de novedades; faltaban Windows, requisitos y una receta para sesiones de artículos |
 | Si la cámara dejaba de entregar imágenes, el programa terminaba sin decir nada | Avisa `La cámara dejó de entregar imágenes` (y el CSV queda guardado) | 28-E | Se veía como un cierre inexplicable |
 
