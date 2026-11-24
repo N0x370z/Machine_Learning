@@ -74,7 +74,7 @@ def main():
         proc.kill()
         print("\n".join(log_lines[-30:]))
         raise SystemExit("Unreal no llegó a escuchar (ver el registro de arriba).")
-    unreal_bridge.run_csv(csv_path, ("127.0.0.1", PORT), loop=True, seconds=16)
+    unreal_bridge.run_csv(csv_path, ("127.0.0.1", PORT), loop=True, seconds=30)
     proc.wait(600)
 
     meta_path = out / "unreal_imagenes.json"

@@ -3,6 +3,21 @@
 Historial de cambios del proyecto. Formato libre pero cronológico
 (más reciente arriba), en español porque así está el resto del repo.
 
+## 2026-11-24 (Unreal: mano real con huesos; sin versión nueva)
+
+Pedido: un modelo de mano real con huesos.
+
+### Añadido
+- **`mano_esqueletal.py`**: la mano del maniquí de Unreal (`MannequinHand_Right`, 16 huesos), movida girando sus huesos con los 21 puntos: orientación de la palma con un marco (muñeca → medio, índice → meñique), cada falange con el giro mínimo hacia la articulación siguiente y la escala de la palma de los datos. Mano izquierda en espejo. Es el estilo por defecto (`vr`, con el material de VR); `piel` la muestra con piel translúcida.
+- El modelo es contenido de Epic: se copia desde la instalación de Unreal al abrir el proyecto y **no se sube** (`.gitignore`).
+- Panel: *Estilo en Unreal* con los cuatro estilos (`vr`, `piel`, `vr_simple`, `esqueleto`).
+- Historial del aspecto: etapa 5 (`docs/unreal_historial/5_mano_con_huesos.png`).
+
+### Problemas resueltos al hacerlo (documentados en `UNREAL.md`)
+- **La malla no se redibujaba** en el editor aunque los huesos estuvieran bien girados (un `PoseableMeshComponent` solo se actualiza en su tick, y en el editor no hay tick). El receptor arranca **Simulate** solo y mueve las copias del mundo simulado; si se detiene, lo vuelve a arrancar.
+- **Mano gris**: los materiales necesitan *Used with Skeletal Mesh* (`M_ManoVR_v3`, `M_PielTranslucida_v4`).
+- Al terminar Simulate, el receptor intentaba mover copias que ya no existían (error en el registro): ahora lo detecta.
+
 ## 2026-11-24 (Unreal: manos de VR, movimiento suave e historial del aspecto; sin versión nueva)
 
 Pedido: que no se viera "nada" en Unreal, que dejara de vibrar, que las manos se vieran como las de VR y documentar todo, incluido cómo se veía antes.

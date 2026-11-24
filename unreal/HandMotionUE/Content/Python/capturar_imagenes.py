@@ -78,6 +78,21 @@ class Capturer:
 
     def _tick(self):
         now = time.monotonic()
+        if receptor.state["sim"] == "listo" and not getattr(self, "bound", False):
+            copy = receptor.pie_copy(self.actor)       # la cámara también va al mundo simulado
+            if copy is not None:
+                self.actor = copy
+                self.comp = copy.capture_component2d
+                self.world = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_game_world()
+                self.rt = unreal.RenderingLibrary.create_render_target2d(
+                    self.world, W, H, unreal.TextureRenderTargetFormat.RTF_RGBA8_SRGB,
+                    unreal.LinearColor(0, 0, 0, 1), False)
+                self.comp.set_editor_property("texture_target", self.rt)
+                self.comp.set_editor_property("capture_source", unreal.SceneCaptureSource.SCS_FINAL_COLOR_LDR)
+                self.comp.set_editor_property("fov_angle", 90.0)
+                self.bound = True
+        if receptor.state["sim"] in ("pendiente", "arrancando"):
+            return
         if self.t_first is None:
             if receptor.state["frames"]:
                 self.t_first = now
@@ -116,6 +131,12 @@ class Capturer:
         with open(os.path.join(OUT, "unreal_imagenes.json"), "w", encoding="utf-8") as f:
             json.dump(meta, f, ensure_ascii=False, indent=2)
         log("listo" if not error else f"terminó con error: {error}")
+        receptor.state["closing"] = True
+        if receptor.state["sim"] != "no":
+            try:
+                unreal.get_editor_subsystem(unreal.LevelEditorSubsystem).editor_request_end_play()
+            except Exception:
+                pass
         unreal.SystemLibrary.quit_editor()
 
 

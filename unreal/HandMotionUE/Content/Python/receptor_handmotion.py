@@ -81,7 +81,7 @@ def setup_editor_view():
 
 escena.new_level()
 escena.build_stage()
-slots = [escena.HandModel(tag) for tag in ("", "B")[:MAX_HANDS]]
+slots = [escena.make_hand(tag) for tag in ("", "B")[:MAX_HANDS]]
 for s in slots:
     s.set_visible(False)
 slot_of = {}                   # id de la mano -> índice en slots
@@ -92,6 +92,43 @@ pending = {}                   # id nuevo -> (mensajes vistos, último instante)
 state = {"frames": 0, "msgs": 0, "t_log": time.monotonic(), "last": None, "center": None,
          "labels": set(), "t_start": time.monotonic(), "camera_ok": False}
 CAMERA_CHECK_S = 2.0           # colocar la cámara desde 2 s después de arrancar
+
+# Manos con huesos: hace falta el modo Simulate (ver mano_esqueletal.py).
+NEEDS_SIMULATE = any(getattr(s, "NEEDS_SIMULATE", False) for s in slots)
+state["sim"] = "no" if not NEEDS_SIMULATE else "pendiente"   # pendiente -> arrancando -> listo
+
+
+def pie_copy(actor):
+    """La copia de un actor del editor en el mundo de Simulate (o None)."""
+    world = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_game_world()
+    if world is None:
+        return None
+    name = actor.get_name()
+    for a in unreal.GameplayStatics.get_all_actors_of_class(world, type(actor)):
+        if a.get_name() == name:
+            return a
+    return None
+
+
+def _simulate(now):
+    """Arranca Simulate cuando el editor ya cargó y enlaza las manos con sus copias."""
+    if state["sim"] == "pendiente" and now - state["t_start"] >= CAMERA_CHECK_S:
+        unreal.get_editor_subsystem(unreal.LevelEditorSubsystem).editor_play_simulate()
+        state["sim"] = "arrancando"
+        log("modo Simulate: arrancando (la mano con huesos solo se redibuja así)")
+    elif state["sim"] == "arrancando":
+        world = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_game_world()
+        if world is not None and all(s.bind(world) for s in slots):
+            state["sim"] = "listo"
+            state["camera_ok"] = False           # colocar la cámara otra vez, ya en Simulate
+            log("modo Simulate: listo")
+    elif state["sim"] == "listo" and not state.get("closing"):
+        # Si alguien detiene Simulate (Stop), las copias desaparecen: se vuelve a arrancar.
+        if unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_game_world() is None:
+            state["sim"] = "pendiente"
+            state["t_start"] = now - CAMERA_CHECK_S + 1.0
+            log("modo Simulate: se detuvo; se vuelve a arrancar en 1 s")
+
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.bind(("0.0.0.0", PORT))
@@ -158,13 +195,15 @@ def _on_message(address, floats, now):
         if abs(gap) < MIN_GAP_CM:
             side = 1.0 if (gap > 0 or (gap == 0 and wrist.y >= wrists[j].y)) else -1.0
             bases[i] = unreal.Vector(bases[j].y * 0 + bases[i].x, bases[j].y + side * MIN_GAP_CM, bases[i].z)
-    pts = slots[i].apply(floats, base=bases[i])
+    pts = slots[i].apply(floats, base=bases[i], label=label)
     state["last"] = (label, pts[0], pts[8], floats[2], floats[72:87])
 
 
 def _place_camera(now):
     """Coloca la cámara una vez que el viewport existe (lo comprueba leyéndola)."""
     if state["camera_ok"] or now - state["t_start"] < CAMERA_CHECK_S:
+        return
+    if state["sim"] in ("pendiente", "arrancando"):
         return
     target = escena.look_from(escena.TWO_HANDS_VIEW)[0]
     got = setup_editor_view()
@@ -178,7 +217,14 @@ def _place_camera(now):
 
 def _tick(_dt):
     now = time.monotonic()
+    _simulate(now)
     _place_camera(now)
+    if state["sim"] in ("pendiente", "arrancando") or state.get("closing"):
+        while True:                      # mientras arranca Simulate, se descartan los mensajes
+            try:
+                sock.recvfrom(4096)
+            except (BlockingIOError, OSError):
+                return
     while True:
         try:
             packet, _ = sock.recvfrom(4096)
@@ -204,4 +250,4 @@ def _tick(_dt):
 
 
 tick_handle = unreal.register_slate_post_tick_callback(_tick)
-log(f"receptor listo: esperando mensajes OSC en el puerto {PORT} (hasta {MAX_HANDS} manos)")
+log(f"receptor listo: esperando mensajes OSC en el puerto {PORT} (hasta {MAX_HANDS} manos, estilo {escena.STYLE})")

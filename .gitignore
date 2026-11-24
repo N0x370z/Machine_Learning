@@ -42,3 +42,7 @@ unreal/HandMotionUE/Content/Python/__pycache__/
 # Material de la piel (2026-11-24): lo crea handmotion_escena.py al abrir
 # el proyecto, no hace falta subirlo.
 unreal/HandMotionUE/Content/HandMotion/
+
+# Mano con huesos (2026-11-24): MannequinHand_Right es contenido de Epic;
+# mano_esqueletal.py lo copia de la instalación de Unreal. No se sube.
+unreal/HandMotionUE/Content/CollaborativeViewer/

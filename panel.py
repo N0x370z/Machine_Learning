@@ -347,7 +347,10 @@ class FilePicker(Field):
 
 def ue_style_field():
     """Estilo de las manos en Unreal: no es un flag, se usa al abrir el proyecto."""
-    f = Choice("Estilo en Unreal", [("Manos de VR", ["vr"]), ("Esqueleto con piel", ["esqueleto"])],
+    f = Choice("Estilo en Unreal", [("Mano con huesos, aspecto VR", ["vr"]),
+                                    ("Mano con huesos, piel translúcida", ["piel"]),
+                                    ("Manos de VR simples (elipsoides)", ["vr_simple"]),
+                                    ("Esqueleto de colores con piel", ["esqueleto"])],
                hint="Cómo se ven las manos al abrir el proyecto con el botón de abajo "
                     "(si ya está abierto, ciérralo y ábrelo de nuevo).")
     f.style = lambda: f.options[f.w.currentIndex()][1][0]

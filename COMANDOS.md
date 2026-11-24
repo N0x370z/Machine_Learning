@@ -161,7 +161,7 @@ El envío en vivo es `captura.py --unreal`. Sin cámara:
 ./venv/bin/python3 unreal_bridge.py --demo 127.0.0.1:8000 --segundos 10
 ```
 
-El receptor: abrir `unreal/HandMotionUE/HandMotionUE.uproject` (arranca solo, puerto 8000; registro en `unreal/HandMotionUE/Saved/handmotion_receptor.log`). Estilo de las manos (2026-11-24): manos de VR por defecto; el esqueleto de colores con piel, abriendo Unreal con la variable de entorno `HM_ESTILO=esqueleto`:
+El receptor: abrir `unreal/HandMotionUE/HandMotionUE.uproject` (arranca solo, puerto 8000; registro en `unreal/HandMotionUE/Saved/handmotion_receptor.log`). Estilo de las manos (2026-11-24): `HM_ESTILO` = `vr` (por defecto: mano con huesos, aspecto VR), `piel` (mano con huesos, piel translúcida), `vr_simple` (manos de VR de elipsoides) o `esqueleto` (esqueleto de colores con piel). Por ejemplo:
 
 ```powershell
 $env:HM_ESTILO = "esqueleto"; & "D:\UE_5.8\Engine\Binaries\Win64\UnrealEditor.exe" unreal\HandMotionUE\HandMotionUE.uproject

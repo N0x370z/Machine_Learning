@@ -1,5 +1,5 @@
 {
-  "fotogramas_recibidos": 170,
+  "fotogramas_recibidos": 168,
   "manos": [
     "Left",
     "Right"
@@ -9,7 +9,7 @@
     {
       "imagen": "unreal_vista_1.png",
       "segundo": 3.0,
-      "manos_en_pantalla": 2
+      "manos_en_pantalla": 1
     },
     {
       "imagen": "unreal_vista_2.png",

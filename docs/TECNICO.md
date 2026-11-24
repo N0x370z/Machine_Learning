@@ -38,7 +38,7 @@ HandMotion3D/           # raíz del repositorio
 ├── unreal/HandMotionUE/   # Proyecto de Unreal Engine 5 listo para abrir (23-A)
 │   ├── HandMotionUE.uproject     # Usa solo los plugins Python Editor Script y OSC
 │   ├── Config/                   # DefaultEngine.ini (modo desarrollador de Python)
-│   └── Content/Python/           # init_unreal.py, handmotion_escena.py, receptor_handmotion.py, capturar_imagenes.py
+│   └── Content/Python/           # init_unreal.py, receptor_handmotion.py, mano_esqueletal.py (mano con huesos), handmotion_escena.py, capturar_imagenes.py
 ├── docs/
 │   ├── TECNICO.md            # Este documento: cómo funciona cada parte
 │   ├── ARTICULOS.md          # Guía para publicaciones: CSV de resultados, ecuaciones, reproducibilidad
@@ -48,7 +48,7 @@ HandMotion3D/           # raíz del repositorio
 │   ├── imagenes_unreal.py    # Renders REALES de Unreal (23-A): abre Unreal sin ventana y le manda una captura
 │   ├── unreal_mano.png       # Las tres juntas (a los 3 s, 7 s y 11 s de 3/4); también unreal_vista_1/vista_2/tres_cuartos.png
 │   ├── unreal_imagenes.json  # De qué captura salieron y cuántos fotogramas recibió Unreal
-│   ├── unreal_historial/     # Cómo se veía en Unreal en cada etapa (simulada, esqueleto, piel, VR)
+│   ├── unreal_historial/     # Cómo se veía en Unreal en cada etapa (simulada, esqueleto, piel, VR, mano con huesos)
 │   └── panel_captura.png, panel_unreal.png   # El panel (panel.py --captura)
 ├── pruebas/            # Pruebas sin cámara (ver pruebas/README.md)
 │   ├── correr_todo.py        # Corre las cinco y resume

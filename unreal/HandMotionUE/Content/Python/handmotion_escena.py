@@ -33,9 +33,14 @@ TIP_RADIUS_CM = 0.75
 BONE_RADIUS_CM = 0.5
 PREFIX = "HM_"
 
-# Estilo (2026-11-24): "vr" = mano blanco azulada con el centro oscuro y el
-# borde brillante, como las manos "fantasma" de los visores de realidad
-# virtual, sin el esqueleto; "esqueleto" = el esqueleto de colores por dedo con una piel
+# Estilo (2026-11-24), con la variable de entorno HM_ESTILO:
+#   "vr"        (por defecto) la mano con huesos (mano_esqueletal.py) con el
+#               material de VR: centro oscuro y borde brillante, como las
+#               manos "fantasma" de los visores;
+#   "piel"      la mano con huesos con una piel translúcida color piel;
+#   "vr_simple" la versión anterior de la mano de VR, hecha de elipsoides;
+#   "esqueleto" el esqueleto de colores por dedo con piel translúcida encima.
+# (Las líneas siguientes describen "esqueleto"): "esqueleto" = el esqueleto de colores por dedo con una piel
 # color piel encima. Se elige con la variable de entorno HM_ESTILO.
 STYLE = os.environ.get("HM_ESTILO", "vr")
 # Suavizado: cada parte de la mano se acerca a su posición nueva con esta
@@ -51,8 +56,8 @@ SKIN_TAPER = 0.88
 PALM_THICKNESS_CM = 2.0
 CAPSULE_OVERLAP = 0.6      # cuánto pasa cada falange de la articulación (en radios)
 SKIN_COLOR = (0.85, 0.58, 0.45)        # tono piel, lineal
-SKIN_MATERIAL = "/Game/HandMotion/M_PielTranslucida_v3"
-VR_MATERIAL = "/Game/HandMotion/M_ManoVR_v2"
+SKIN_MATERIAL = "/Game/HandMotion/M_PielTranslucida_v4"
+VR_MATERIAL = "/Game/HandMotion/M_ManoVR_v3"
 VR_COLOR = (0.80, 0.88, 1.0)           # blanco azulado, lineal
 BONE_MATERIAL = "/Game/HandMotion/M_HuesoMate_v1"   # el esqueleto: mate, sin brillos blancos
 # Huesos con piel: los de los dedos (los de la palma los cubre la placa).
@@ -105,7 +110,7 @@ def spawn(cls, location=ORIGIN):
 
 def skin_material():
     """El material de la piel del estilo elegido (ver STYLE)."""
-    if STYLE == "vr":
+    if STYLE in ("vr", "vr_simple"):
         return _vr_material()
     return _translucent_material(SKIN_MATERIAL, SKIN_COLOR, glow=(0.3, 1.0),
                                  opacity=(0.16, 0.7), exponent=2.0)
@@ -126,6 +131,9 @@ def _vr_material():
     mat = unreal.AssetToolsHelpers.get_asset_tools().create_asset(
         name, folder, unreal.Material, unreal.MaterialFactoryNew())
     mat.set_editor_property("shading_model", unreal.MaterialShadingModel.MSM_UNLIT)
+    # Sin esto, en la mano con huesos (malla esquelética) Unreal usa el
+    # material gris por defecto (2026-11-24).
+    mat.set_editor_property("used_with_skeletal_mesh", True)
     mel = unreal.MaterialEditingLibrary
     dark = mel.create_material_expression(mat, unreal.MaterialExpressionConstant3Vector, -600, 0)
     dark.set_editor_property("constant", unreal.LinearColor(*(c * 0.06 for c in VR_COLOR), 1.0))
@@ -158,6 +166,7 @@ def _translucent_material(path, rgb, glow, opacity, exponent):
         name, folder, unreal.Material, unreal.MaterialFactoryNew())
     mat.set_editor_property("blend_mode", unreal.BlendMode.BLEND_TRANSLUCENT)
     mat.set_editor_property("shading_model", unreal.MaterialShadingModel.MSM_UNLIT)
+    mat.set_editor_property("used_with_skeletal_mesh", True)   # también para la mano con huesos
     mel = unreal.MaterialEditingLibrary
     color = mel.create_material_expression(mat, unreal.MaterialExpressionVectorParameter, -700, 0)
     color.set_editor_property("parameter_name", "Color")
@@ -249,7 +258,7 @@ class HandModel:
         estilo "vr").
         """
         if skeleton is None:
-            skeleton = STYLE != "vr"
+            skeleton = STYLE == "esqueleto"
         name = f"Mano{tag}_"
         for a in _actors().get_all_level_actors():
             if a.get_actor_label().startswith(PREFIX + name):
@@ -348,7 +357,7 @@ class HandModel:
         self.palm.set_actor_scale3d(unreal.Vector((width + 2.4) / 100.0, (length + 2.0) / 100.0,
                                                   PALM_THICKNESS_CM / 100.0))
 
-    def apply(self, floats, follow_wrist=0.3, base=None):
+    def apply(self, floats, follow_wrist=0.3, base=None, label=None):
         """
         Pone la mano en la pose de un mensaje /handmotion/Left|Right.
         follow_wrist: fracción del desplazamiento de la muñeca (respecto al
@@ -407,6 +416,14 @@ class HandModel:
             self.forearm.set_is_temporarily_hidden_in_editor(not (elbow is not None and self.visible))
             if elbow is not None:
                 self._place_bone(self.forearm, elbow, pts[0], 1.6)
+
+
+def make_hand(tag=""):
+    """Una mano del estilo elegido (ver STYLE): con huesos o de piezas simples."""
+    if STYLE in ("vr", "piel"):
+        import mano_esqueletal
+        return mano_esqueletal.SkinnedHand(tag)
+    return HandModel(tag)
 
 
 def new_level():
