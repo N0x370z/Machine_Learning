@@ -46,7 +46,7 @@ Uso real: ./venv/bin/python3 captura.py --unreal 127.0.0.1:8000
 Guía de Unreal paso a paso: UNREAL.md. Receptor listo: unreal/HandMotionUE.
 
 Historial de cambios relevantes: ver CHANGELOG.md.
-Última actualización: 2026-11-23.
+Última actualización: 2026-11-24.
 """
 
 import argparse
@@ -379,17 +379,19 @@ def _wrist_cm_from_csv(csv_path):
     return wrists
 
 
-def run_csv(csv_path, destino, speed=1.0, loop=False, seconds=None):
+def run_csv(csv_path, destino, speed=1.0, loop=False, seconds=None, swap_hands=False):
     """
     Reproduce un CSV de captura.py como si fuera en vivo: manda cada
     fotograma a destino respetando los tiempos con los que se grabó
     (speed 2 = el doble de rápido). Es lo mismo que mandaría
     captura.py --unreal, pero sin cámara. loop: vuelve a empezar al
-    terminar. Devuelve el número de fotogramas enviados.
+    terminar. swap_hands: invierte Left/Right (CSV grabados antes de la
+    corrección del 2026-09-23, igual que plot_csv.py --swap-hands).
+    Devuelve el número de fotogramas enviados.
     """
     import plot_csv   # aquí: trae matplotlib, que --escuchar/--demo no usan
     host, port = destino
-    frames, timestamps, aspect, elbow_sources, palms = plot_csv.load_frames(csv_path)
+    frames, timestamps, aspect, elbow_sources, palms = plot_csv.load_frames(csv_path, swap_hands)
     if not frames:
         raise SystemExit(f"{csv_path} no tiene fotogramas con manos.")
     wrists_cm = _wrist_cm_from_csv(csv_path)
@@ -448,6 +450,8 @@ def parse_args(argv=None):
                         help="Con --csv: 2 = el doble de rápido, 0.5 = la mitad.")
     parser.add_argument("--bucle", action="store_true",
                         help="Con --csv: vuelve a empezar al terminar.")
+    parser.add_argument("--swap-hands", action="store_true",
+                        help="Con --csv: invierte Left/Right (CSV de antes del 2026-09-23).")
     parser.add_argument("--segundos", type=float, default=None,
                         help="Termina solo tras estos segundos (default: sin fin).")
     args = parser.parse_args(argv)
@@ -465,7 +469,7 @@ def main():
         from pathlib import Path
         import plot_csv
         path = Path(args.csv) if args.csv else plot_csv.latest_csv()
-        run_csv(path, args.destino, args.velocidad, args.bucle, args.segundos)
+        run_csv(path, args.destino, args.velocidad, args.bucle, args.segundos, args.swap_hands)
     else:
         run_demo(args.demo, args.segundos)
 

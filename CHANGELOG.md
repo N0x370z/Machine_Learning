@@ -3,6 +3,17 @@
 Historial de cambios del proyecto. Formato libre pero cronológico
 (más reciente arriba), en español porque así está el resto del repo.
 
+## 2026-11-24 (corrección tras la revisión 7: invertir izquierda/derecha al reproducir en Unreal; sin versión nueva)
+
+Pedido: revisar el commit de la revisión 7 (capturas subidas).
+
+### Corregido
+- **Cuatro de las capturas subidas tienen Left/Right al revés** (las del 2026-09-21 y las de las 11:54 y 11:56 del 2026-09-23, grabadas antes del arreglo `1fa9399`). `plot_csv.py` ya tenía `--swap-hands`, pero `unreal_bridge.py --csv` no: en Unreal la mano izquierda se habría movido como la derecha. Ahora `unreal_bridge.py --csv … --swap-hands` y, en el panel, la casilla *Invertir izquierda/derecha* en *Reproducir en Unreal* y en *Ver una captura*. Prueba nueva en `pruebas/unreal_simulado.py`.
+- `capturas/README.md` marca esas cuatro (⇄) y explica cuándo usar `--swap-hands`.
+
+### Comprobado
+- Las 14 capturas se cargan y cada mano da un mensaje válido para Unreal (87 floats): fotogramas, duraciones y formatos coinciden con la tabla de `capturas/README.md`. Las 5 pruebas pasan.
+
 ## 2026-11-24 (revisión 7: documentación, la 23-A/23-B en macOS y capturas subidas; sin versión nueva)
 
 Pedido: revisar por qué fallaba el `git pull` en la Mac, terminar la revisión de la documentación de la 17-E, revisar la 23-A y la 23-B, y subir las capturas guardadas para trabajarlas en la PC con Unreal Engine y la RTX 4090. Detalle en [REVISION.md](REVISION.md#revisión-7--documentación-de-la-17-e-la-23-a23-b-en-macos-y-capturas-sin-versión-nueva).

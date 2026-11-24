@@ -138,9 +138,9 @@ Una ventana con todo lo de esta referencia: elige la tarea a la izquierda, llena
 |----------|------------------|
 | Capturar con la cámara | `captura.py [--cam N] [--palma-cm X] [--yolo-modelo n/m \| --sin-antebrazo] [--sin-3d] [--estereo --cam2 N] [--unreal [destino]] [--participante] [--notas]` |
 | Analizar un video | `captura.py --video ARCHIVO [--video-espejado] …` |
-| Ver una captura | `plot_csv.py CSV [--3d] [--frame N] [--palma-cm X]` |
+| Ver una captura | `plot_csv.py CSV [--3d] [--swap-hands] [--frame N] [--palma-cm X]` |
 | Exportar para artículos | `exportar_csv.py CSV [--formato] [--participante] [--todos-los-puntos]` |
-| Reproducir en Unreal | `unreal_bridge.py --csv CSV [--destino] [--velocidad] [--bucle]`, y botón *Abrir proyecto de Unreal* |
+| Reproducir en Unreal | `unreal_bridge.py --csv CSV [--destino] [--velocidad] [--bucle] [--swap-hands]`, y botón *Abrir proyecto de Unreal* |
 | Mano de prueba / Ver lo que llega | `unreal_bridge.py --demo DESTINO` / `--escuchar PUERTO` |
 | Imprimir el tablero / Calibrar | `estereo.py tablero` / `estereo.py calibrar --cuadro-mm X [--cam1] [--cam2]` |
 | Pruebas | `pruebas/correr_todo.py` |
@@ -155,6 +155,7 @@ El envío en vivo es `captura.py --unreal`. Sin cámara:
 ./venv/bin/python3 unreal_bridge.py --csv                      # reproduce la última captura como si fuera en vivo
 ./venv/bin/python3 unreal_bridge.py --csv capturas/hand_data_X.csv --bucle --velocidad 0.5
 ./venv/bin/python3 unreal_bridge.py --csv --destino 192.168.1.20:8000   # Unreal en otra computadora
+./venv/bin/python3 unreal_bridge.py --csv capturas/hand_data_20260921_120519.csv --swap-hands   # CSV de antes del 2026-09-23 (Left/Right al revés)
 ./venv/bin/python3 unreal_bridge.py --escuchar 8000            # muestra lo que llega al puerto 8000
 ./venv/bin/python3 unreal_bridge.py --demo 127.0.0.1:8000      # manda una mano sintética (abre y cierra los dedos)
 ./venv/bin/python3 unreal_bridge.py --demo 127.0.0.1:8000 --segundos 10

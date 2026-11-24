@@ -12,10 +12,10 @@ El nombre lleva la fecha y hora de inicio. "Fotogramas" son los que tienen al me
 
 | Archivo | Formato | Fotogramas | Duración | Resolución | Palma (cm) |
 |---------|:-------:|-----------:|---------:|:----------:|:----------:|
-| `hand_data_20260921_120519.csv` | A | 150 | 9.7 s | — | — |
-| `hand_data_20260921_120603.csv` | A | 200 | 11.1 s | — | — |
-| `hand_data_20260923_115410.csv` | A | 98 | 6.4 s | — | — |
-| `hand_data_20260923_115658.csv` | A | 192 | 11.1 s | — | — |
+| `hand_data_20260921_120519.csv` ⇄ | A | 150 | 9.7 s | — | — |
+| `hand_data_20260921_120603.csv` ⇄ | A | 200 | 11.1 s | — | — |
+| `hand_data_20260923_115410.csv` ⇄ | A | 98 | 6.4 s | — | — |
+| `hand_data_20260923_115658.csv` ⇄ | A | 192 | 11.1 s | — | — |
 | `hand_data_20260923_120818.csv` | A | 536 | 21.8 s | — | — |
 | `hand_data_20260924_110548.csv` | A | 184 | 9.9 s | — | — |
 | `hand_data_20260924_122925.csv` | A | 445 | 19.9 s | — | — |
@@ -37,6 +37,15 @@ Formatos (el CSV fue ganando columnas con las versiones; detalle de cada columna
 | D | 28-D en adelante | C + `palma_cm` (28-B) + `x_cm, y_cm, z_cm` (28-D; vacías aquí: no son de estéreo) |
 
 Ninguna es de dos cámaras (`--estereo`): la muñeca no tiene posición absoluta en cm.
+
+**⇄ Izquierda y derecha probablemente al revés.** La lateralidad se corrigió en el commit `1fa9399` (2026-09-23, 11:59); estas cuatro se grabaron antes y la guardaban invertida. Al usarlas, agrega `--swap-hands` (en el panel, *Invertir izquierda/derecha*):
+
+```bash
+./venv/bin/python3 unreal_bridge.py --csv capturas/hand_data_20260921_120519.csv --bucle --swap-hands
+./venv/bin/python3 plot_csv.py capturas/hand_data_20260921_120519.csv --3d --swap-hands
+```
+
+Las dos de las 11:54 y 11:56 del 23-09 quedaron a pocos minutos del arreglo: si al verlas la mano no coincide con la etiqueta, quita `--swap-hands`. Comprobado (2026-11-24, Windows): las 14 se cargan y dan mensajes válidos para Unreal (87 floats por mano).
 
 ## Qué se puede hacer con cada una
 

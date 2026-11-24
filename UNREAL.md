@@ -59,6 +59,7 @@ Es una mano de **esferas y cilindros**, no un modelo con piel: sirve para ver qu
 | `--velocidad 2` | El doble de rápido (`0.5` = la mitad) |
 | `--bucle` | Volver a empezar al terminar |
 | `--segundos N` | Terminar solo tras N segundos |
+| `--swap-hands` | Invertir Left/Right: capturas de antes del 2026-09-23, que la guardaban al revés (ver [`capturas/README.md`](capturas/README.md)) |
 
 Si el CSV se grabó con `--estereo`, la muñeca va con su posición absoluta (columnas `x_cm`, `y_cm`, `z_cm`). Los fotogramas sin manos no están en el CSV, así que no se mandan.
 

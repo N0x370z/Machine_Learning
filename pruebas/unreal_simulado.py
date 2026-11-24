@@ -182,6 +182,12 @@ def main():
         rx.close()
         sent = result.get("sent")
         elapsed = arrivals[4] - arrivals[0]     # 1er y 3er mensaje de fotograma
+        rx2 = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)   # --swap-hands
+        rx2.bind(("127.0.0.1", 0))
+        rx2.settimeout(1.0)
+        ub.run_csv(path, rx2.getsockname(), speed=50.0, swap_hands=True)
+        swapped = ub.osc_decode(rx2.recv(4096)), ub.osc_decode(rx2.recv(4096))
+        rx2.close()
     check("--csv: manda todos los fotogramas", sent == 3, f"{sent} de 3")
     check("--csv: un mensaje de fotograma y uno de mano por fotograma",
           [a for a, _ in got] == ["/handmotion/frame", "/handmotion/Right"] * 3,
@@ -193,6 +199,8 @@ def main():
           str([round(got[k][1][2], 3) for k in (0, 2, 4)]))
     check("--csv: palma y id de la mano del CSV", got[1][1][2] == 8.5 and got[1][1][0] == 3.0,
           f"palma {got[1][1][2]}, id {got[1][1][0]:.0f}")
+    check("--csv --swap-hands: Right del CSV llega como Left (CSV de antes del 2026-09-23)",
+          swapped[1][0] == "/handmotion/Left", swapped[1][0])
     check("--csv: muñeca absoluta del estéreo -> ejes de Unreal (X=z, Y=x, Z=-y)",
           got[5][1][3:6] == [45.0, 10.0, 5.0], str(got[5][1][3:6]))
 

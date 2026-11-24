@@ -16,7 +16,7 @@ Uso:
     ./venv/bin/python3 panel.py            (macOS / Linux)
 
 Historial de cambios relevantes: ver CHANGELOG.md.
-Última actualización: 2026-11-23.
+Última actualización: 2026-11-24.
 """
 
 import json
@@ -454,6 +454,9 @@ def build_tasks():
         "plot_csv.py", [
             CsvPicker(),
             Check("Vista 3D", flag_on="--3d", default=True),
+            Check("Invertir izquierda/derecha", flag_on="--swap-hands",
+                  hint="Para capturas de antes del 23/09/2026 (11:59), que guardaban "
+                       "la lateralidad al revés."),
             frame,
             Number("Largo de palma", "--palma-cm", PALMA_DEFAULT, decimals=1, step=0.1, minimum=4,
                    maximum=15, suffix="cm", skip_default=True,
@@ -485,6 +488,9 @@ def build_tasks():
                    maximum=8, suffix="x", skip_default=True),
             Check("En bucle", flag_on="--bucle", default=True,
                   hint="Vuelve a empezar al terminar."),
+            Check("Invertir izquierda/derecha", flag_on="--swap-hands",
+                  hint="Para capturas de antes del 23/09/2026 (11:59), que guardaban "
+                       "la lateralidad al revés."),
         ], note="UE_BUTTON"))
     tasks.append(Task(
         "Unreal Engine", "Mano de prueba",

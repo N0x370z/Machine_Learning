@@ -215,6 +215,8 @@ Anotado, sin cambiar:
 
 Pedido: subir las capturas guardadas para trabajarlas en la PC con Unreal Engine y la RTX 4090. Se subieron las **14** de `capturas/` (2026-09-21 a 2026-10-01, 31 MB, la mayor de 4.6 MB): son pruebas del equipo, sin participantes, sin `.json` ni imágenes. Se agregaron con `git add -f`, **sin cambiar el `.gitignore`**, para que las capturas nuevas (que sí pueden ser de participantes) sigan sin subirse solas. El repositorio es público. Qué tiene cada una y qué se puede hacer con ella: [`capturas/README.md`](capturas/README.md).
 
+**Revisado en Windows (2026-11-24):** las 14 se cargan y se reproducen en Unreal; la tabla es correcta. Faltaba una cosa: cuatro son de antes del arreglo de la lateralidad (`1fa9399`, 2026-09-23 11:59) y `unreal_bridge.py --csv` no tenía cómo invertirla. Se agregó `--swap-hands` (y la casilla en el panel).
+
 ---
 
 ## Estado de los pendientes
