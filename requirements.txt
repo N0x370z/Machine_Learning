@@ -31,3 +31,11 @@ matplotlib==3.11.2
 ultralytics==8.4.162
 torch==2.14.0
 torchvision==0.29.0
+
+# openpyxl==3.1.5 (Excel de la 19-A) se quitó en la 17-B: ahora solo se
+# exportan CSV (exportar_csv.py), que no necesitan dependencias nuevas.
+
+# Panel (panel.py, 23-A): la ventana para lanzar cada parte sin recordar
+# comandos. Qt en vez de tkinter: se ve como una herramienta de escritorio
+# y no como un formulario de los 90. No hace falta para los scripts sueltos.
+PySide6==6.11.3

@@ -3,6 +3,160 @@
 Historial de cambios del proyecto. Formato libre pero cronológico
 (más reciente arriba), en español porque así está el resto del repo.
 
+## 2026-11-23 (versión 23-A: Windows, panel y Unreal probado de verdad)
+
+Pedido: revisar el proyecto en la PC con Windows, correrlo con lo guardado (no había webcam), comprobar que funciona con Unreal Engine, hacer una interfaz que se vea bien, guardar imágenes de cómo se ve en Unreal y subirlo todo.
+
+### Corregido
+- **CSV con acentos en Windows.** `captura.py` abría el CSV sin decir la codificación: en Windows se escribía en cp1252 (la `ñ` de `Muñeca` en un solo byte) y en macOS en UTF-8. Peor: un CSV hecho en la Mac con `Índice` hacía **fallar** `plot_csv.py` en Windows (el byte 0x8D de la `Í` en UTF-8 no existe en cp1252). Ahora se escribe siempre en UTF-8 (como ya hacían `exportar_csv.py` y `sesion.py`) y `plot_csv.py` / `unreal_bridge.py` leen en UTF-8 tolerando bytes raros (`errors="replace"`), así también se leen los CSV viejos de Windows. Las pruebas leen y escriben en UTF-8.
+
+### Añadido
+- **`panel.py`**: una ventana (Qt, PySide6) para usar todo sin recordar comandos: capturar, analizar un video, ver y exportar una captura, reproducir en Unreal, mano de prueba, ver lo que llega, tablero y calibración, pruebas. Cada opción con una línea que la explica, el **comando exacto** que se ejecuta (con *Copiar*) y la salida del programa. Las capturas se eligen de una lista con fecha, duración y participante. Estilo de herramienta de escritorio (gris oscuro, un solo acento ámbar, sin degradados). `PySide6==6.11.3` en `requirements.txt`. Ver [docs/TECNICO.md](docs/TECNICO.md#el-panel-panelpy).
+- **`unreal_bridge.py --csv [ruta]`**: reproduce una captura guardada en Unreal **como si fuera en vivo**, con los tiempos con los que se grabó (`--velocidad`, `--bucle`, `--destino`, `--segundos`). Con CSV de estéreo manda la muñeca absoluta.
+- **`unreal/HandMotionUE`**: un proyecto de Unreal Engine 5 listo para abrir. Al abrirse arranca un receptor (Python dentro del editor) que dibuja una mano de esferas y cilindros con los colores por dedo de `hand_style.py` y la mueve con los mensajes que llegan al puerto 8000. Registro en `Saved/handmotion_receptor.log`.
+- **Imágenes reales de Unreal** (`docs/unreal_mano.png` y las tres sueltas) y el script que las genera, **`docs/imagenes_unreal.py`**: abre Unreal **sin ventana** (`-RenderOffscreen`), le manda una captura con `--csv` y renderiza la mano más abierta y la más cerrada que recibió. Reemplazan a la imagen simulada en el README, `UNREAL.md` y `docs/TECNICO.md` (la simulada se conserva como esquema).
+- `pruebas/unreal_simulado.py`: sección 7, `--csv` (tiempos, ejes, palma, id, muñeca de estéreo y acentos en UTF-8). 6 comprobaciones nuevas.
+
+### Comprobado en Unreal Engine 5.8.4 (antes solo se había probado sin Unreal)
+- El receptor recibió **495 de 495** fotogramas mandados con `--csv`, a ~41 por segundo; la flexión del índice va de 9° a 74° y vuelve, igual que en el CSV.
+- El **plugin OSC** de Unreal recibe los paquetes y dispara *On OSC Message Received*.
+- Tres cosas que no se sabían y que quedan en `UNREAL.md`: *(1)* desde **Python** no se puede leer un mensaje del plugin OSC (`FOSCMessage` guarda el paquete en un campo que no es `UPROPERTY` y llega vacío), por eso el receptor decodifica el OSC él mismo; en Blueprint no pasa; *(2)* si el servidor OSC no queda guardado en una variable, el recolector de basura lo destruye a los pocos fotogramas; *(3)* en UE 5.8 la dirección se pasa a texto con *Get OSC Address Full Path*.
+- Lo que costó llegar a las imágenes (para no repetirlo): `-ExecutePythonScript` **cierra el editor** al terminar el script (por eso el receptor arranca desde `init_unreal.py`); en un commandlet con `-AllowCommandletRendering` el motor no avanza y la imagen sale negra; con la exposición manual por defecto (EV100 ≈ 10) la escena también sale negra (se fija EV100 = 2); el nivel por defecto del editor trae cielo, terreno y sol (se usa un nivel en blanco); un piso o un fondo oscuro salían blancos por el reflejo del mapa de ambiente (la mano va sobre negro).
+
+### Windows
+- Primera vez en **Windows 11** con Python 3.13.0: las versiones fijadas se instalan todas y las **5 pruebas pasan** (antes y después de los cambios). No se probó con una webcam (no había).
+- `pip` instala **torch para procesador**: con una tarjeta NVIDIA, YOLO sigue en la CPU. Anotado en `COMANDOS.md`; no se cambió.
+- README: Windows en *Requisitos*, *El panel*, la receta de Unreal con el proyecto y `--csv`, y dos problemas comunes nuevos (Unreal no se mueve; acentos en la consola).
+
+### Rama e historial
+- Todo el trabajo de la 19-A a la 17-E estaba solo en la rama `handmotion3d-19-a`; en esta PC el clon estaba en `main` (28-F). La 23-A se hizo sobre la rama y se fusiona a `main` (ver `COMANDOS.md`).
+- Antes de fusionar se quitó del mensaje del commit de la 19-A la línea `Co-Authored-By` que había vuelto a aparecer (como en la 28-F). **Guillermo Campos Salas sigue como autor** de ese commit; solo cambió el mensaje (archivos, autores y fechas verificados iguales). La documentación ya no nombra herramientas en esas notas.
+
+## 2026-11-17 (versión 17-E: README reestructurado como guía de uso)
+
+Pedido: mejorar las instrucciones del README.
+
+### Problemas del README anterior
+- Antes de la primera instrucción había **6 bloques de novedades** e historia.
+- **1,105 líneas** que mezclaban tres documentos: la guía de uso, cómo funciona cada parte y el historial (la sección *Cambios* sola, 184 líneas, que repetía buena parte del CHANGELOG y de COMANDOS).
+- Faltaban los **requisitos**, cómo **clonar** el repositorio, los comandos para **Windows** (todos eran `./venv/bin/python3`) y cómo **comprobar** que la instalación quedó bien.
+- No había una receta para una **sesión de artículo**: había que armarla con partes de cinco secciones.
+
+### Cambiado
+- **`README.md`** (247 líneas): qué hace, requisitos, instalación en 4 pasos para macOS/Linux y Windows con una comprobación al final (`pruebas/correr_todo.py`), primera captura en 5 pasos, recetas (sesión para un artículo, analizar un video, dos cámaras, Unreal, más opciones), teclas, archivos que se generan, problemas comunes (con los de `--video`) y un mapa de la documentación.
+- **`docs/TECNICO.md`**: todas las secciones técnicas del README anterior, sin recortar (captura, vista 3D, antebrazo, velocidad, dos cámaras, `plot_csv.py`, pausa, Unreal, pruebas, estructura, versiones fijadas), con los flags de la 17-C/17-D.
+- **`docs/ARTICULOS.md`**: la sección *Exportar para artículos* más una **sesión paso a paso**, qué archivos quedan, los campos del `.json` de la sesión y cómo reanalizar un video (reproducibilidad, huella SHA-256).
+- **`docs/CAMBIOS.md`**: la sección *Cambios: comandos, partes quitadas y por qué*, entera, con las filas de la 17-C a la 17-E. Se sigue actualizando con cada cambio.
+- Los enlaces internos se reescribieron al mover las secciones y se comprobaron todos (ninguno roto en los 9 documentos).
+
+### Corregido
+- **Requisito de Python:** con las versiones fijadas hace falta **Python 3.12 o más nuevo** (lo exige numpy 2.5; torchvision excluye la 3.14.1). No estaba escrito en ningún lado.
+
+## 2026-11-17 (versión 17-D: datos de cada sesión)
+
+Idea 3 de la lista de mejoras: guardar con qué se midió cada sesión, para la reproducibilidad que piden las revistas.
+
+### Añadido
+- **`sesion.py`** y **`capturas/hand_data_<inicio>.json`** junto a cada CSV: participante, notas, fuente (cámara con resolución pedida y real, o video con ruta, **huella SHA-256**, FPS y fotogramas; con `--estereo`, la calibración con su huella y la separación entre cámaras), parámetros que cambian la medición (palma, umbrales, modelo YOLO, filtro One Euro, hueco máximo), destino de Unreal, versión del programa (la del CHANGELOG), **commit de git** y si había cambios sin commit, Python, sistema y versiones de mediapipe, OpenCV, numpy, ultralytics y torch; hora de inicio y fin, fotogramas procesados y con mano, duración, FPS efectivos y motivo del fin.
+  - Se crea al grabar la primera mano con `"estado": "en curso"` y se completa al salir (`"completa"`, o `"error"` si el programa falló). Si queda `"en curso"`, el proceso murió sin poder cerrar. Se escribe con archivo temporal + renombrar, y un error al escribirlo solo se avisa.
+- `captura.py --participante CODIGO` y `--notas TEXTO`; el participante se muestra en el panel y pasa solo a la columna `participante` del CSV de medicina (tecla `e`). `exportar_csv.py` lo toma del `.json` si no se le da `--participante`.
+- `.gitignore`: `capturas/*.json` (pueden tener el código del participante y rutas).
+- `pruebas/captura_simulada.py`: el `.json` en vivo y con video (fuente, huella, versión, commit, motivo del fin, error), y el participante hasta el CSV de medicina.
+
+### Corregido al escribir las pruebas
+- Los fotogramas procesados del `.json` salían uno menos que los grabados al salir con `q` (el contador del bucle se incrementa al final); ahora hay un contador propio (`frames_read`).
+
+## 2026-11-17 (versión 17-C: analizar videos grabados)
+
+Idea 1 de la lista de mejoras: reanalizar sesiones, procesar videos clínicos ya grabados y que otra persona reproduzca los resultados con el mismo archivo.
+
+### Añadido
+- **`captura.py --video ARCHIVO`**: analiza un video (mp4, mov, avi…) en lugar de la cámara, con todo lo demás igual (antebrazo, velocidad, vista 3D, CSV, pausa, `e`, Unreal).
+  - **El tiempo sale del video, no del reloj** (`VideoClock`: `CAP_PROP_POS_MSEC`, que sirve para videos de celular con FPS variable, o número de fotograma / FPS). Las velocidades son las reales aunque el análisis vaya más lento o más rápido que el video. Comprobado: con un video simulado a 120 FPS analizado ~3 veces más lento, 20.3 cm/s (real 20.0); con el reloj habría salido ~3 veces menos.
+  - Se analizan **todos los fotogramas**: con video no se descartan fotogramas al reanudar la pausa ni tras exportar (`drain` solo con cámara), y la pausa no deja hueco en el tiempo.
+  - Al terminar el video: `Fin del video: N fotogramas analizados.` y el CSV queda cerrado.
+  - El panel muestra el avance (`Video: 450/900 (50 %), t = 15.00 s`).
+  - `--video-espejado`: para videos que ya están en espejo (grabados con la vista previa de una cámara frontal); sin esto se voltean como la webcam.
+  - No se combina con `--estereo` (error claro).
+- `plot_csv.py` acepta `timestamp_ms` con decimales (por robustez; el CSV sigue escribiendo ms enteros).
+- `pruebas/captura_simulada.py`, sección 6: todos los fotogramas, tiempo del video, velocidad real con análisis lento, pausa sin saltos, video inexistente, `--video` con `--estereo`.
+
+### Verificado
+- Con un mp4 real escrito por OpenCV (60 FPS, 120 fotogramas): se leen los 120 y el tiempo de cada uno avanza exactamente 16.667 ms.
+
+## 2026-11-17 (versión 17-B: dos CSV para artículos en lugar del Excel)
+
+Pedido: quitar el Excel y que solo se generen CSV: dos, uno con el formato de ingeniería y otro con el de medicina, para usarlos después en publicaciones científicas.
+
+### Añadido
+- **`exportar_csv.py`**: de una captura genera `capturas/articulos/<captura>_ingenieria.csv` y `<captura>_medicina.csv`.
+  - **Ingeniería** (SI): por serie, `N`, `T_s`, `fs_hz`, `media_m_s`, `rms_m_s`, `sigma_m_s`, `pico_m_s`, más `palma_cm`, `profundidad` y `resolucion_px`.
+  - **Medicina** (cm/s): por serie, `n`, `duracion_s`, `media_cm_s`, `de_cm_s`, `mediana_cm_s`, `q1_cm_s`, `q3_cm_s`, `min_cm_s`, `max_cm_s`, los textos `media_de` («12.3 (4.5)») y `mediana_q1_q3` («11.0 [8.2-14.1]»), `palma_cm`, `profundidad` y una columna **`participante`** (`--participante`) para juntar sesiones.
+  - Formato *tidy*: una fila por serie (mano × punto × tipo de rapidez), coma, punto decimal, UTF-8, nombres de columna en ASCII con la unidad al final; números ya calculados; celda vacía = no se puede calcular.
+  - Flags: `--formato {ingenieria,medicina,ambos}`, `--participante`, `--salida CARPETA`, `--todos-los-puntos`.
+  - Se escribe en un `.tmp` y se renombra: nunca queda un CSV a medio escribir.
+- **Tecla `e`** en `captura.py`: los dos CSV con lo grabado hasta ese momento; si se repite, reemplaza los anteriores (y lo dice en la terminal).
+- **`pruebas/exportar_csv_simulado.py`**: columnas, cada número de los dos formatos contra numpy (error máx. 0.00005 m/s y 0.005 cm/s, por el redondeo), cuartiles inclusivos (1..10 → 3.25 / 7.75, como `QUARTILE` de Excel), palma por mano con dos manos en estéreo, casos borde. `captura_simulada.py`: `e` de punta a punta, dos veces, en pausa, sin datos, y que `m` ya no exporta.
+- README: sección **Exportar para artículos** con el diccionario de columnas, las 12 ecuaciones (antes en la hoja *Ecuaciones*) y lo que hay que saber antes de publicar (antes en *Limitaciones* y *Notas estadísticas*).
+
+### Quitado
+- `exportar_excel.py`, `pruebas/excel_simulado.py`, la tecla `m`, `export_excel_now` / `EXCEL_KEYS` y `openpyxl` (de `requirements.txt` y del venv).
+
+### Corregido (hallazgos de la revisión 5 que vivían en el Excel)
+- **Palma**: era el valor más repetido de todo el CSV; con `--estereo` (palma medida en cada fotograma) salía casi al azar y con dos manos se reportaba una sola. Ahora es la **mediana de cada mano**.
+- `523.00` fotogramas (formato numérico aplicado a toda la columna) y fórmulas que las vistas previas mostraban vacías: no aplican a un CSV.
+- Las exportaciones van a `capturas/articulos/` para que `plot_csv.py` (que abre el último `hand_data_*.csv`) no las tome por una captura.
+
+### Medido
+- Exportar una captura simulada de 10 min con una mano: **1.1 s** (el Excel tardaba 2.6 s).
+
+## 2026-11-17 (versión 17-A: correcciones de la revisión 5 e imagen simulada de Unreal)
+
+Revisión de la 19-A (revisión 5, ver [`REVISION.md`](REVISION.md)) y pedido de una imagen de cómo se vería la conexión con Unreal Engine.
+
+### Corregido
+- **`.gitignore` no dejaba fuera las exportaciones.** Solo ignoraba `capturas/*.csv` y `capturas/*.png`: los `.xlsx` de la 19-A (con edad, sexo y condición clínica del participante en el formato de medicina) se habrían subido a GitHub con un `git add .`. Ahora ignora `capturas/*.xlsx` y `capturas/articulos/` (donde van las exportaciones desde la 17-B).
+- **La mano de `unreal_bridge.py --demo` estaba mal armada.** El nudillo del dedo medio (`points[9]`) se sobrescribía al final, así que ese dedo salía **doblado 109° hacia atrás** con la mano abierta, y el pulgar marcaba 58° de flexión en reposo. Quien armara el Blueprint con `--demo` habría visto un dedo roto. Se encontró al dibujar la imagen simulada. `demo_hand()` ahora usa `_DEMO_FINGERS` (nudillos, largo de falanges y flexión máxima de una mano adulta): abierta, ninguna articulación pasa de 14°; cerrada, cada una llega a su máximo (índice 75° / 95° / 65°); la palma mide lo que dice `palm_cm`.
+- Comentario de `JOINTS` en `unreal_bridge.py`: decía que la flexión va en los floats `[70:85]`; va en `[72:87]` (el código y `UNREAL.md` ya estaban bien).
+
+### Añadido
+- **`docs/imagen_unreal.py` y `docs/unreal_simulado.png`**: imagen **simulada** de HandMotion3D conectado con Unreal Engine 5 (ventana de `captura.py --unreal`, registro de mensajes, flexión recibida, la mano en los ejes de Unreal y el Blueprint de `UNREAL.md`). No es una captura de Unreal, pero la pose y los números salen de los mensajes OSC reales de `--demo`, decodificados: si el Blueprint lee bien el mensaje, esa es la pose que tiene que verse. En `UNREAL.md` (sección *Así se vería*) y en el README.
+- `pruebas/unreal_simulado.py`: tres comprobaciones nuevas de la mano de `--demo` (abierta sin articulaciones dobladas, cerrada = flexión máxima, largo de palma).
+
+### Verificado
+- `pruebas/correr_todo.py` en el **venv del proyecto** (Python 3.14.8 y las versiones fijadas, con YOLO), pendiente desde la 19-A: 5 de 5 OK. La parte de `excel_simulado.py` que recalcula fórmulas se omitió (no hay LibreOffice instalado).
+
+## 2026-10-19 (versión 19-A: pausa, Excel para artículos y conexión con Unreal Engine)
+
+Tres pedidos: pausar el video cuando se solicite, generar un Excel con el formato de artículos de ingeniería y de medicina, y conectar el movimiento de las manos con un modelo 3D en Unreal Engine.
+
+### Añadido
+- **Pausa** (`captura.py`): `espacio` o `p` congela la imagen (con el aviso PAUSA), **no lee la cámara, no graba y no manda nada a Unreal**; el visor 3D sigue vivo para girarlo, y siguen disponibles `s` (foto sin panel), `e`/`m`, `u` y `q`. Al reanudar se descartan 6 fotogramas acumulados por la cámara (`DRAIN_FRAMES`), para que la imagen no vaya atrasada. El tiempo del CSV es el real: la pausa deja un hueco en `timestamp_ms` y la velocidad se reinicia en 0 (hueco > `MAX_GAP_S`) en lugar de calcular un salto. `plot_csv.py`: `espacio` pausa la animación 2D, y en `--3d` `p` es alias de `espacio`.
+- **`exportar_excel.py`** y teclas `e` / `m` en `captura.py`: Excel de una captura, en dos formatos.
+  - **Ingeniería** (estilo IEEE): hojas *Parámetros* (N, T, f_s, resolución, palma), *Ecuaciones* (12, numeradas, en texto y LaTeX), *Resultados* (N, media, RMS, σ, pico **en m/s**), *Limitaciones* y *Datos*.
+  - **Medicina**: hojas *Métodos* (borrador con campos por completar: ética, participante, instrumento), *Tabla 1* (características), *Tabla 2* (**media (DE)**, **mediana [Q1-Q3]**, mín-máx **en cm/s**), *Notas estadísticas* y *Datos*.
+  - La hoja *Datos* es ancha (un fotograma por fila, una serie por columna) y **los resultados son fórmulas de Excel** sobre ella: rastreables y recalculables si se borran filas. Solo funciones clásicas (`STDEV`, `QUARTILE`, `FIXED`...) para que abra igual en Excel, LibreOffice y Google Sheets.
+  - Desde la captura, `e` / `m` exportan **lo grabado hasta ese momento sin parar** (`CsvRecorder.flush()`); un error al exportar nunca interrumpe la captura.
+- **`unreal_bridge.py`**, `--unreal [host:puerto]` y tecla `u`: manda la pose de cada mano a Unreal Engine por **OSC sobre UDP** (codificador propio, sin dependencias nuevas): 21 puntos en cm relativos a la muñeca (ejes de Unreal), posición de la muñeca, codo y **flexión en grados de 15 articulaciones**; 87 floats por mano y por fotograma, más un mensaje de fotograma. Incluye `--escuchar` (ver lo que llega) y `--demo` (mano sintética, sin cámara). Guía: **`UNREAL.md`**.
+- **Pruebas** (en `pruebas/`, `correr_todo.py` ahora corre cinco): `excel_simulado.py` (fórmulas recalculadas con LibreOffice contra numpy), `unreal_simulado.py` (OSC, ejes, flexión, UDP) y la sección 5 de `captura_simulada.py` (pausa, Excel y Unreal de punta a punta).
+- `requirements.txt`: `openpyxl==3.1.5` (solo se carga al exportar).
+- Documentación: README (secciones *Pausa*, *Exportar a Excel*, *Unreal Engine*, comandos, estructura, versiones), `UNREAL.md`, `COMANDOS.md`, `REVISION.md` (revisión 4) y `pruebas/README.md`.
+
+### Decisiones de diseño (y por qué)
+- **«real engine» se interpretó como Unreal Engine.** El formato de red (OSC estándar) sirve para otro motor, pero la guía es de Unreal.
+- **Excel: sin intervalos de confianza ni valores p entre fotogramas.** Fotogramas consecutivos están autocorrelacionados; esas cifras saldrían demasiado optimistas. La hoja de medicina lo explica y propone resumir un valor por participante.
+- **Excel: `FIXED` en vez de `TEXT`** para armar «media (DE)»: `TEXT(x, "0.0")` depende del idioma de Excel (con coma decimal, el formato `0.0` se interpreta distinto); `FIXED` no.
+- **OSC: todo floats.** Un primer borrador mezclaba ints, strings y floats; en Blueprint el índice de un valor depende de si Unreal cuenta todos los argumentos o solo los de su tipo. Con solo floats no hay ambigüedad.
+- **Pausa en `plot_csv.py` 2D solo con `espacio`:** en matplotlib `p` ya es el paneo.
+- **Flexión en vez de rotaciones por hueso:** un giro por articulación es lo más fácil de aplicar a cualquier esqueleto sin depender de su orientación.
+
+### Encontrado (pendiente)
+- **Nada de esto se probó con hardware, con Unreal Engine ni con Excel de escritorio.** La verificación fue con simulaciones, y las fórmulas con LibreOffice. Falta: la pausa con la webcam real, abrir los `.xlsx` en Excel, y armar el Blueprint en Unreal con `--demo` (los nombres de los nodos de OSC y el eje de giro de los dedos del modelo son lo primero que confirmar).
+- La verificación de esta versión se corrió en un entorno **distinto al fijado en `requirements.txt`** (Python 3.12, mediapipe 0.10.33, OpenCV 4.13, sin YOLO/torch: `--sin-antebrazo`). Hay que correr `pruebas/correr_todo.py` en el venv del proyecto.
+- Las pruebas de `captura_simulada.py` exigen que **exista `models/hand_landmarker.task`** aunque MediaPipe esté simulado (`captura.main()` lo comprueba antes). En un clon limpio hay que descargar el modelo (README, paso 1) o crear un archivo vacío con ese nombre para correrlas.
+- La rapidez **no está validada contra una referencia**: antes de usar las cifras en un artículo hay que validarlas (el Excel lo avisa en *Limitaciones*).
+- No se manda la **orientación de la muñeca** a Unreal (se calcula allí con los puntos 0, 5 y 17).
+
 ## 2026-09-28 (versión 28-F: pruebas, registro de comandos y de revisiones)
 
 ### Corregido
@@ -52,7 +206,7 @@ Historial de cambios del proyecto. Formato libre pero cronológico
   actualizados.
 
 ### Historial de git
-- Se quitó la línea `Co-Authored-By` de un asistente de IA de los 5
+- Se quitó una línea `Co-Authored-By` que no correspondía a un autor de los 5
   commits que la tenían, reescribiendo los mensajes con
   `git filter-branch --msg-filter` y subiendo con
   `git push --force-with-lease`. Solo cambiaron los mensajes: los
@@ -97,7 +251,7 @@ anotado al final de esta entrada.
 
 ### Proceso (anotado, no es código)
 - Los commits desde `b960527` hasta `a2ef70f` (hoy `1fa9399` a `b0bfa33`)
-  llevaban una línea `Co-Authored-By` de un asistente. Desde ahora los
+  llevaban una línea `Co-Authored-By` que no correspondía a un autor. Desde ahora los
   commits van solo a nombre del autor. **Resuelto en la 28-F**: se
   reescribió el historial.
 - Las comprobaciones "con datos simulados" (24-D y las de hoy) se

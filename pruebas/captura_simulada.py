@@ -19,6 +19,8 @@ Uso:
 
 De aquí salen los números del README sobre --palma-cm (28-B), la
 captura con dos cámaras (28-D) y el CSV escrito durante la sesión.
+Desde la 17-C/17-D también: --video (la "cámara" simulada se comporta
+como un archivo de video a 120 FPS) y el .json de cada sesión.
 Sale con código 1 si algo queda fuera de tolerancia.
 """
 
@@ -75,6 +77,8 @@ class State:
     calls = 0
     on_key = None       # función extra llamada en cada waitKey
     landmarkers = 0
+    video_frames = 90   # --video (17-C): largo y FPS del video simulado
+    video_fps = 120.0
 
 
 class FakeLandmarker:
@@ -124,10 +128,16 @@ class FakeLandmarker:
 
 
 class FakeCapture:
-    """Cámara simulada: imágenes negras de W x H."""
+    """
+    Cámara simulada: imágenes negras de W x H. Si se abre con una ruta
+    (captura.py --video, 17-C) se comporta como un archivo de video:
+    State.video_frames fotogramas a State.video_fps, con CAP_PROP_POS_MSEC
+    y CAP_PROP_FRAME_COUNT, y read() devuelve False al terminar.
+    """
 
-    def __init__(self, _index):
-        pass
+    def __init__(self, source):
+        self.video = isinstance(source, str)
+        self.read_n = 0
 
     def isOpened(self):
         return True
@@ -136,10 +146,19 @@ class FakeCapture:
         return True
 
     def get(self, prop):
-        return {cv2.CAP_PROP_FRAME_WIDTH: W, cv2.CAP_PROP_FRAME_HEIGHT: H}.get(prop, 0)
+        values = {cv2.CAP_PROP_FRAME_WIDTH: W, cv2.CAP_PROP_FRAME_HEIGHT: H}
+        if self.video:
+            values.update({cv2.CAP_PROP_FPS: State.video_fps,
+                           cv2.CAP_PROP_FRAME_COUNT: State.video_frames,
+                           cv2.CAP_PROP_POS_MSEC: (self.read_n - 1) * 1000 / State.video_fps})
+        return values.get(prop, 0)
 
     def read(self):
         time.sleep(0.02)
+        if self.video:
+            if self.read_n >= State.video_frames:
+                return False, None
+            self.read_n += 1
         return True, np.zeros((H, W, 3), np.uint8)
 
     def grab(self):
@@ -183,7 +202,7 @@ def run_capture(argv, out_dir, frames=60, keys=None):
     sys.argv = ["captura.py", *argv]
     captura.main()
     new = sorted(set(out_dir.glob("*.csv")) - before)
-    return list(csv.DictReader(open(new[-1]))) if new else []
+    return list(csv.DictReader(open(new[-1], encoding="utf-8"))) if new else []
 
 
 def wrist_speed(rows):
@@ -322,6 +341,216 @@ def main():
         sys.argv = ["plot_csv.py", str(stereo_csv), "--frame", "3"]
         plot_csv.main()
         check("2D con --frame", True, "sin errores")
+
+        print("5. Pausa y Unreal (19-A), CSV para artículos (17-B)")
+        import socket
+        import unreal_bridge
+        State.cam2_sees = lambda ts: True
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.bind(("127.0.0.1", 0))
+        sock.setblocking(False)
+        dest = f"127.0.0.1:{sock.getsockname()[1]}"
+
+        def packets():
+            """Mensajes OSC recibidos desde la última vez (decodificados)."""
+            out = []
+            while True:
+                try:
+                    out.append(unreal_bridge.osc_decode(sock.recv(4096)))
+                except BlockingIOError:
+                    return out
+
+        arts = out_dir / "articulos"
+
+        def exported():
+            """{formato: N de la muñeca} de los CSV para artículos que haya en articulos/."""
+            out = {}
+            for p in arts.glob("*.csv"):
+                rows = list(csv.DictReader(open(p, encoding="utf-8")))
+                n_col = "N" if p.stem.endswith("ingenieria") else "n"
+                out[p.stem.rsplit("_", 1)[1]] = int(rows[0][n_col])
+            return out
+
+        def clear_exports():
+            """Borra los CSV para artículos de la prueba anterior."""
+            for p in arts.glob("*.csv"):
+                p.unlink()
+
+        SPACE = ord(" ")
+        packets()
+        rows = run_capture(["--sin-antebrazo", "--sin-3d", "--unreal", dest], out_dir, frames=70,
+                           keys={20: SPACE, 40: SPACE})
+        frames = sorted({int(r["frame"]) for r in rows})
+        check("pausa: no se graba mientras está en pausa",
+              frames == list(range(50)), f"{len(frames)} frames seguidos (0-{frames[-1]}); "
+              "20 vueltas del bucle en pausa")
+        msgs = packets()
+        frame_msgs = [a for ad, a in msgs if ad == unreal_bridge.ADDR_FRAME]
+        check("pausa: tampoco se manda nada a Unreal", [int(a[0]) for a in frame_msgs] == list(range(50)),
+              f"{len(frame_msgs)} mensajes de fotograma, números 0-{frame_msgs[-1][0]:.0f} sin saltos")
+        hand_msgs = [(ad, a) for ad, a in msgs if ad.startswith("/handmotion/") and ad != unreal_bridge.ADDR_FRAME]
+        ad, a = hand_msgs[0]
+        floats = a
+        check("Unreal: un mensaje por mano con 87 floats", ad == "/handmotion/Right"
+              and len(floats) == unreal_bridge.N_FLOATS and len(hand_msgs) == 50,
+              f"{ad}, {len(floats)} floats, {len(hand_msgs)} mensajes de mano")
+        lo = unreal_bridge.FLOAT_LAYOUT["puntos_cm"][0]
+        wrist_rel = floats[lo:lo + 3]
+        check("Unreal: la muñeca es el origen de los puntos relativos",
+              all(abs(v) < 1e-6 for v in wrist_rel), f"muñeca relativa = {wrist_rel}")
+
+        rows = run_capture(["--sin-antebrazo", "--sin-3d", "--unreal", dest], out_dir, frames=50,
+                           keys={10: ord("u"), 30: ord("u")})
+        n = len([1 for ad, _a in packets() if ad == unreal_bridge.ADDR_FRAME])
+        check("tecla 'u': pausa y reanuda el envío (graba igual)", n == 30 and len(rows) == 50 * 21,
+              f"{n} fotogramas enviados de 50; CSV con {len(rows) // 21} frames")
+
+        clear_exports()
+        run_capture(["--sin-antebrazo", "--sin-3d"], out_dir, frames=60, keys={30: ord("e")})
+        got = exported()
+        check("tecla 'e': los dos CSV para artículos, en articulos/", sorted(got) == ["ingenieria", "medicina"],
+              ", ".join(p.name for p in sorted(arts.glob("*.csv"))))
+        check("traen lo grabado hasta ese momento (sin parar la captura)",
+              got == {"ingenieria": 30, "medicina": 30}, f"fotogramas de la muñeca: {got}")
+        plot_latest = sorted(out_dir.glob("hand_data_*.csv"))[-1]
+        check("plot_csv.py no los confunde con capturas (están en una subcarpeta)",
+              not plot_latest.stem.endswith(("_ingenieria", "_medicina")), plot_latest.name)
+
+        clear_exports()
+        run_capture(["--sin-antebrazo", "--sin-3d"], out_dir, frames=60, keys={20: ord("e"), 45: ord("e")})
+        got = exported()
+        check("'e' dos veces: reemplaza con lo grabado hasta la segunda", got == {"ingenieria": 45, "medicina": 45}
+              and len(list(arts.glob("*.csv"))) == 2, f"{got}")
+
+        clear_exports()
+        run_capture(["--sin-antebrazo", "--sin-3d"], out_dir, frames=40,
+                    keys={10: SPACE, 12: ord("e"), 15: SPACE})
+        got = exported()
+        check("'e' en pausa", got == {"ingenieria": 10, "medicina": 10}, f"{got}")
+
+        clear_exports()
+        State.no_hands = True
+        run_capture(["--sin-antebrazo", "--sin-3d"], out_dir, frames=8, keys={3: ord("e")})
+        State.no_hands = False
+        check("'e' sin datos: avisa y no se cae", not list(arts.glob("*.csv")), "no se crea ningún CSV")
+
+        run_capture(["--sin-antebrazo", "--sin-3d"], out_dir, frames=20, keys={10: ord("m")})
+        check("'m' ya no exporta (17-B: era el Excel de medicina)", not list(arts.glob("*.csv")),
+              "sin archivos en articulos/")
+
+        # plot_csv.py --3d: espacio pausa (se repite el mismo frame con "[pausa]")
+        titles = []
+        original = viewer3d.DualPOVViewer.render
+
+        def record_title(self, hands, title, *a, **k):
+            titles.append(title)
+            return original(self, hands, title, *a, **k)
+        viewer3d.DualPOVViewer.render = record_title
+        State.calls, State.frames, State.keys = 0, 30, {5: SPACE, 10: ord("p")}
+        sys.argv = ["plot_csv.py", str(stereo_csv), "--3d"]
+        plot_csv.main()
+        viewer3d.DualPOVViewer.render = original
+        paused_renders = sum("[pausa]" in t for t in titles)
+        check("plot_csv --3d: espacio pausa y 'p' sigue", paused_renders == 5,
+              f"{paused_renders} dibujos en pausa")
+        sock.close()
+
+        print("6. Video grabado (17-C) y datos de la sesión (17-D)")
+        import json
+        import exportar_csv
+
+        def last_json():
+            """El .json de sesión más reciente."""
+            return json.loads(sorted(out_dir.glob("*.json"), key=lambda p: p.stat().st_mtime)[-1]
+                              .read_text(encoding="utf-8"))
+
+        video = out_dir / "sesion.mp4"
+        video.write_bytes(b"video simulado")
+        # 120 FPS: el análisis (~25 ms por fotograma) va ~3 veces más lento que
+        # el video. Con el reloj, la velocidad saldría ~3 veces más baja.
+        State.video_frames, State.video_fps = 90, 120.0
+        rows = run_capture(["--video", str(video), "--sin-antebrazo", "--sin-3d",
+                            "--palma-cm", str(PALM_CM)], out_dir, frames=9999)
+        frames = sorted({int(r["frame"]) for r in rows})
+        ts = sorted({int(r["timestamp_ms"]) for r in rows})
+        check("se analizan todos los fotogramas y termina solo al acabar el video",
+              frames == list(range(90)), f"{len(frames)} de 90 fotogramas")
+        check("el tiempo es el del video, no el del reloj",
+              abs(ts[-1] - 89 * 1000 / 120) <= 1, f"último fotograma a {ts[-1]} ms (video: 741.7 ms)")
+        v = wrist_speed(rows)
+        check("velocidad real aunque el análisis vaya 3 veces más lento", abs(v - SPEED_CM_S) < 1,
+              f"{v:.1f} cm/s (real {SPEED_CM_S})")
+        meta = last_json()
+        check("json: fuente video con su huella SHA-256 y FPS",
+              meta["fuente"]["tipo"] == "video" and meta["fuente"]["fps"] == 120.0
+              and meta["fuente"]["sha256"] == __import__("hashlib").sha256(b"video simulado").hexdigest(),
+              f"{meta['fuente']['nombre']}, sha256 {meta['fuente']['sha256'][:12]}...")
+        check("json: terminó por fin del video, con su duración",
+              (meta["estado"], meta["resultado"]["motivo_fin"]) == ("completa", "fin del video")
+              and abs(meta["resultado"]["duracion_s"] - 0.742) < 0.002,
+              f"{meta['resultado']}")
+
+        rows = run_capture(["--video", str(video), "--sin-antebrazo", "--sin-3d"], out_dir,
+                           frames=9999, keys={20: SPACE, 40: SPACE})
+        ts = sorted({int(r["timestamp_ms"]) for r in rows})
+        gaps = max(b - a for a, b in zip(ts, ts[1:]))
+        check("pausa con video: no se salta ningún fotograma ni deja hueco",
+              len(ts) == 90 and gaps <= 9, f"{len(ts)} fotogramas, mayor salto {gaps} ms (1/120 s = 8.3)")
+
+        try:
+            run_capture(["--video", str(out_dir / "no_existe.mp4")], out_dir)
+            check("video que no existe: error claro", False, "no falló")
+        except FileNotFoundError as err:
+            check("video que no existe: error claro", True, str(err)[:60])
+        try:
+            run_capture(["--video", str(video), "--estereo"], out_dir)
+            check("--video con --estereo: error claro", False, "no falló")
+        except SystemExit:
+            check("--video con --estereo: error claro", True, "argparse lo rechaza")
+
+        rows = run_capture(["--sin-antebrazo", "--sin-3d", "--participante", "P07",
+                            "--notas", "golpeteo 10 s"], out_dir, frames=40, keys={30: ord("e")})
+        meta = last_json()
+        check("json en vivo: participante, notas, cámara y parámetros",
+              (meta["participante"], meta["notas"], meta["fuente"]["tipo"],
+               meta["parametros"]["palma_cm"]) == ("P07", "golpeteo 10 s", "camara", 9.5),
+              f"{meta['participante']}, {meta['fuente']['resolucion']}, palma {meta['parametros']['palma_cm']}")
+        sw = meta["software"]
+        check("json: versión del programa, commit y librerías",
+              bool(sw["version"]) and sw["paquetes"]["mediapipe"] is not None and sw["python"],
+              f"versión {sw['version']}, commit {str(sw['commit'])[:8]}, "
+              f"mediapipe {sw['paquetes']['mediapipe']}")
+        check("json: salida con q", meta["resultado"]["motivo_fin"] == "tecla q / Esc"
+              and meta["resultado"]["fotogramas_procesados"] == meta["resultado"]["fotogramas_con_mano"] == 40,
+              f"{meta['resultado']}")
+        med = list(csv.DictReader(open(sorted((out_dir / "articulos").glob("*_medicina.csv"),
+                                              key=lambda p: p.stat().st_mtime)[-1], encoding="utf-8")))
+        check("tecla 'e' lleva el participante al CSV de medicina",
+              {r["participante"] for r in med} == {"P07"}, "P07")
+        newest = sorted(out_dir.glob("hand_data_*.csv"), key=lambda p: p.stat().st_mtime)[-1]
+        out = exportar_csv.export(newest, ("medicina",), out_dir / "desde_json")["medicina"]
+        check("exportar_csv.py toma el participante del .json si no se le da",
+              {r["participante"] for r in csv.DictReader(open(out, encoding="utf-8"))} == {"P07"}, "P07")
+
+        def boom(call):
+            if call == 10:
+                raise RuntimeError("falla simulada")
+        State.on_key = boom
+        try:
+            run_capture(["--sin-antebrazo", "--sin-3d"], out_dir, frames=999)
+        except RuntimeError:
+            pass
+        State.on_key = None
+        meta = last_json()
+        check("json: si el programa falla queda 'error' (y el CSV guardado)",
+              meta["estado"] == "error" and meta["resultado"]["fotogramas_con_mano"] == 10,
+              f"estado {meta['estado']}")
+        State.no_hands = True
+        n_json = len(list(out_dir.glob("*.json")))
+        run_capture(["--sin-antebrazo", "--sin-3d"], out_dir, frames=8)
+        State.no_hands = False
+        check("sin manos no se crea .json (como el CSV)", len(list(out_dir.glob("*.json"))) == n_json,
+              "ningún archivo nuevo")
 
     ok = all(results)
     print("\nRESULTADO:", "OK" if ok else "FALLA")

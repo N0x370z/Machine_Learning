@@ -18,8 +18,23 @@ models/*.pt
 # Capturas de sesiones locales (CSVs y fotos), no forman parte del código.
 capturas/*.csv
 capturas/*.png
+# Exportaciones para artículos (17-B: capturas/articulos/) y los Excel
+# de la 19-A: pueden traer datos de participantes, no se suben.
+capturas/*.xlsx
+# Datos de cada sesión (17-D): participante, rutas de video...
+capturas/*.json
+capturas/articulos/
 
 # Calibración estéreo (estereo.py): es de TUS cámaras y de dónde están
 # puestas; en otra máquina no sirve. El tablero PNG se genera con
 # "estereo.py tablero".
 calibracion/
+
+# Proyecto de Unreal (23-A, unreal/HandMotionUE): solo se suben el
+# .uproject, Config/ y los scripts de Content/Python. Lo demás lo genera
+# Unreal al abrirlo (cachés de shaders, registros, binarios).
+unreal/HandMotionUE/Saved/
+unreal/HandMotionUE/Intermediate/
+unreal/HandMotionUE/DerivedDataCache/
+unreal/HandMotionUE/Binaries/
+unreal/HandMotionUE/Content/Python/__pycache__/

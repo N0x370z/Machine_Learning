@@ -1,0 +1,26 @@
+{
+  "fotogramas_recibidos": 416,
+  "mensajes_de_mano": 416,
+  "motor": "5.8.4-58902052+++UE5+Release-5.8",
+  "imagenes": [
+    {
+      "imagen": "unreal_abierta.png",
+      "mensaje": "/handmotion/Right",
+      "flexion_media_grados": 2.6,
+      "palma_cm": 8.5
+    },
+    {
+      "imagen": "unreal_cerrada.png",
+      "mensaje": "/handmotion/Right",
+      "flexion_media_grados": 78.4,
+      "palma_cm": 8.5
+    },
+    {
+      "imagen": "unreal_tres_cuartos.png",
+      "mensaje": "/handmotion/Right",
+      "flexion_media_grados": 78.4,
+      "palma_cm": 8.5
+    }
+  ],
+  "captura": "hand_data_20261123_231441.csv"
+}

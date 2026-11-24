@@ -1,0 +1,10 @@
+{
+	"FileVersion": 3,
+	"EngineAssociation": "5.8",
+	"Category": "",
+	"Description": "Receptor de HandMotion3D: una mano que sigue los datos de captura.py o de un CSV (ver UNREAL.md)",
+	"Plugins": [
+		{ "Name": "PythonScriptPlugin", "Enabled": true },
+		{ "Name": "OSC", "Enabled": true }
+	]
+}
