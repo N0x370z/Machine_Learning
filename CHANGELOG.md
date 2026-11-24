@@ -3,6 +3,20 @@
 Historial de cambios del proyecto. Formato libre pero cronológico
 (más reciente arriba), en español porque así está el resto del repo.
 
+## 2026-11-24 (Unreal: manos de VR, movimiento suave e historial del aspecto; sin versión nueva)
+
+Pedido: que no se viera "nada" en Unreal, que dejara de vibrar, que las manos se vieran como las de VR y documentar todo, incluido cómo se veía antes.
+
+### Corregido
+- **No se veía nada en el editor**: la cámara del viewport se colocaba al importar el receptor, cuando el viewport todavía no existía, y se quedaba mirando a otro lado. Ahora se coloca desde el tick, cuando el editor ya cargó, y se comprueba leyéndola (`cámara del viewport frente a las manos` en el registro).
+- **Vibraba y se movía demasiado**: *(1)* la captura va a 15-30 fotogramas por segundo y Unreal a 60 o más, sin interpolar; *(2)* el temblor de MediaPipe pasaba tal cual; *(3)* la posición de la muñeca en cm depende del largo de la palma en la imagen, que cambia al girarla: la muñeca saltaba 8-16 cm entre fotogramas y recorría hasta 140 cm. Ahora: suavizado de la forma (80 ms) en cada tick, posición más suavizada, 35 % del desplazamiento del par de manos, 80 % de la separación (mínimo 14 cm). Medido: la muñeca en pantalla pasó de ±60 cm a ±6 cm.
+- **Manos fantasma**: MediaPipe detecta a veces una mano 1-2 fotogramas (en la captura del 24/09 13:50, tres ids así, uno a 65 cm). Una mano nueva aparece tras 3 mensajes seguidos.
+
+### Añadido
+- **Manos de VR** (estilo por defecto): un elipsoide por falange y la palma como una esfera aplastada, material `M_ManoVR_v2` opaco y sin iluminación, casi negro de frente y blanco azulado en los bordes. Dos intentos translúcidos se descartaron (anillos en las articulaciones; dedos como cuentas de collar).
+- Estilo **esqueleto** (`HM_ESTILO=esqueleto`, y *Estilo en Unreal* en el panel): el aspecto anterior, esqueleto de colores con piel translúcida.
+- **Historial del aspecto** en `UNREAL.md` con las imágenes de cada etapa (`docs/unreal_historial/`, recuperadas del historial de git) y una tabla de los intentos que no quedaron.
+
 ## 2026-11-24 (Unreal: dos manos, piel translúcida y vista del editor; sin versión nueva)
 
 Pedido: ver las capturas reales en Unreal, corregir la cámara y cómo se ve, y agregar una piel transparente a los huesos.

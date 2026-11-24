@@ -345,6 +345,16 @@ class FilePicker(Field):
         self.edit.textChanged.connect(lambda _v: callback())
 
 
+def ue_style_field():
+    """Estilo de las manos en Unreal: no es un flag, se usa al abrir el proyecto."""
+    f = Choice("Estilo en Unreal", [("Manos de VR", ["vr"]), ("Esqueleto con piel", ["esqueleto"])],
+               hint="Cómo se ven las manos al abrir el proyecto con el botón de abajo "
+                    "(si ya está abierto, ciérralo y ábrelo de nuevo).")
+    f.style = lambda: f.options[f.w.currentIndex()][1][0]
+    f.args = lambda: []
+    return f
+
+
 def antebrazo_field():
     return Choice("Antebrazo", [
         ("YOLO s: equilibrado (recomendado)", []),
@@ -491,6 +501,7 @@ def build_tasks():
             Check("Invertir izquierda/derecha", flag_on="--swap-hands",
                   hint="Para capturas de antes del 23/09/2026 (11:59), que guardaban "
                        "la lateralidad al revés."),
+            ue_style_field(),
         ], note="UE_BUTTON"))
     tasks.append(Task(
         "Unreal Engine", "Mano de prueba",
@@ -498,6 +509,7 @@ def build_tasks():
         "sin cámara ni capturas.",
         "unreal_bridge.py", [
             Text("Destino", None, placeholder="127.0.0.1:8000", default="127.0.0.1:8000"),
+            ue_style_field(),
         ], base_args=["--demo"], note="UE_BUTTON"))
     tasks.append(Task(
         "Unreal Engine", "Ver lo que llega",
@@ -835,7 +847,9 @@ class Panel(QMainWindow):
         if not UE_PROJECT.exists():
             self._print(f"No existe {UE_PROJECT}", PALETTE["err"])
             return
-        subprocess.Popen([str(exe), str(UE_PROJECT)], cwd=str(UE_PROJECT.parent))
+        style = next((f.style() for f in self.task.fields if hasattr(f, "style")), "vr")
+        env = dict(os.environ, HM_ESTILO=style)
+        subprocess.Popen([str(exe), str(UE_PROJECT)], cwd=str(UE_PROJECT.parent), env=env)
         self._print(f"Abriendo Unreal ({exe.parents[3].name}) con {UE_PROJECT.name}. "
                     "Tarda unos segundos; la mano aparece cuando empiecen a llegar datos.",
                     PALETTE["muted"])

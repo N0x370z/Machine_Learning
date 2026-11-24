@@ -6,7 +6,7 @@ Cómo hacer que una mano 3D en **Unreal Engine 5** siga el movimiento de tus man
 
 ![La mano en Unreal Engine 5.8](docs/unreal_mano.png)
 
-Renders **reales** de Unreal Engine 5.8.4 (no una simulación), hechos con el **mismo receptor que se ve en vivo**: `unreal_bridge.py --csv` mandó la captura real `capturas/hand_data_20260924_135051.csv` por OSC/UDP, el proyecto [`unreal/HandMotionUE`](unreal/HandMotionUE) la recibió (170 fotogramas, ver [`docs/unreal_imagenes.json`](docs/unreal_imagenes.json)) y se renderizó la vista del editor a los 3, 7 y 11 segundos. Las **dos manos** con su separación real; dentro, el esqueleto (esferas en las articulaciones, cilindros en los huesos, un color por dedo, los mismos de la ventana de la cámara) y por fuera una **piel translúcida** tipo rayos X (2026-11-24).
+Renders **reales** de Unreal Engine 5.8.4 (no una simulación), hechos con el **mismo receptor que se ve en vivo**: `unreal_bridge.py --csv` mandó la captura real `capturas/hand_data_20260924_135051.csv` por OSC/UDP, el proyecto [`unreal/HandMotionUE`](unreal/HandMotionUE) la recibió (170 fotogramas, ver [`docs/unreal_imagenes.json`](docs/unreal_imagenes.json)) y se renderizó la vista del editor a los 3, 7 y 11 segundos. **Manos de VR** (2026-11-24): las dos manos como siluetas blanco azuladas, con el centro oscuro y el borde brillante, como las manos "fantasma" de los visores de realidad virtual; el movimiento va suavizado. Hay otro estilo, con el esqueleto de colores y una piel translúcida (`HM_ESTILO=esqueleto`, ver abajo). Cómo se veía en cada etapa: [historial del aspecto](#cómo-se-veía-antes-historial-del-aspecto).
 
 Para volver a generarlas (Unreal se abre **sin ventana**, así no interrumpe lo que haya en pantalla, y se cierra solo):
 
@@ -43,17 +43,46 @@ La mano aparece con el primer mensaje. Lo que va llegando se registra en `unreal
 | Archivo (en `unreal/HandMotionUE/Content/Python/`) | Qué hace |
 |---|---|
 | `init_unreal.py` | Unreal lo corre al abrir el proyecto: arranca el receptor (o, con `HM_CAPTURA=1`, el render de las imágenes) |
-| `handmotion_escena.py` | La mano: esqueleto (21 esferas y 21 cilindros, material mate) y piel translúcida (un cilindro por falange, esferas en articulaciones y puntas, la palma como una esfera aplastada); las luces, la exposición fija y cómo poner una pose a partir de los 87 floats. Crea la primera vez los materiales `M_PielTranslucida_v3` y `M_HuesoMate_v1` en `Content/HandMotion/` (no van en git) |
-| `receptor_handmotion.py` | Escucha el puerto, decodifica el OSC y mueve **hasta dos manos** en cada tick del editor; pone la cámara del viewport frente a ellas y la vista de juego (sin iconos de luces) |
+| `handmotion_escena.py` | La mano: la envoltura (un elipsoide por falange y la palma como una esfera aplastada) y, en el estilo "esqueleto", el esqueleto de colores (21 esferas y 21 cilindros, material mate); las luces, la exposición fija, el suavizado y cómo poner una pose a partir de los 87 floats. Crea la primera vez los materiales (`M_ManoVR_v2`, `M_PielTranslucida_v3`, `M_HuesoMate_v1`) en `Content/HandMotion/` (no van en git) |
+| `receptor_handmotion.py` | Escucha el puerto, decodifica el OSC y mueve **hasta dos manos** en cada tick del editor; filtra detecciones falsas, suaviza la posición y pone la cámara del viewport frente a las manos con la vista de juego (sin iconos de luces) |
 | `capturar_imagenes.py` | Las imágenes de esta guía: usa el mismo receptor y renderiza su vista (lo usa `docs/imagenes_unreal.py`) |
 
 `Config/DefaultEditorPerProjectUserSettings.ini` quita el freno de Unreal cuando su ventana no está al frente (si no, la mano se traba mientras usas otra ventana).
 
 **Dos manos.** Cada mano que llega (por su id) ocupa uno de dos lugares; si deja de llegar medio segundo se oculta. Se dibujan con su separación real y centradas: el centro sigue, suavizado, al promedio de las muñecas. Casi todas las capturas guardadas tienen las dos manos (ver [`capturas/README.md`](capturas/README.md)).
 
-**La piel** es una envoltura aproximada (cilindros y esferas), no un modelo de mano con piel: sirve para ver el volumen de la mano y que los datos llegan bien. Para mover un personaje (Mannequin, MetaHuman…) se usan los mismos datos con los pasos de abajo.
+**Estilos.** Por defecto, **manos de VR**: material opaco y sin iluminación, casi negro de frente y blanco azulado brillante en los bordes (Fresnel). Al ser opaco, las piezas se funden en una sola silueta, y sobre el fondo negro el centro oscuro se lee como transparente. Con `HM_ESTILO=esqueleto` (o *Estilo en Unreal → Esqueleto con piel* en el panel, antes de *Abrir proyecto de Unreal*) se ve el esqueleto de colores por dedo con una piel translúcida color piel encima. Las dos son envolturas aproximadas, no un modelo de mano con piel: para mover un personaje (Mannequin, MetaHuman…) se usan los mismos datos con los pasos de abajo.
 
-**Cómo se ve, y por qué** (2026-11-24): fondo negro; exposición fija (EV100 = 2) también en el viewport, con un volumen de post-proceso (con la automática se quemaba u oscurecía); la piel **sin iluminación** y más visible en los bordes (con iluminación reflejaba el mapa de ambiente en manchas blancas); el esqueleto con un material **mate** propio; luz de contorno baja (con la de antes, 1800, el borde de las esferas se quemaba en blanco).
+**Movimiento suave.** Cada parte de la mano se acerca a su posición nueva en cada tick de Unreal (constante de tiempo 80 ms): interpola entre los fotogramas de la captura (15-30 por segundo; Unreal va a 60 o más) y filtra el temblor de MediaPipe. La **posición** de cada mano se suaviza más: con una cámara, la muñeca en cm se calcula con el largo de la palma en la imagen, y cuando la palma gira esa escala cambia y la muñeca salta 8-16 cm entre fotogramas. Por eso se muestra el 35 % del desplazamiento del par de manos y el 80 % de la separación entre ellas (mínimo 14 cm, para que no se encimen). Una mano nueva aparece después de 3 mensajes seguidos: así no parpadean las detecciones falsas de MediaPipe (en las capturas hay manos de 1-2 fotogramas).
+
+**Cómo se ve, y por qué** (2026-11-24): fondo negro; exposición fija (EV100 = 2) también en el viewport, con un volumen de post-proceso (con la automática se quemaba u oscurecía); la cámara del viewport se coloca cuando el editor terminó de cargar (antes quedaba mirando a otro lado y no se veía nada). Todas las decisiones, con imágenes: [historial del aspecto](#cómo-se-veía-antes-historial-del-aspecto).
+
+## Cómo se veía antes (historial del aspecto)
+
+Cada etapa, con lo que se cambió y por qué. Las imágenes están en [`docs/unreal_historial/`](docs/unreal_historial); salvo la primera, son renders reales de Unreal Engine 5.8.
+
+| # | Fecha | Cómo se veía | Por qué se cambió |
+|---|-------|--------------|-------------------|
+| 1 | 2026-11-17 (17-A) | ![](docs/unreal_historial/1_simulada_17A.png) **Simulación** hecha con matplotlib (no es Unreal): la ventana de la captura, los mensajes y la mano en los ejes de Unreal | No se tenía Unreal; era un esquema del recorrido de los datos |
+| 2 | 2026-11-23 (23-A) | ![](docs/unreal_historial/2_esqueleto_23A.png) Primer render real: **esqueleto de colores** (esferas y cilindros, un color por dedo) sobre negro, **una sola mano**, con el ejemplo simulado | Funcionaba, pero solo una mano (las capturas reales tienen dos) y sin volumen |
+| 3 | 2026-11-24 | ![](docs/unreal_historial/3_esqueleto_piel.png) **Dos manos** con una **piel translúcida color piel** encima del esqueleto, con una captura real | Se pidió que se vieran como manos de VR |
+| 4 | 2026-11-24 (actual) | ![](docs/unreal_historial/4_vr.png) **Manos de VR**: silueta blanco azulada, centro oscuro y borde brillante, sin esqueleto; movimiento suavizado | — |
+
+Intentos que no llegaron a quedar (no se guardaron imágenes; se describen para no repetirlos):
+
+| Intento | Qué se veía | Qué se hizo |
+|---------|-------------|-------------|
+| Render en un *commandlet* | Imagen **negra** (el motor no avanza entre poner la pose y capturar) | Editor con `-RenderOffscreen` |
+| Exposición manual por defecto (EV100 ≈ 10) | Imagen **negra** (la escena tiene ~10 lux) | Exposición fija EV100 = 2 |
+| Nivel por defecto del editor | Cielo, montañas y cuadrícula detrás; piso **quemado en blanco** por el sol | Nivel en blanco con luces propias |
+| Piso oscuro / fondo oscuro | Salían **blancos** (reflejo del mapa de ambiente) | Sin piso ni fondo: la mano sobre negro |
+| Luz de contorno a 1800 | Medias lunas **blancas** en el borde de las esferas | Luz de contorno a 120 y material mate para el esqueleto |
+| Piel translúcida **con iluminación** | Manchas blancas (reflejos) | Piel sin iluminación (Fresnel) |
+| Mano de VR **translúcida** con cilindros y esferas | **Anillos** en cada articulación (tapas de los cilindros y esferas encimadas) | Falanges como elipsoides |
+| Mano de VR translúcida con elipsoides | Dedos como **cuentas de collar** (se veía el borde de cada pieza) | Material opaco: las piezas se funden en una sola silueta |
+| Cámara del viewport colocada al arrancar | **No se veía nada**: la cámara quedaba mirando a otro lado (el viewport aún no existía) | Se coloca cuando el editor terminó de cargar, y se comprueba |
+| Dos manos siguiendo el 100 % del movimiento | **Vibraban** y se salían de cuadro (la escala cambia con el giro de la palma: saltos de 8-16 cm) | Suavizado, 35 % del desplazamiento del par, 80 % de la separación, mínimo 14 cm entre manos |
+| Dos manos siguiendo el 35 % de todo | **Encimadas** | Separación al 80 % con un mínimo de 14 cm |
 
 ### Reproducir una captura guardada (`--csv`, 23-A)
 
