@@ -245,3 +245,4 @@ Pedido: subir las capturas guardadas para trabajarlas en la PC con Unreal Engine
 | Revisión por una persona experta (estadística y del área) de las decisiones metodológicas de `docs/ARTICULOS.md` (propuestas con apoyo de IA) | Rev. 7 | ⏳ Pendiente |
 | Medir cuánto ocupa el entorno con torch CUDA (para el requisito de espacio del README) | Rev. 7 | ⏳ Pendiente (en la PC con la 4090: `du` o *Propiedades* de `venv`) |
 | *Detener* en el panel deja el `.json` de `captura.py` en `"en curso"`: cerrar con un aviso al proceso en lugar de matarlo | Rev. 7 | 💡 Mejora futura |
+| Una de las dos manos con huesos se ve blanca en Unreal (la otra con el aspecto de VR). Sospecha sin comprobar: la izquierda es la derecha en espejo (escala Y negativa) y eso invierte las normales que usa el Fresnel del material | 2026-11-24 | ⏳ Pendiente (revisar más tarde, a pedido del dueño) |
